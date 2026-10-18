@@ -3,7 +3,7 @@ export const ITEMS=[{id:'flower',icon:'🌷',name:'窓辺のチューリップ',
 export const MOODS={good:'いい感じ',okay:'ふつう',slow:'のんびり'};
 export const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 export const emptyState=()=>({version:1,days:{},owned:[],decor:[]});
-export function normalizeState(value){const out=emptyState();if(!value||value.version!==1)return out;for(const [date,day] of Object.entries(value.days||{})){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!day||typeof day!=='object')continue;out.days[date]={habits:[...new Set(Array.isArray(day.habits)?day.habits:[])].filter(id=>HABITS.some(h=>h.id===id))};if(Object.hasOwn(MOODS,day.mood))out.days[date].mood=day.mood;if(typeof day.weight==='number'&&Number.isFinite(day.weight)&&day.weight>=1&&day.weight<=500)out.days[date].weight=Math.round(day.weight*10)/10;}const ids=ITEMS.map(i=>i.id);out.owned=[...new Set(Array.isArray(value.owned)?value.owned:[])].filter(id=>ids.includes(id));out.decor=[...new Set(Array.isArray(value.decor)?value.decor:[])].filter(id=>out.owned.includes(id));return out;}
+export function normalizeState(value){const out=emptyState();if(!value||value.version!==1)return out;for(const [date,day] of Object.entries(value.days||{})){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!day||typeof day!=='object')continue;out.days[date]={habits:[...new Set(Array.isArray(day.habits)?day.habits:[])].filter(id=>HABITS.some(h=>h.id===id))};if(Object.hasOwn(MOODS,day.mood))out.days[date].mood=day.mood;if(typeof day.weight==='number'&&Number.isFinite(day.weight)&&day.weight>=1&&day.weight<=500)out.days[date].weight=Math.round(day.weight*10)/10;}const ids=ITEMS.map(i=>i.id);out.owned=[...new Set(Array.isArray(value.owned)?value.owned:[])].filter(id=>ids.includes(id));out.decor=[...new Set(Array.isArray(value.decor)?value.decor:[])].filter(id=>out.owned.includes(id));if(Number.isFinite(value.lastPettedAt)&&value.lastPettedAt>0)out.lastPettedAt=value.lastPettedAt;return out;}
 export const totals=state=>{const xp=Object.values(state.days).reduce((sum,d)=>sum+d.habits.length*10,0);const spent=state.owned.reduce((sum,id)=>sum+(ITEMS.find(i=>i.id===id)?.cost||0),0);return {xp,seeds:Math.max(0,xp-spent),level:Math.floor(xp/40)+1,progress:xp%40};};
 export function recordHabit(state,date,id){if(!HABITS.some(h=>h.id===id))return false;const day=state.days[date]??={habits:[]};if(day.habits.includes(id))return false;day.habits.push(id);return true;}
 export function buyItem(state,id){const item=ITEMS.find(i=>i.id===id);if(!item||state.owned.includes(id)||totals(state).seeds<item.cost)return false;state.owned.push(id);state.decor.push(id);return true;}
@@ -19,4 +19,34 @@ export function growthForXP(xp){
   const index=GROWTH_STAGES.findLastIndex(stage=>safeXP>=stage.minXP);
   const stage=GROWTH_STAGES[index],next=GROWTH_STAGES[index+1]??null;
   return {index,stage,next,progress:next?safeXP-stage.minXP:safeXP%40,max:next?next.minXP-stage.minXP:40,remainingHabits:next?Math.ceil((next.minXP-safeXP)/10):0};
+}
+
+export const COMPANION_FEELINGS={
+  curious:{id:'curious',label:'これから仲よしに',lines:['はじめまして。きみのこと、もっと知りたいな。','いっしょに、小さな一歩から。']},
+  calm:{id:'calm',label:'あなたを待っている',lines:['今日も、きみといっしょがいいな。','となりで待っているね。']},
+  happy:{id:'happy',label:'しっぽ、ふりふり',lines:['がんばったね！ いっしょにいると、うれしいな。','もっと、きみのそばにいたい。']},
+  excited:{id:'excited',label:'うれしくて、ぴょん',lines:['今日のできた、いっぱい！ だいすき！','ごほうびに、ぴとってしてもいい？']},
+  lonely:{id:'lonely',label:'ちょっぴりさみしい',lines:['会いたかったな。ちょっとさみしかったよ。','となりに座ってもいい？']},
+  soothed:{id:'soothed',label:'会えて、ほっとした',lines:['会いたかった！ なでてくれて、うれしい。','もう少し、このままでいようね。']}
+};
+export function affectionFor(state){
+  const score=Math.min(100,Math.floor(totals(state).xp/5));
+  const label=score>=100?'べったり':score>=50?'だいすき':score>=20?'なかよし':score>=6?'顔なじみ':'はじめまして';
+  return {score,label};
+}
+export function companionFeeling(state,now=new Date()){
+  const key=dateKey(now),completed=state.days[key]?.habits.length||0;
+  if(completed>=3)return COMPANION_FEELINGS.excited;
+  if(completed>0)return COMPANION_FEELINGS.happy;
+  const elapsed=now.getTime()-(state.lastPettedAt??0);
+  if(state.lastPettedAt&&elapsed>=0&&elapsed<15*60*1000)return COMPANION_FEELINGS.soothed;
+  const last=Object.keys(state.days).filter(date=>date<=key&&state.days[date].habits.length>0).sort().at(-1);
+  if(!last)return COMPANION_FEELINGS.curious;
+  const gap=Math.round((Date.parse(key+'T00:00:00Z')-Date.parse(last+'T00:00:00Z'))/86400000);
+  if(gap>=2||(gap===1&&now.getHours()>=18))return COMPANION_FEELINGS.lonely;
+  return COMPANION_FEELINGS.calm;
+}
+export function petCompanion(state,now=new Date()){
+  const timestamp=now.getTime();if(!Number.isFinite(timestamp)||timestamp<=0)return false;
+  state.lastPettedAt=timestamp;return true;
 }
