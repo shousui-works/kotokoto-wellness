@@ -8,3 +8,15 @@ export const totals=state=>{const xp=Object.values(state.days).reduce((sum,d)=>s
 export function recordHabit(state,date,id){if(!HABITS.some(h=>h.id===id))return false;const day=state.days[date]??={habits:[]};if(day.habits.includes(id))return false;day.habits.push(id);return true;}
 export function buyItem(state,id){const item=ITEMS.find(i=>i.id===id);if(!item||state.owned.includes(id)||totals(state).seeds<item.cost)return false;state.owned.push(id);state.decor.push(id);return true;}
 export function recentDays(count=7,now=new Date()){return Array.from({length:count},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth(),now.getDate());d.setDate(d.getDate()-(count-1-i));return dateKey(d);});}
+
+export const GROWTH_STAGES=[
+  {id:'puppy',name:'ちいさな子犬',minXP:0,minLevel:1,description:'まるいお顔と、ちいさなあんよ。'},
+  {id:'young',name:'育ちざかり',minXP:80,minLevel:3,description:'すこし背がのびて、首輪もお似合い。'},
+  {id:'adult',name:'おとなの犬',minXP:200,minLevel:6,description:'大きなからだに、緑のバンダナ。'}
+];
+export function growthForXP(xp){
+  const safeXP=Number.isFinite(xp)?Math.max(0,xp):0;
+  const index=GROWTH_STAGES.findLastIndex(stage=>safeXP>=stage.minXP);
+  const stage=GROWTH_STAGES[index],next=GROWTH_STAGES[index+1]??null;
+  return {index,stage,next,progress:next?safeXP-stage.minXP:safeXP%40,max:next?next.minXP-stage.minXP:40,remainingHabits:next?Math.ceil((next.minXP-safeXP)/10):0};
+}
