@@ -14,9 +14,9 @@ export function stepToward(position, target, distance) {
   return { x: position.x + dx / remaining * distance, y: position.y + dy / remaining * distance, arrived: false };
 }
 
-export function createRoomMotion(dogs) {
+export function createRoomMotion(dogs,{onPosition}={}) {
   const preference = matchMedia('(prefers-reduced-motion: reduce)');
-  const walkers = [...dogs].map(dog => new RoomWalker(dog, () => preference.matches));
+  const walkers = [...dogs].map(dog => new RoomWalker(dog, () => preference.matches,onPosition));
   const image = new Image();
   image.onload = () => walkers.forEach(walker => { walker.ready = true; walker.resume(); });
   image.onerror = () => walkers.forEach(walker => walker.unavailable());
@@ -37,13 +37,14 @@ export function createRoomMotion(dogs) {
 }
 
 class RoomWalker {
-  constructor(dog, reduced) {
+  constructor(dog, reduced,onPosition) {
     this.dog = dog;
     this.scene = dog.closest('.room-scene');
     this.scene.classList.add('is-roaming-room');
     this.world = this.scene.classList.contains('room-scene--world');
     this.scene.querySelectorAll('.room-window,.room-spark,.room-floor,.floor-rug').forEach(el => el.setAttribute('aria-hidden', 'true'));
     this.reduced = reduced;
+    this.onPosition=onPosition;
     this.position = null;
     this.target = null;
     this.visible = false;
@@ -120,7 +121,9 @@ class RoomWalker {
   measure() {
     const width = this.scene.clientWidth, height = this.scene.clientHeight;
     if (!width || !height) return;
-    this.bounds = roomBounds(width, height, parseFloat(getComputedStyle(this.dog).getPropertyValue('--dog-size')) || 260);
+    this.roomSize={width,height};
+    this.dogSize=parseFloat(getComputedStyle(this.dog).getPropertyValue('--dog-size'))||260;
+    this.bounds = roomBounds(width, height, this.dogSize);
     this.position = this.constrain(this.position || { x: width * .5, y: (this.bounds.front + this.bounds.back) * .5 });
     if (this.target) this.target = this.constrain(this.target);
     this.paint();
@@ -135,8 +138,16 @@ class RoomWalker {
     const depth = (this.position.y - this.bounds.front) / Math.max(1, this.bounds.back - this.bounds.front);
     this.dog.style.left = this.position.x.toFixed(2) + 'px';
     this.dog.style.bottom = 'calc(' + this.position.y.toFixed(2) + 'px - var(--dog-size) * var(--paw-inset))';
-    this.dog.style.scale = (.98 - depth * .16).toFixed(3);
+    const scale=.98-depth*.16;
+    this.dog.style.scale = scale.toFixed(3);
     this.dog.style.zIndex = this.position.y < this.bounds.front + 35 ? '6' : '4';
+    const walking=this.dog.classList.contains('is-walking');
+    const facing=Number(this.dog.style.getPropertyValue('--walk-facing'))||1;
+    this.onPosition?.({
+      ...this.roomSize,
+      x:this.position.x+this.dogSize*scale*(walking ? .2*facing : -.08),
+      y:this.roomSize.height-this.position.y-this.dogSize*scale*(walking ? .65 : .78)
+    });
   }
 
   updateControls() {

@@ -34,6 +34,7 @@ python3 -m http.server 4317 --bind 127.0.0.1 --directory dist
 - `dist/assets/komugi-pomeranian-walk-v1.png`: 3段階 × 4コマの歩行画像
 - `dist/companion-motion.mjs`: おさんぽ・呼び寄せ・一時停止・表示範囲の制御
 - `dist/companion-chat.mjs`: 時間帯に合わせた声かけ・頻度・表示中断・おしゃべり設定
+- `dist/companion-bubble.mjs`: こむぎの頭に追従する吹き出しと、画面端・横向きでの配置調整
 - `dist/app.mjs`: 画面の操作と保存
 - `dist/model.mjs`: 記録・成長・なつき度の処理
 - `.openai/hosting.json`: 既存Sitesの公開設定
@@ -60,3 +61,5 @@ python3 -m http.server 4317 --bind 127.0.0.1 --directory dist
 記録や「なでる」の反応を優先し、入力パネルや設定画面を開いている間、タブが非表示の間は話しかけません。設定の「ときどき話しかける」で休められます。音や、アプリを閉じたときの通知はありません。
 
 おしゃべりの設定と直近の声かけ時刻は、記録とは別の `kotokoto-companion-chat-v1` に保存します。記録の形式・バックアップ内容は変更していません。検証は `node --test test/companion-chat.test.mjs` で実行できます。
+
+言葉は、こむぎの名前としっぽ付きの吹き出しに表示します。犬が歩いたり手前に近づいたりすると、吹き出しも頭のそばへついていきます。画面の端でははみ出さないように動かし、高さの低い横向き画面では犬の横に表示します。吹き出しを押すと、こむぎの育成状況を見ることができます。

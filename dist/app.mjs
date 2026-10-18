@@ -1,4 +1,5 @@
-import {createRoomMotion} from './companion-motion.mjs';
+import {createRoomMotion} from './companion-motion.mjs?v=speech-bubble-1';
+import {createCompanionBubble} from './companion-bubble.mjs';
 import {createCompanionChat,CHAT_STORAGE} from './companion-chat.mjs';
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor,companionFeeling,petCompanion} from './model.mjs';
 let roomMotion,companionChat,activeChat=null;
@@ -30,10 +31,12 @@ function applyFeeling(dog,feeling,bonded=false){
 }
 function renderCompanionSpeech(feeling=companionFeeling(state)){
   const label=activeChat?.label??feeling.label,message=activeChat?.text??feeling.lines[0];
+  const changed=$('companion-message').textContent!==message,bubble=document.querySelector('.companion-bubble');
   if($('companion-feeling').textContent!==label)$('companion-feeling').textContent=label;
   $('companion-feeling').dataset.feeling=feeling.id;
   if($('companion-message').textContent!==message)$('companion-message').textContent=message;
-  document.querySelector('.companion-bubble').classList.toggle('is-chatting',Boolean(activeChat));
+  bubble.classList.toggle('is-chatting',Boolean(activeChat));
+  if(changed){bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
 }
 function renderCompanionFeeling(){
   const feeling=companionFeeling(state),affection=affectionFor(state);
@@ -72,7 +75,8 @@ function switchTab(tab,updateHash=true){
 $('room-sheet').addEventListener('close',()=>{currentTab='room';history.replaceState(null,'','#room');syncPanelButtons();});
 $('room-sheet').addEventListener('click',event=>{if(event.target!==$('room-sheet'))return;const r=$('room-sheet').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('room-sheet').close();});
 const reactionScene=$('scene-home').querySelector('.room-scene').cloneNode(true);reactionScene.classList.remove('room-scene--world');reactionScene.classList.add('room-scene--preview');reactionScene.querySelector('[data-companion]').removeAttribute('data-companion');$('reaction-scene').append(reactionScene);
-roomMotion=createRoomMotion(document.querySelectorAll('[data-companion]'));
+const speechBubble=createCompanionBubble(document.querySelector('.companion-bubble'));
+roomMotion=createRoomMotion(document.querySelectorAll('[data-companion]'),{onPosition:point=>speechBubble.place(point)});
 companionChat=createCompanionChat({getState:()=>state,canSpeak:()=>!document.hidden&&!document.querySelector('dialog[open]'),onMessage:message=>{activeChat=message;renderCompanionSpeech();}});
 $('companion-chat-toggle').checked=companionChat.enabled;
 $('companion-chat-toggle').addEventListener('change',event=>{companionChat.setEnabled(event.target.checked);});
