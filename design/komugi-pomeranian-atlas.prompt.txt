@@ -1,0 +1,30 @@
+Generated with built-in image_gen; transparent_background=true.
+
+Reference: komugi-pomeranian-concept-v1.png
+
+Initial atlas:
+Use case: stylized-concept. Asset type: production transparent sprite atlas for a Japanese mobile companion app.
+Edit target / identity reference: the attached approved image of Komugi, the cream-and-apricot POMERANIAN. Preserve this dog's distinctive facial identity, natural fox-like projecting muzzle, modest dark almond eyes, small erect triangular ears, warm cream/apricot coat, and long soft realistic fur. Recreate the SAME DOG at different ages and with different expressions in a precisely organized contact sheet. This is NOT a Shiba and NOT a teddy bear.
+CANVAS: landscape 4:3 aspect ratio, ideally 2048x1536 pixels, fully transparent background. EXACT regular 4 columns by 3 rows = 12 equal SQUARE cells. No drawn grid, frames, text or labels. All cell boundaries are invisible. Cell center x positions 12.5%,37.5%,62.5%,87.5%; row center y positions 16.6667%,50%,83.3333%. Every dog stays completely inside its own cell with 14% EMPTY TRANSPARENT MARGIN on all four sides. DO NOT TOUCH THE EDGES. Every pose is a full-body natural seated dog, eyes looking toward viewer, front paws visible and uncropped; keep camera, body orientation, dog center, paw baseline and apparent size consistent within each row. Use the provided dog as adult identity and rendering style.
+ROWS define age (top to bottom):
+ROW 1: PUPPY Komugi, a younger version of the reference dog, softer shorter baby fluff, smaller chest mane and shorter legs, naturally slightly larger head-to-body ratio but realistic puppy anatomy. NO accessories.
+ROW 2: ADOLESCENT Komugi, slender youthful body and slightly longer legs, medium fluffy coat beginning to fill out, a narrow sage green collar with a tiny golden oval tag that remains visible in front of the chest fur.
+ROW 3: ADULT Komugi, match the approved reference closely, full luxuriant long fluffy mane and plumed tail, mature natural Pomeranian proportions, wearing a soft sage green triangular bandana below the chin visible on the cream chest.
+COLUMNS define emotion (left to right), repeat this exact order for EVERY row:
+COLUMN 1 NEUTRAL/CURIOUS: relaxed ears upright, closed mouth, soft curious eyes, subtle friendly head tilt, tail curved comfortably over back.
+COLUMN 2 HAPPY: upright lively ears, a natural open panting smile with a small pink tongue, bright friendly eyes, head slightly lifted and plumed tail held high. Keep natural realistic eyes; no giant cartoon grin.
+COLUMN 3 LONELY: head lowered a little, ears visibly relaxed sideways/down, mouth closed, gentle wistful gaze; tail rests LOW beside the haunch instead of curled high, no tears. Must look visibly quieter and a little sad but still gentle and cute.
+COLUMN 4 SOOTHED/BEING PETTED: relaxed contented closed eyes, small peaceful closed-mouth smile, head tilted appreciatively, ears relaxed sideways, comfy seated posture, tail relaxed. NO hand, human, props or hearts.
+Match all lighting to the reference: soft warm diffuse daylight upper left, dimensional fluffy fur, softly realistic cozy 3D pet-game rendering. Each cell has the same unobtrusive lighting and neutral warm coat tones. Every dog is isolated with clean real alpha transparency between fine fur strands, including background corners and gutters.
+Constraints: EXACTLY 12 dogs in 4x3 equally spaced square cells; full bodies with all paws, ear tips, tails intact. No floor or room, no cast shadow plane, no background, no checkerboard painted into the image, no text, no logo, no watermark, no other objects. No black outline, no cut-paper style, no plastic toy, no circular teddy haircut, no huge glass doll eyes, no excessive round head, no humanlike limbs. Retain the approved dog's appealing face and fine soft fur.
+
+Layout refinement:
+Edit this existing transparent 12-pose atlas ONLY to correct spacing and layout. Preserve all 12 Pomeranians' exact individual appearances, facial expressions, collars, bandanas, fur colors, lighting, and fur textures. Do not change the dog identities or the order. Keep 4 columns and 3 rows on a 4:3 transparent canvas.
+CRITICAL LAYOUT REPAIR: currently the dogs nearly touch adjoining rows and columns. Make EVERY DOG much SMALLER within its cell and center it precisely, with generous EMPTY TRANSPARENT GUTTERS. Each dog should occupy only 60% of its own cell's height and at most 65% of its width. Each of the 12 cells must be exactly the same square size. At least 18% of each cell's width and height should be transparent margin on each side. Nothing may cross a cell boundary, even fine fur or tail tips.
+Place the 12 dog centers at these fractional canvas coordinates:
+row1: (12.5%,16.667%),(37.5%,16.667%),(62.5%,16.667%),(87.5%,16.667%);
+row2: (12.5%,50%),(37.5%,50%),(62.5%,50%),(87.5%,50%);
+row3: (12.5%,83.333%),(37.5%,83.333%),(62.5%,83.333%),(87.5%,83.333%).
+Keep paws on the same baseline WITHIN EACH ROW, even for the lowered-head lonely pose. Do not scale up the sad dog to fill the cell; it should look shorter because its head is lowered. All eyes/noses must remain faithfully the same size within a row.
+The existing rows remain puppy without accessories / adolescent with green collar and gold tag / adult with sage green bandana. Columns remain neutral curious / happy panting / lonely lowered head ears tail / eyes closed blissful soothed.
+Real alpha transparency, no gridlines, no text, no checkerboard, no floor, no shadows, no additions, no removals.

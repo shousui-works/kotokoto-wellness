@@ -10,9 +10,9 @@ export function buyItem(state,id){const item=ITEMS.find(i=>i.id===id);if(!item||
 export function recentDays(count=7,now=new Date()){return Array.from({length:count},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth(),now.getDate());d.setDate(d.getDate()-(count-1-i));return dateKey(d);});}
 
 export const GROWTH_STAGES=[
-  {id:'puppy',name:'ちいさな子犬',minXP:0,minLevel:1,description:'まるいお顔と、ちいさなあんよ。'},
+  {id:'puppy',name:'ちいさな子犬',minXP:0,minLevel:1,description:'ふわふわの産毛と、ちいさな前足。'},
   {id:'young',name:'育ちざかり',minXP:80,minLevel:3,description:'すこし背がのびて、首輪もお似合い。'},
-  {id:'adult',name:'おとなの犬',minXP:200,minLevel:6,description:'大きなからだに、緑のバンダナ。'}
+  {id:'adult',name:'おとなの犬',minXP:200,minLevel:6,description:'ふさふさの毛並みに、緑のバンダナ。'}
 ];
 export function growthForXP(xp){
   const safeXP=Number.isFinite(xp)?Math.max(0,xp):0;
