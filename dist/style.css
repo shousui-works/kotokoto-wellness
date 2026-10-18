@@ -47,9 +47,17 @@
 .room-controls button{min-height:38px;border:1px solid #d9decb;border-radius:22px;background:#fcfbf2e8;padding:7px 13px;font-size:10px;color:#647450;box-shadow:0 2px 5px #756d3c08}
 .room-controls button:hover{background:#f1f3e5}.room-controls .roam-toggle{border-color:transparent;background:#f7f7ecad;color:#7b846c;font-size:9px;padding-left:11px;padding-right:11px}.room-controls .roam-toggle[aria-pressed=true]{background:#e6e8da}.room-controls .roam-toggle:disabled{opacity:.7}
 .room-roam-note{width:100%;margin:0;padding:8px 15px 12px;color:#858773;text-align:center;font-size:9px;line-height:1.8}
-.floor-target{position:absolute;z-index:3;width:30px;height:11px;border:1px solid #8da174;border-radius:50%;opacity:0;transform:translate(-50%,50%);pointer-events:none}
-.floor-target:after{content:'';position:absolute;inset:-5px;border:1px solid #a9b995;border-radius:50%}.floor-target.show{animation:floor-ripple .9s ease-out}
-@keyframes floor-ripple{0%{opacity:.85;scale:.7}100%{opacity:0;scale:1.6}}
 .roam-resting .dog,.roam-resting .dog-art{animation-play-state:paused}
 @media(max-width:620px){.is-roaming-room{height:320px}.room-preview .is-roaming-room{height:350px}.room-controls{left:12px;right:12px}.room-controls button{min-height:42px}.room-roam-note{font-size:10px;padding-bottom:11px}.is-roaming-room .room-window{left:12%;width:83px;height:98px;top:59px}}
-@media(prefers-reduced-motion:reduce){.dog-walk-art,.floor-target.show,.dog.can-roam{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){.dog-walk-art,.dog.can-roam{animation:none!important;transition:none!important}}
+
+/* Sniff, play bow / paw tap, and lying / nap: three ages × six poses. */
+.dog-action-art{position:absolute;inset:0;display:block;background:url('./assets/komugi-pomeranian-actions-v1.png') no-repeat;background-size:600% 300%;background-position:0% var(--action-y,0%);transform:scaleX(var(--action-facing,1));scale:.78;transform-origin:50% calc(100% - var(--action-paw-inset)*100%);opacity:0}
+.dog{--action-y:0%;--action-paw-inset:.074}.dog--young{--action-y:50%;--action-paw-inset:.128}.dog--adult{--action-y:100%;--action-paw-inset:.104}
+.dog.is-acting{--paw-inset:var(--action-paw-inset)}.dog.is-acting .dog-art{visibility:hidden;animation:none}.dog.is-acting .dog-action-art{opacity:1}.dog.is-acting:after{opacity:0}
+.dog.is-sniffing .dog-action-art{animation:komugi-sniff 1.6s step-end infinite}.dog.is-playing .dog-action-art{animation:komugi-play 1.5s step-end infinite}.dog.is-napping .dog-action-art{animation:komugi-nap 10s step-end infinite}
+@keyframes komugi-sniff{0%,100%{background-position:0% var(--action-y)}45%{background-position:20% var(--action-y)}}
+@keyframes komugi-play{0%,100%{background-position:40% var(--action-y)}35%,70%{background-position:60% var(--action-y)}}
+@keyframes komugi-nap{0%,20%{background-position:80% var(--action-y)}35%,100%{background-position:100% var(--action-y)}}
+.companion-ball{position:absolute;width:24px;height:24px;transform:translateX(-50%);transform-origin:50% 100%;pointer-events:none}.ball-core{position:absolute;inset:0;display:block;overflow:hidden;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff1c7,#e9bf86 60%,#c89c67);border:1px solid #d1aa78;box-shadow:inset -2px -2px 3px #a8783420}.ball-core:before{content:'';position:absolute;inset:-3px 5px;border:3px solid #8f9e7c;border-radius:50%;rotate:24deg}.ball-core:after{content:'';position:absolute;inset:9px -3px;border:2px solid #fff5d9;border-radius:50%;rotate:-20deg}.companion-ball:after{content:'';position:absolute;left:-4px;right:-4px;bottom:-4px;height:6px;border-radius:50%;background:radial-gradient(ellipse,#76603c24,transparent 72%);z-index:-1}.companion-ball.is-playing .ball-core{animation:komugi-ball-spin 1.5s linear infinite}@keyframes komugi-ball-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.dog-action-art,.companion-ball,.ball-core{animation:none!important;transition:none!important}}

@@ -1,0 +1,17 @@
+# Komugi activities v1
+
+Mode: built-in image_gen. New poses derived from the approved idle and walk atlases.
+Final asset: dist/assets/komugi-pomeranian-actions-v1.png
+Grid: 3 growth stages × 6 poses (sniff × 2, play bow / paw tap × 2, lying / nap × 2).
+
+Use case: stylized-concept / identity-preserving character pose sprite atlas.
+Input image 1: identity and three growth stages reference (approved Pomeranian idle atlas).
+Input image 2: side-profile anatomy, proportions, fur rendering, collar and bandana reference (approved walking atlas).
+Create a NEW transparent-background sprite atlas of the SAME cream and pale apricot Pomeranian called Komugi, for a cozy pet-raising game. Preserve its natural pointed ears, modest dark eyes, distinct canine muzzle, fluffy coat and curled tail; charming softly rendered volume and individual fur clumps, no toy-like giant head or enormous eyes.
+OUTPUT GRID: exactly THREE ROWS and SIX COLUMNS, 18 separate complete dog sprites. Wide 2:1 canvas, ideally 2048x1024. Every cell is square and identical in size. No visible grid. All sprites face RIGHT in side / slightly three-quarter side profile. Within every cell the dog occupies at most 82% width, centered horizontally, with paws / belly resting on the SAME imaginary baseline at 87% of cell height. Keep clear transparent gutters and every body part within its own cell. Same character scale within each age row, consistent viewpoint and soft lighting.
+ROW 1: small puppy, no collar. ROW 2: slightly taller young dog with pale sage collar and small gold tag. ROW 3: mature dog with fuller coat, longer natural legs and pale sage triangular bandana. Keep the three ages identical to the references.
+COLUMNS 1–2, SNIFF LOOP: 1) standing naturally, neck lowered and nose close to the ground, nose forward-right; 2) same standing stance and foot placement, head a little lower/further forward, ears slightly alert as if sniffing a scent. Clear difference in head angle, not a duplicate.
+COLUMNS 3–4, BALL PLAY LOOP: 3) unmistakable playful dog bow, rear end raised, front elbows low, front paws stretched forward-right, tail curled and raised; 4) same playful stance, chest a little lifted and one front paw reaching forward-right to gently tap an imaginary ball, bright relaxed expression. Clear natural canine anatomy, no human gesture.
+COLUMNS 5–6, REST LOOP: 5) lying on belly / in a relaxed sphinx pose, front paws extended forward-right, head up and calm; 6) same lying body position, head lowered onto the front paws and eyes peacefully closed, as if taking a short nap. No bed or mat.
+Important: no ball or other prop drawn into this atlas; a separate interactive toy will be rendered in the game. All paws and bellies share the baseline. Background must be truly transparent RGBA, with clean soft antialiased fur edges; no black/white/checkerboard backdrop, colored artifacts, ground shadow, glow, captions, numbers, text, UI, border, watermark, room, person or other animals.
+

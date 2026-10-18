@@ -1,9 +1,10 @@
 const clamp=(value,min,max)=>Math.min(Math.max(min,max),Math.max(min,value));
 
-export function speechBubblePosition({x,y,width,height},bubbleWidth,bubbleHeight){
+export function speechBubblePosition({x,y,width,height,facing=0},bubbleWidth,bubbleHeight){
   const edge=16,gap=17;
   if(height<=480&&width>=600){
-    const side=x+52+bubbleWidth<=width-edge?'right':'left';
+    const rightFits=x+52+bubbleWidth<=width-edge,leftFits=x-52-bubbleWidth>=edge;
+    const side=facing<0&&leftFits?'left':rightFits?'right':'left';
     const left=clamp(side==='right'?x+52:x-52-bubbleWidth,edge,width-bubbleWidth-edge);
     const top=clamp(y-24,112,height-bubbleHeight-80);
     return {left,top,side,tail:clamp(y-top,20,bubbleHeight-20)};

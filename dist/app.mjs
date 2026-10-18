@@ -1,5 +1,5 @@
-import {createRoomMotion} from './companion-motion.mjs?v=speech-bubble-1';
-import {createCompanionBubble} from './companion-bubble.mjs';
+import {createRoomMotion} from './companion-motion.mjs?v=play-1';
+import {createCompanionBubble} from './companion-bubble.mjs?v=play-1';
 import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=praise-1';
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor,companionFeeling,petCompanion} from './model.mjs?v=praise-1';
 let roomMotion,companionChat,activeChat=null,activePraise=null,praiseTimer;
