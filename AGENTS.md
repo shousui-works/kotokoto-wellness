@@ -19,7 +19,7 @@
 - dist/assets/komugi-pomeranian-walk-v1.png は3段階 × 4コマの右向き歩行画像。左向きは反転表示。行の切り出し位置と足元の基準はCSSで調整済み。
 - dist/companion-motion.mjs が自動のおさんぽ、床タップ、呼び寄せ、一時停止、画面外での停止を担当。成長・感情・保存データのロジックは model.mjs に保つ。端末の「動きを減らす」設定を尊重する。
 - 部屋が画面全体になるUI。dist/room-ui.cssで全画面の部屋と操作パネルを定義し、style.cssの既存の犬・記録コンポーネントを利用する。ライブの部屋はscene-homeの1つだけ。
-- dist/assets/room-portrait-v1.jpg、room-landscape-v1.jpgが縦・横画面用の部屋背景。こむぎは別レイヤーで小さめに表示する。design/full-room-backgrounds.prompt.txtに生成プロンプトを保存。
+- dist/assets/room-portrait-v2.jpg、room-landscape-v2.jpgが縦・横画面用の部屋背景。実写寄りのv1から、輪郭・家具・木目・陰影を簡略化した手描き風のやさしい育成ゲームの背景へ変更。こむぎは別レイヤーで小さめに表示する。design/illustrated-room-backgrounds-v2.prompt.txtに生成プロンプトを保存。v1は比較用に保持。
 - 初期表示は#room。#today、#decorate、#records、#companionで記録・もようがえ・履歴・育成のパネルを開く。スマホは下から、横幅900px以上は右側に表示。「できた」の記録後は部屋へ戻る。歩行範囲は下のメニューと吹き出しを避ける。
 
 ## 作業環境

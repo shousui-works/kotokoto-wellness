@@ -1,0 +1,20 @@
+# Illustrated room backgrounds v2
+
+Mode: built-in image_gen. Edit / style-transfer of v1 backgrounds.
+Final assets: dist/assets/room-portrait-v2.jpg and dist/assets/room-landscape-v2.jpg.
+The existing dog remains a separate layer. No storage, behavior or room layout changes.
+
+## Portrait
+
+Use case: style-transfer.
+Asset: portrait 9:16 full-screen background for a cozy Japanese pet-raising mobile game. Input image 1 is the EDIT TARGET: the current room background.
+Primary request: redraw this same room as a distinctly illustrated, gently stylized 2D cozy game environment. The current image is too photographic. Make the transformation unmistakable: hand-painted animation background, rounded slightly simplified furniture forms, clean soft warm-brown contour lines on key edges, broad smooth pastel color areas with subtle brush texture, softly painted cel-like shadows. It should feel like an inviting modern picture book / cozy life-sim game, with enough perspective and volume for a semi-stylized Pomeranian sprite to stand naturally on the floor. Not flat vector art, not a photo with a filter, not realistic 3D rendering.
+Keep the current portrait composition, room architecture, furniture positions and camera framing: sage green sofa to the back left, tall cream-curtained window toward center-left, rounded honey-oak sideboard at the back right, simple botanical wall picture and restrained leafy plant. Preserve the full-screen pulled-back view and spacious walkable floor in the lower 60%. Keep the wall/floor boundary near the upper 38%, the broad pale oval rug in the middle-distance, and clear bare floor in the foreground.
+Simplify the materials: just a few broad expressive plank lines and restrained stylized wood marks, smooth simplified sofa upholstery, softly rounded cushions, curtains painted as elegant large folds, greenery as grouped rounded leaf shapes, plain rug with a few soft curved woven marks. Remove realistic wood pores, fabric fibers, individual detailed leaves, lens effects, photographic reflections and physically exact sunlight patterns.
+Palette: warm ivory, pale honey oak, muted sage, creamy beige. Cozy diffused afternoon sunshine rendered as a few broad soft golden patches and simplified gentle window shadows. Keep contrast gentle and the floor readable for a cream dog. Make the scene more charming through simplified proportions and illustrated shapes, not through extra objects.
+Invariants: same room, same furnishings, same wide open floor, same portrait orientation, opaque full-bleed background. Top and bottom areas stay calm for overlaid game controls. NO dog, animal, person, pet bed, face on furniture, text, label, watermark, logo, border, UI, button or icon.
+
+## Landscape
+
+undefined
+

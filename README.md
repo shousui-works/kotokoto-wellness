@@ -28,7 +28,7 @@ python3 -m http.server 4317 --bind 127.0.0.1 --directory dist
 - `dist/index.html`: 画面
 - `dist/style.css`: レイアウト、ポメラニアンの表示・アニメーション
 - `dist/room-ui.css`: 全画面のおへや、コンパクトな操作メニューと記録パネル
-- `dist/assets/room-portrait-v1.jpg` / `room-landscape-v1.jpg`: 縦・横画面用の部屋背景
+- `dist/assets/room-portrait-v2.jpg` / `room-landscape-v2.jpg`: 縦・横画面用の手描き風の部屋背景
 - `dist/assets/komugi-pomeranian-v1.png`: 3段階 × 4表情の透過画像
 - `dist/assets/komugi-pomeranian-walk-v1.png`: 3段階 × 4コマの歩行画像
 - `dist/companion-motion.mjs`: おさんぽ・呼び寄せ・一時停止・表示範囲の制御
@@ -48,3 +48,5 @@ python3 -m http.server 4317 --bind 127.0.0.1 --directory dist
 おへやでは、歩く・立ち止まる・座るを繰り返します。床をタップするとその場所まで歩き、「おいで」や記録・「なでる」で手前へ近づきます。非表示のタブでは停止し、端末で動きを減らす設定をしている場合は自動のおさんぽを止めます。移動位置や一時停止は一時的な表示状態で、保存データの形式は変更していません。
 
 部屋を引きで眺める全画面UIです。スマホでは縦長、横長の画面では横長の背景に切り替えます。初期表示は `#room`。画面下のメニューから `#today`・`#decorate`・`#records`、こむぎの名前や吹き出しから `#companion` を開きます。スマホの操作パネルは下から、横幅900px以上では右側に表示します。
+
+背景は家具の輪郭や質感をデフォルメした、やわらかい手描きのイラスト風です。配置・日差し・広い床は初版から引き継ぎ、実写寄りの初版画像も比較用に残しています。生成プロンプトは `design/illustrated-room-backgrounds-v2.prompt.txt` に保存しています。
