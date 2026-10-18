@@ -28,3 +28,28 @@
 @media(max-width:620px){.room-scene{height:270px}.room-preview .room-scene{height:290px}.dog-sample{width:148px;min-width:148px;height:180px}.dog-sample .dog{--dog-size:195px;bottom:calc(15px - var(--dog-size)*var(--paw-inset))}.dog-sample .dog--young{--dog-size:210px}.dog-sample .dog--adult{--dog-size:220px}.growth-stage{gap:10px}}
 @media(max-width:360px){.dog-sample{width:172px;height:190px}}
 @media(prefers-reduced-motion:reduce){.dog,.dog-art,.dog.greet,.dog.greet .dog-art,.dog.greet:after{animation:none!important;transition:none!important}}
+
+/* A room to explore: walking poses share the same floor anchor as seated poses. */
+.dog.can-roam{--walk-y:0%;--walk-paw-inset:.14365;--walk-center-offset:-1.8%;--walk-facing:1;transition:width .4s,height .4s,scale .25s}
+.dog--young.can-roam{--walk-y:48.34254%;--walk-paw-inset:.14641;--walk-center-offset:-3%}
+.dog--adult.can-roam{--walk-y:96.68508%;--walk-paw-inset:.09669;--walk-center-offset:-2.2%}
+.dog-walk-art{position:absolute;inset:0;display:block;background:url('./assets/komugi-pomeranian-walk-v1.png') no-repeat;background-size:400% 300%;background-position:0% var(--walk-y);transform:scaleX(var(--walk-facing));scale:.83;translate:calc(var(--walk-center-offset)*var(--walk-facing)) 0;transform-origin:50% calc(100% - var(--walk-paw-inset)*100%);opacity:0}
+.dog.is-walking{--paw-inset:var(--walk-paw-inset);animation:none}
+.dog.is-walking .dog-art{visibility:hidden;animation:none}.dog.is-walking .dog-walk-art{opacity:1;animation:komugi-steps .76s step-end infinite,komugi-walk-bob .38s ease-in-out infinite}
+.dog.is-walking.feeling-lonely .dog-walk-art{animation-duration:1s,.5s}.dog.is-walking:after{opacity:0}
+@keyframes komugi-steps{0%,100%{background-position:0% var(--walk-y)}25%{background-position:33.333333% var(--walk-y)}50%{background-position:66.666667% var(--walk-y)}75%{background-position:100% var(--walk-y)}}
+@keyframes komugi-walk-bob{0%,100%{translate:calc(var(--walk-center-offset)*var(--walk-facing)) 0}50%{translate:calc(var(--walk-center-offset)*var(--walk-facing)) -1.5px}}
+.is-roaming-room{height:335px;isolation:isolate;touch-action:pan-y}.room-preview .is-roaming-room{height:370px}
+.is-roaming-room .room-floor{height:47%;background:repeating-linear-gradient(0deg,transparent 0,transparent 36px,#cec6ab55 37px,transparent 38px),linear-gradient(#e6dfcb,#ddd5be)}
+.is-roaming-room .room-floor:after{display:none}.is-roaming-room .floor-rug{width:60%;max-width:290px;height:69px;bottom:18px;opacity:.8}
+.is-roaming-room .room-window{top:53px}.is-roaming-room .spark-a{top:88px}.is-roaming-room .spark-b{top:145px}
+.room-controls{position:absolute;z-index:10;left:14px;right:14px;top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.room-controls button{min-height:38px;border:1px solid #d9decb;border-radius:22px;background:#fcfbf2e8;padding:7px 13px;font-size:10px;color:#647450;box-shadow:0 2px 5px #756d3c08}
+.room-controls button:hover{background:#f1f3e5}.room-controls .roam-toggle{border-color:transparent;background:#f7f7ecad;color:#7b846c;font-size:9px;padding-left:11px;padding-right:11px}.room-controls .roam-toggle[aria-pressed=true]{background:#e6e8da}.room-controls .roam-toggle:disabled{opacity:.7}
+.room-roam-note{width:100%;margin:0;padding:8px 15px 12px;color:#858773;text-align:center;font-size:9px;line-height:1.8}
+.floor-target{position:absolute;z-index:3;width:30px;height:11px;border:1px solid #8da174;border-radius:50%;opacity:0;transform:translate(-50%,50%);pointer-events:none}
+.floor-target:after{content:'';position:absolute;inset:-5px;border:1px solid #a9b995;border-radius:50%}.floor-target.show{animation:floor-ripple .9s ease-out}
+@keyframes floor-ripple{0%{opacity:.85;scale:.7}100%{opacity:0;scale:1.6}}
+.roam-resting .dog,.roam-resting .dog-art{animation-play-state:paused}
+@media(max-width:620px){.is-roaming-room{height:320px}.room-preview .is-roaming-room{height:350px}.room-controls{left:12px;right:12px}.room-controls button{min-height:42px}.room-roam-note{font-size:10px;padding-bottom:11px}.is-roaming-room .room-window{left:12%;width:83px;height:98px;top:59px}}
+@media(prefers-reduced-motion:reduce){.dog-walk-art,.floor-target.show,.dog.can-roam{animation:none!important;transition:none!important}}

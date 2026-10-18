@@ -1,4 +1,6 @@
+import {createRoomMotion} from './companion-motion.mjs';
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor,companionFeeling,petCompanion} from './model.mjs';
+let roomMotion;
 const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let state=emptyState(),loadFailed=false;try{const raw=localStorage.getItem(STORAGE);if(raw!==null){const parsed=JSON.parse(raw);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);}}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='保存済みのきろくを読み込めませんでした。元のデータは上書きしません。ブラウザの設定をご確認ください。';}let currentTab='today',lastDate=dateKey(),toastTimer;const today=()=>state.days[dateKey()]||{habits:[]};const dayForEdit=()=>state.days[dateKey()]??={habits:[]};
 function persist(){if(loadFailed)return;try{localStorage.setItem(STORAGE,JSON.stringify(state));$('storage-warning').hidden=true;}catch{$('storage-warning').textContent='このブラウザに保存できません。きろくは画面を閉じると消えるため、設定からバックアップしてください。';$('storage-warning').hidden=false;}}
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3600);}
@@ -37,7 +39,7 @@ function renderCompanionFeeling(){
     scene.setAttribute('aria-label',`ポメラニアンのこむぎ（${growthForXP(totals(state).xp).stage.name}）。${feeling.label}。${decor?decor+'を飾ったお部屋。':''}`);
   });
 }
-function greetDogs(){document.querySelectorAll('[data-companion]').forEach(dog=>{dog.classList.remove('celebrate','greet');void dog.offsetWidth;dog.classList.add('greet');});}
+function greetDogs(){roomMotion?.greet();}
 function previewReaction(id){
   const feeling=COMPANION_FEELINGS[id];if(!feeling)return;
   const dog=$('reaction-scene').querySelector('.dog'),stage=growthForXP(totals(state).xp).stage;
@@ -48,10 +50,11 @@ function previewReaction(id){
   document.querySelectorAll('[data-reaction]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.reaction===id)));
   if(id!=='lonely'){void dog.offsetWidth;dog.classList.add('greet');}
 }
-function render(){const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));}
+function render(){const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));roomMotion?.refresh();}
 function switchTab(tab,updateHash=true){if(!['today','room','records'].includes(tab))tab='today';currentTab=tab;document.querySelectorAll('.tab-view').forEach(el=>el.hidden=el.id!==tab);document.querySelectorAll('[data-tab]').forEach(button=>{if(button.dataset.tab===tab)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});if(updateHash)history.replaceState(null,'','#'+tab);render();}
 $('scene-room').append($('scene-home').querySelector('.room-scene').cloneNode(true));
 const reactionScene=$('scene-home').querySelector('.room-scene').cloneNode(true);reactionScene.querySelector('[data-companion]').removeAttribute('data-companion');$('reaction-scene').append(reactionScene);
+roomMotion=createRoomMotion(document.querySelectorAll('[data-companion]'));
 $('pet-companion').addEventListener('click',()=>{const wasLonely=companionFeeling(state).id==='lonely';petCompanion(state);persist();render();greetDogs();toast(wasLonely?'会いたかった！ こむぎが安心して寄ってきたよ。':'こむぎがうれしそうに、ぴとっと寄ってきたよ。');});
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
 document.querySelector('.reaction-options').addEventListener('click',event=>{const button=event.target.closest('[data-reaction]');if(button)previewReaction(button.dataset.reaction);});
