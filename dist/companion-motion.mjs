@@ -2,8 +2,10 @@ const WALK_IMAGE = new URL('./assets/komugi-pomeranian-walk-v1.png', import.meta
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export function roomBounds(width, height, dogSize) {
-  const margin = Math.min(width / 2, dogSize * .32 + 12);
-  return { left: margin, right: Math.max(margin, width - margin), front: 30, back: Math.max(30, Math.min(96, height * .28)) };
+  const margin = Math.min(width / 2, Math.max(dogSize * .34 + 18, width * .14));
+  const front = Math.min(height * .4, Math.max(190, Math.min(210, height * .24)));
+  const back = Math.max(front, height * .44);
+  return { left: margin, right: Math.max(margin, width - margin), front, back };
 }
 
 export function stepToward(position, target, distance) {
@@ -39,6 +41,7 @@ class RoomWalker {
     this.dog = dog;
     this.scene = dog.closest('.room-scene');
     this.scene.classList.add('is-roaming-room');
+    this.world = this.scene.classList.contains('room-scene--world');
     this.scene.querySelectorAll('.room-window,.room-spark,.room-floor,.floor-rug').forEach(el => el.setAttribute('aria-hidden', 'true'));
     this.reduced = reduced;
     this.position = null;
@@ -67,7 +70,7 @@ class RoomWalker {
     this.callButton = document.createElement('button');
     this.callButton.type = 'button';
     this.callButton.className = 'call-companion';
-    this.callButton.textContent = 'こっちにおいで ♡';
+    this.callButton.textContent = this.world ? 'おいで ♡' : 'こっちにおいで ♡';
     this.callButton.setAttribute('aria-label', 'こむぎを呼ぶ');
     this.controls.append(this.pauseButton, this.callButton);
     this.marker = document.createElement('span');
@@ -118,7 +121,7 @@ class RoomWalker {
     const width = this.scene.clientWidth, height = this.scene.clientHeight;
     if (!width || !height) return;
     this.bounds = roomBounds(width, height, parseFloat(getComputedStyle(this.dog).getPropertyValue('--dog-size')) || 260);
-    this.position = this.constrain(this.position || { x: width * .5, y: 42 });
+    this.position = this.constrain(this.position || { x: width * .5, y: (this.bounds.front + this.bounds.back) * .5 });
     if (this.target) this.target = this.constrain(this.target);
     this.paint();
   }
@@ -133,12 +136,12 @@ class RoomWalker {
     this.dog.style.left = this.position.x.toFixed(2) + 'px';
     this.dog.style.bottom = 'calc(' + this.position.y.toFixed(2) + 'px - var(--dog-size) * var(--paw-inset))';
     this.dog.style.scale = (.98 - depth * .16).toFixed(3);
-    this.dog.style.zIndex = this.position.y < 48 ? '6' : '4';
+    this.dog.style.zIndex = this.position.y < this.bounds.front + 35 ? '6' : '4';
   }
 
   updateControls() {
     const resting = this.paused || this.reduced();
-    this.pauseButton.textContent = resting ? 'おやすみ中 ▷' : 'おさんぽ中 Ⅱ';
+    this.pauseButton.textContent = this.world ? (resting ? '▷' : 'Ⅱ') : (resting ? 'おやすみ中 ▷' : 'おさんぽ中 Ⅱ');
     this.pauseButton.setAttribute('aria-label', resting ? 'おさんぽを再開' : 'おさんぽをおやすみ');
     this.pauseButton.setAttribute('aria-pressed', String(resting));
     this.pauseButton.disabled = this.reduced() || this.failed;
@@ -171,7 +174,8 @@ class RoomWalker {
       this.timer = 0;
       this.measure();
       const middle = (this.bounds.left + this.bounds.right) / 2;
-      const side = this.position.x < middle ? this.bounds.right : this.bounds.left;
+      const span=this.bounds.right-this.bounds.left;
+      const side = this.position.x < middle ? this.bounds.right-span*Math.random()*.18 : this.bounds.left+span*Math.random()*.18;
       this.walkTo({ x: side, y: this.bounds.front + Math.random() * (this.bounds.back - this.bounds.front) });
     }, delay);
   }
@@ -197,7 +201,8 @@ class RoomWalker {
       if (!this.active || this.paused || this.reduced()) { this.stop(); return; }
       const dt = Math.min((now - this.lastTime) / 1000, .06);
       this.lastTime = now;
-      const speed = this.arrival === 'greet' ? 52 : this.dog.classList.contains('feeling-lonely') ? 23 : 34;
+      const pace=Math.min(76,Math.max(32,this.scene.clientWidth*.075));
+      const speed = this.arrival === 'greet' ? pace*1.45 : this.dog.classList.contains('feeling-lonely') ? pace*.68 : pace;
       const next = stepToward(this.position, this.target, speed * dt);
       this.position = { x: next.x, y: next.y };
       this.paint();

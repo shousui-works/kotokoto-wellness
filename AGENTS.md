@@ -4,7 +4,7 @@
 
 ## アプリ
 - スマホ向けの習慣記録・犬の育成アプリ。日本語で会話する。
-- build不要。dist/index.html、style.css、app.mjs、model.mjs、icon.svgがアプリ本体。
+- build不要。dist/index.html、style.css、room-ui.css、app.mjs、model.mjs、icon.svgがアプリ本体。
 - .openai/hosting.jsonの既存project_idを保持し、Sites更新では新しいSiteを作らない。
 - 既存URL: https://kotokoto-biyori.loyal-wave-1919.chatgpt.site
 - 記録はブラウザのlocalStorageのkotokoto-wellness-v1に保存。互換性を保つ。
@@ -18,6 +18,9 @@
 - design/ に承認されたポメラニアンの試作と生成プロンプトを保存。以前の柴犬案は比較用に残している。
 - dist/assets/komugi-pomeranian-walk-v1.png は3段階 × 4コマの右向き歩行画像。左向きは反転表示。行の切り出し位置と足元の基準はCSSで調整済み。
 - dist/companion-motion.mjs が自動のおさんぽ、床タップ、呼び寄せ、一時停止、画面外での停止を担当。成長・感情・保存データのロジックは model.mjs に保つ。端末の「動きを減らす」設定を尊重する。
+- 部屋が画面全体になるUI。dist/room-ui.cssで全画面の部屋と操作パネルを定義し、style.cssの既存の犬・記録コンポーネントを利用する。ライブの部屋はscene-homeの1つだけ。
+- dist/assets/room-portrait-v1.jpg、room-landscape-v1.jpgが縦・横画面用の部屋背景。こむぎは別レイヤーで小さめに表示する。design/full-room-backgrounds.prompt.txtに生成プロンプトを保存。
+- 初期表示は#room。#today、#decorate、#records、#companionで記録・もようがえ・履歴・育成のパネルを開く。スマホは下から、横幅900px以上は右側に表示。「できた」の記録後は部屋へ戻る。歩行範囲は下のメニューと吹き出しを避ける。
 
 ## 作業環境
 元スレッドだけがread-onlyで、修正の保存・公開用ターミナルの追加入力に大量の手動承認が発生し、ユーザーが強く不満を持っている。通常のローカル作業場所へ移行するため、このフォルダにGit履歴・ソース・同じSite設定をコピーした。元スレッドの権限を解除したわけではない。
