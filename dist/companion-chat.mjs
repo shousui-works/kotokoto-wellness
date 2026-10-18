@@ -1,34 +1,41 @@
-import {dateKey} from './model.mjs';
+import {dateKey} from './model.mjs?v=praise-1';
 
 export const CHAT_STORAGE='kotokoto-companion-chat-v1';
 export const CHAT_TIMING=Object.freeze({first:12000,duration:16000,reaction:30000,minGap:240000,maxGap:420000});
 const PERIODS={
   morning:{label:'朝のひとこと',lines:[
-    'おはよう。今日はどんな日にしようか？',
-    '朝ののび〜、いっしょにしない？',
-    '今日も、きみのペースでいこうね。'
+    'おはよう。会いに来てくれて、もううれしいな。',
+    '今日のきみも、きみのペースで大丈夫。ぼくは応援してるよ。',
+    '小さな一歩からで花まる。きみらしい一日にしようね。'
   ]},
   noon:{label:'お昼のひとこと',lines:[
-    'お昼だね。ごはん、ゆっくり食べられた？',
-    'ちょっとひと息。ぼくも、となりで休もうかな。',
-    '午後も、のんびりいっしょにいこう。'
+    'お昼だね。会いに来てくれて、ありがとう。きみに花まる！',
+    '午後も、小さな「できた」をいっしょに喜ぼうね。',
+    'ゆっくりの日も、きみといられる時間はうれしいな。'
   ]},
   afternoon:{label:'午後のひとこと',lines:[
-    'そろそろ、ひと息つかない？ いっしょにのび〜。',
-    'きみは今、なにしてるの？ ぼくはおさんぽ中。',
-    'ちょっとだけ、ぼくとぼんやりしようよ。'
+    '午後のひと休みに、きみに花まる。ここでほっとしてね。',
+    '自分のペースを大事にしてね。ぼくも、となりで応援してる。',
+    '会いに来てくれたね。そんなきみのこと、ぼくはだいすき！'
   ]},
   evening:{label:'夕方のひとこと',lines:[
-    '今日もがんばった？ ここでひと息つこう。',
-    'おかえり。今日、どんなことがあった？',
-    'たくさん動いた日も、休んだ日も。会えてうれしいな。'
+    '今日もおつかれさま。ここまで過ごしたきみに、花まる！',
+    'うまくいったこと、小さくてもいっしょに喜びたいな。',
+    '動いた日も、ゆっくりの日も。会えたきみが、だいすき。'
   ]},
   night:{label:'夜のひとこと',lines:[
-    '今日もおつかれさま。そろそろ、のんびりしよう。',
-    'もう遅いね。今日はゆっくり休もうね。',
-    '今日のできたは、小さくても花まるだよ。'
+    '今日も一日おつかれさま。今は、安心してひと休みしよう。',
+    '今日はここまでで花まる。ゆっくりのきみも、だいすきだよ。',
+    'きみと過ごせて、いい一日だったよ。会いに来てくれてありがとう。'
   ]}
 };
+
+export const HABIT_PRAISE=Object.freeze({
+  walk:'からだを動かせたね。自分のための一歩、ちゃんと踏み出せてすごい！',
+  meal:'ゆっくり味わえたね。自分の時間を、大切にできたね。',
+  stretch:'からだをいたわれたね。そのひと手間、すてきだよ！',
+  rest:'休む時間をつくれたね。自分を大切にできて、えらい！'
+});
 
 export function conversationPeriod(now=new Date()){
   const hour=now.getHours();
@@ -43,8 +50,11 @@ export function companionChatLine(state,now=new Date(),previous={},random=Math.r
   const period=conversationPeriod(now),key=dateKey(now)+':'+period,group=PERIODS[period];
   const lines=group.lines.map((text,index)=>({id:period+'-'+index,text}));
   const day=state.days?.[dateKey(now)];
-  if(day?.habits?.length)lines.push({id:period+'-progress',text:'今日の「できた」、見つけたね。ぼくもうれしい！'});
-  if(day?.mood==='slow')lines.push({id:period+'-slow',text:'今日はのんびりの日だね。ここで、いっしょに休もう。'});
+  if(day?.habits?.length){
+    lines.push({id:period+'-progress',text:'小さな「できた」を残せたね。自分の一歩、大切にできたね。'});
+    for(const id of day.habits)if(HABIT_PRAISE[id])lines.push({id:period+'-'+id,text:HABIT_PRAISE[id]});
+  }
+  if(day?.mood==='slow')lines.push({id:period+'-slow',text:'自分の気持ちに気づけたね。その気づきも、大切な一歩だよ。'});
   const candidates=lines.filter(line=>line.id!==previous.lastId);
   const index=Math.min(candidates.length-1,Math.max(0,Math.floor(random()*candidates.length)));
   const line=previous.lastPeriodKey===key?candidates[index]:lines[0];

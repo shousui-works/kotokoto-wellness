@@ -22,12 +22,12 @@ export function growthForXP(xp){
 }
 
 export const COMPANION_FEELINGS={
-  curious:{id:'curious',label:'これから仲よしに',lines:['はじめまして。きみのこと、もっと知りたいな。','いっしょに、小さな一歩から。']},
-  calm:{id:'calm',label:'あなたを待っている',lines:['今日も、きみといっしょがいいな。','となりで待っているね。']},
-  happy:{id:'happy',label:'しっぽ、ふりふり',lines:['がんばったね！ いっしょにいると、うれしいな。','もっと、きみのそばにいたい。']},
-  excited:{id:'excited',label:'うれしくて、ぴょん',lines:['今日のできた、いっぱい！ だいすき！','ごほうびに、ぴとってしてもいい？']},
-  lonely:{id:'lonely',label:'ちょっぴりさみしい',lines:['会いたかったな。ちょっとさみしかったよ。','となりに座ってもいい？']},
-  soothed:{id:'soothed',label:'会えて、ほっとした',lines:['会いたかった！ なでてくれて、うれしい。','もう少し、このままでいようね。']}
+  curious:{id:'curious',label:'これから仲よしに',lines:['会いに来てくれたね。それだけで、ぼくはうれしいな。','これから、小さな一歩をいっしょに喜ぼうね。']},
+  calm:{id:'calm',label:'あなたを待っている',lines:['きみと過ごせる時間が、ぼくのうれしい時間だよ。','今日はきみのペースで。となりで応援してるね。']},
+  happy:{id:'happy',label:'しっぽ、ふりふり',lines:['ひとつできたね。小さくても、ちゃんとすごいよ！','自分のための一歩、ぼくもいっしょに喜びたいな。']},
+  excited:{id:'excited',label:'うれしくて、ぴょん',lines:['今日の小さな一歩、ちゃんと重なってるね。きみに花まる！','ひとつずつ自分を大切にできたね。ぼくもうれしい！']},
+  lonely:{id:'lonely',label:'ちょっぴりさみしい',lines:['おかえり。休んでいた日も、きみのペースで大丈夫。','会いに来てくれてありがとう。ここで、ひと息つこうね。']},
+  soothed:{id:'soothed',label:'会えて、ほっとした',lines:['きみの手、やさしいね。なでてくれて、ありがとう。','そんなきみといられて、ぼくはしあわせだよ。']}
 };
 export function affectionFor(state){
   const score=Math.min(100,Math.floor(totals(state).xp/5));

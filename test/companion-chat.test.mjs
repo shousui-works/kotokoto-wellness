@@ -25,7 +25,7 @@ test('時間帯の境目と深夜を端末の時刻で区別する',()=>{
   for(const [hour,period] of [[0,'night'],[4,'night'],[5,'morning'],[10,'morning'],[11,'noon'],[13,'noon'],[14,'afternoon'],[16,'afternoon'],[17,'evening'],[20,'evening'],[21,'night'],[23,'night']]){
     assert.equal(conversationPeriod(at(hour)),period);
   }
-  assert.match(companionChatLine(emptyState(),at(18)).text,/今日もがんばった？/);
+  assert.equal(companionChatLine(emptyState(),at(18)).periodKey,dateKey(at(18))+':evening');
 });
 
 test('同じ時間帯で直前と同じ言葉を続けず、新しい時間帯ではあいさつする',()=>{
@@ -33,7 +33,7 @@ test('同じ時間帯で直前と同じ言葉を続けず、新しい時間帯�
   const second=companionChatLine(state,at(9),{lastId:first.id,lastPeriodKey:first.periodKey},()=>0);
   assert.notEqual(first.id,second.id);
   const evening=companionChatLine(state,at(18),{lastId:second.id,lastPeriodKey:second.periodKey});
-  assert.match(evening.text,/今日もがんばった？/);
+  assert.equal(evening.periodKey,dateKey(at(18))+':evening');
   const nextDay=new Date(2026,9,19,9);
   assert.match(companionChatLine(state,nextDay,{lastId:first.id,lastPeriodKey:first.periodKey}).text,/おはよう/);
 });
@@ -42,7 +42,7 @@ test('記録と気分に寄り添うが、保存済みの記録を変更しな�
   const now=at(15),state=normalizeState({version:1,days:{[dateKey(now)]:{habits:['walk'],mood:'slow',weight:60}},owned:[],decor:[]});
   const before=structuredClone(state),previous={lastPeriodKey:dateKey(now)+':afternoon'};
   const line=companionChatLine(state,now,previous,()=>.999);
-  assert.match(line.text,/いっしょに休もう/);
+  assert.equal(line.id,'afternoon-slow');
   assert.deepEqual(state,before);
 });
 

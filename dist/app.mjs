@@ -1,8 +1,8 @@
 import {createRoomMotion} from './companion-motion.mjs?v=speech-bubble-1';
 import {createCompanionBubble} from './companion-bubble.mjs';
-import {createCompanionChat,CHAT_STORAGE} from './companion-chat.mjs';
-import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor,companionFeeling,petCompanion} from './model.mjs';
-let roomMotion,companionChat,activeChat=null;
+import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=praise-1';
+import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor,companionFeeling,petCompanion} from './model.mjs?v=praise-1';
+let roomMotion,companionChat,activeChat=null,activePraise=null,praiseTimer;
 const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let state=emptyState(),loadFailed=false;try{const raw=localStorage.getItem(STORAGE);if(raw!==null){const parsed=JSON.parse(raw);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);}}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='保存済みのきろくを読み込めませんでした。元のデータは上書きしません。ブラウザの設定をご確認ください。';}let currentTab='room',lastDate=dateKey(),toastTimer;const today=()=>state.days[dateKey()]||{habits:[]};const dayForEdit=()=>state.days[dateKey()]??={habits:[]};
 function persist(){if(loadFailed)return;try{localStorage.setItem(STORAGE,JSON.stringify(state));$('storage-warning').hidden=true;}catch{$('storage-warning').textContent='このブラウザに保存できません。きろくは画面を閉じると消えるため、設定からバックアップしてください。';$('storage-warning').hidden=false;}}
 function toast(message){const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;host.append($('toast'));$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3600);}
@@ -30,13 +30,19 @@ function applyFeeling(dog,feeling,bonded=false){
   dog.classList.add('feeling-'+feeling.id);dog.classList.toggle('dog--attached',bonded);
 }
 function renderCompanionSpeech(feeling=companionFeeling(state)){
-  const label=activeChat?.label??feeling.label,message=activeChat?.text??feeling.lines[0];
+  const speech=activePraise??activeChat;
+  const label=speech?.label??feeling.label,message=speech?.text??feeling.lines[0];
   const changed=$('companion-message').textContent!==message,bubble=document.querySelector('.companion-bubble');
   if($('companion-feeling').textContent!==label)$('companion-feeling').textContent=label;
   $('companion-feeling').dataset.feeling=feeling.id;
   if($('companion-message').textContent!==message)$('companion-message').textContent=message;
-  bubble.classList.toggle('is-chatting',Boolean(activeChat));
+  bubble.classList.toggle('is-chatting',Boolean(speech));
   if(changed){bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
+}
+function showCompanionPraise(text){
+  companionChat.interrupt();clearTimeout(praiseTimer);
+  activePraise={label:'こむぎからの花まる',text};renderCompanionSpeech();
+  praiseTimer=setTimeout(()=>{activePraise=null;renderCompanionSpeech();},12000);
 }
 function renderCompanionFeeling(){
   const feeling=companionFeeling(state),affection=affectionFor(state);
@@ -82,12 +88,12 @@ $('companion-chat-toggle').checked=companionChat.enabled;
 $('companion-chat-toggle').addEventListener('change',event=>{companionChat.setEnabled(event.target.checked);});
 const chatDialogObserver=new MutationObserver(()=>companionChat.refresh());
 document.querySelectorAll('dialog').forEach(dialog=>chatDialogObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
-$('pet-companion').addEventListener('click',()=>{companionChat.interrupt();const wasLonely=companionFeeling(state).id==='lonely';petCompanion(state);persist();render();greetDogs();toast(wasLonely?'会いたかった！ こむぎが安心して寄ってきたよ。':'こむぎがうれしそうに、ぴとっと寄ってきたよ。');});
+$('pet-companion').addEventListener('click',()=>{const wasLonely=companionFeeling(state).id==='lonely';petCompanion(state);persist();render();greetDogs();showCompanionPraise(wasLonely?'おかえり。会いに来てくれて、うれしいな。':'きみの手、やさしいね。なでてくれて、ありがとう。');toast('こむぎが、うれしそうに寄ってきたよ。');});
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
 document.querySelector('.reaction-options').addEventListener('click',event=>{const button=event.target.closest('[data-reaction]');if(button)previewReaction(button.dataset.reaction);});
 
 document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab)));document.querySelector('.brand').addEventListener('click',event=>{event.preventDefault();switchTab('room');});window.addEventListener('hashchange',()=>switchTab(location.hash.slice(1),false));
-$('habit-list').addEventListener('click',event=>{const button=event.target.closest('[data-habit]');if(!button)return;const previous=totals(state);if(!recordHabit(state,dateKey(),button.dataset.habit))return;companionChat.interrupt();persist();switchTab('room');greetDogs();const next=totals(state),beforeGrowth=growthForXP(previous.xp),afterGrowth=growthForXP(next.xp);if(afterGrowth.index>beforeGrowth.index){toast(`こむぎが${afterGrowth.stage.name}に成長したよ！いっしょに大きくなったね。`);}else{toast(next.level>previous.level?`こむぎが Lv. ${next.level} に育ったよ！ 10たねを集めたよ`:'こむぎがしっぽをふりふり！ なつき度 +2 ♡');}});
+$('habit-list').addEventListener('click',event=>{const button=event.target.closest('[data-habit]');if(!button)return;const previous=totals(state);if(!recordHabit(state,dateKey(),button.dataset.habit))return;persist();switchTab('room');greetDogs();showCompanionPraise(HABIT_PRAISE[button.dataset.habit]);const next=totals(state),beforeGrowth=growthForXP(previous.xp),afterGrowth=growthForXP(next.xp);if(afterGrowth.index>beforeGrowth.index){toast(`こむぎが${afterGrowth.stage.name}に成長したよ！いっしょに大きくなったね。`);}else{toast(next.level>previous.level?`こむぎが Lv. ${next.level} に育ったよ！ 10たねを集めたよ`:'10たねを集めたよ。小さな一歩に、花まる！');}});
 $('shop-items').addEventListener('click',event=>{const button=event.target.closest('[data-item]');if(!button)return;const id=button.dataset.item,item=ITEMS.find(i=>i.id===id);if(state.owned.includes(id)){const decorated=state.decor.includes(id);state.decor=decorated?state.decor.filter(x=>x!==id):[...state.decor,id];persist();render();toast(decorated?'大切にしまっておいたよ。':`${item.name}を飾ったよ。`);}else if(buyItem(state,id)){persist();render();toast(`${item.name}が、おへやにやってきた！`);}});
 $('mood-options').addEventListener('click',event=>{const button=event.target.closest('[data-mood]');if(!button)return;const mood=button.dataset.mood;dayForEdit().mood=mood;persist();render();toast('今日の気持ちを、そっと残したよ。');});
 $('weight-open').addEventListener('click',()=>{const weight=today().weight;$('weight-value').value=weight??'';$('weight-error').textContent='';$('delete-weight').hidden=!Number.isFinite(weight);$('weight-dialog').dataset.date=dateKey();$('weight-dialog').showModal();});
