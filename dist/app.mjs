@@ -24,7 +24,6 @@ function renderGrowth(xp){
 function applyFeeling(dog,feeling,bonded=false){
   dog.classList.remove(...Object.keys(COMPANION_FEELINGS).map(id=>'feeling-'+id));
   dog.classList.add('feeling-'+feeling.id);dog.classList.toggle('dog--attached',bonded);
-  dog.querySelector('.dog-mouth').textContent=feeling.id==='lonely'?'⌢':'ω';
 }
 function renderCompanionFeeling(){
   const feeling=companionFeeling(state),affection=affectionFor(state);
