@@ -1,6 +1,7 @@
 import {createRoomMotion} from './companion-motion.mjs';
+import {createCompanionChat,CHAT_STORAGE} from './companion-chat.mjs';
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor,companionFeeling,petCompanion} from './model.mjs';
-let roomMotion;
+let roomMotion,companionChat,activeChat=null;
 const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let state=emptyState(),loadFailed=false;try{const raw=localStorage.getItem(STORAGE);if(raw!==null){const parsed=JSON.parse(raw);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);}}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='保存済みのきろくを読み込めませんでした。元のデータは上書きしません。ブラウザの設定をご確認ください。';}let currentTab='room',lastDate=dateKey(),toastTimer;const today=()=>state.days[dateKey()]||{habits:[]};const dayForEdit=()=>state.days[dateKey()]??={habits:[]};
 function persist(){if(loadFailed)return;try{localStorage.setItem(STORAGE,JSON.stringify(state));$('storage-warning').hidden=true;}catch{$('storage-warning').textContent='このブラウザに保存できません。きろくは画面を閉じると消えるため、設定からバックアップしてください。';$('storage-warning').hidden=false;}}
 function toast(message){const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;host.append($('toast'));$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3600);}
@@ -27,10 +28,16 @@ function applyFeeling(dog,feeling,bonded=false){
   dog.classList.remove(...Object.keys(COMPANION_FEELINGS).map(id=>'feeling-'+id));
   dog.classList.add('feeling-'+feeling.id);dog.classList.toggle('dog--attached',bonded);
 }
+function renderCompanionSpeech(feeling=companionFeeling(state)){
+  const label=activeChat?.label??feeling.label,message=activeChat?.text??feeling.lines[0];
+  if($('companion-feeling').textContent!==label)$('companion-feeling').textContent=label;
+  $('companion-feeling').dataset.feeling=feeling.id;
+  if($('companion-message').textContent!==message)$('companion-message').textContent=message;
+  document.querySelector('.companion-bubble').classList.toggle('is-chatting',Boolean(activeChat));
+}
 function renderCompanionFeeling(){
   const feeling=companionFeeling(state),affection=affectionFor(state);
-  $('companion-feeling').textContent=feeling.label;$('companion-feeling').dataset.feeling=feeling.id;
-  $('companion-message').textContent=feeling.lines[0];
+  renderCompanionSpeech(feeling);
   $('affection-score').textContent=affection.score;$('affection-label').textContent=affection.label;$('affection-progress').value=affection.score;
   document.querySelectorAll('[data-companion]').forEach(dog=>{
     applyFeeling(dog,feeling,affection.score>=50);
@@ -66,12 +73,17 @@ $('room-sheet').addEventListener('close',()=>{currentTab='room';history.replaceS
 $('room-sheet').addEventListener('click',event=>{if(event.target!==$('room-sheet'))return;const r=$('room-sheet').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('room-sheet').close();});
 const reactionScene=$('scene-home').querySelector('.room-scene').cloneNode(true);reactionScene.classList.remove('room-scene--world');reactionScene.classList.add('room-scene--preview');reactionScene.querySelector('[data-companion]').removeAttribute('data-companion');$('reaction-scene').append(reactionScene);
 roomMotion=createRoomMotion(document.querySelectorAll('[data-companion]'));
-$('pet-companion').addEventListener('click',()=>{const wasLonely=companionFeeling(state).id==='lonely';petCompanion(state);persist();render();greetDogs();toast(wasLonely?'会いたかった！ こむぎが安心して寄ってきたよ。':'こむぎがうれしそうに、ぴとっと寄ってきたよ。');});
+companionChat=createCompanionChat({getState:()=>state,canSpeak:()=>!document.hidden&&!document.querySelector('dialog[open]'),onMessage:message=>{activeChat=message;renderCompanionSpeech();}});
+$('companion-chat-toggle').checked=companionChat.enabled;
+$('companion-chat-toggle').addEventListener('change',event=>{companionChat.setEnabled(event.target.checked);});
+const chatDialogObserver=new MutationObserver(()=>companionChat.refresh());
+document.querySelectorAll('dialog').forEach(dialog=>chatDialogObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
+$('pet-companion').addEventListener('click',()=>{companionChat.interrupt();const wasLonely=companionFeeling(state).id==='lonely';petCompanion(state);persist();render();greetDogs();toast(wasLonely?'会いたかった！ こむぎが安心して寄ってきたよ。':'こむぎがうれしそうに、ぴとっと寄ってきたよ。');});
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
 document.querySelector('.reaction-options').addEventListener('click',event=>{const button=event.target.closest('[data-reaction]');if(button)previewReaction(button.dataset.reaction);});
 
 document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>switchTab(button.dataset.tab)));document.querySelector('.brand').addEventListener('click',event=>{event.preventDefault();switchTab('room');});window.addEventListener('hashchange',()=>switchTab(location.hash.slice(1),false));
-$('habit-list').addEventListener('click',event=>{const button=event.target.closest('[data-habit]');if(!button)return;const previous=totals(state);if(!recordHabit(state,dateKey(),button.dataset.habit))return;persist();switchTab('room');greetDogs();const next=totals(state),beforeGrowth=growthForXP(previous.xp),afterGrowth=growthForXP(next.xp);if(afterGrowth.index>beforeGrowth.index){toast(`こむぎが${afterGrowth.stage.name}に成長したよ！いっしょに大きくなったね。`);}else{toast(next.level>previous.level?`こむぎが Lv. ${next.level} に育ったよ！ 10たねを集めたよ`:'こむぎがしっぽをふりふり！ なつき度 +2 ♡');}});
+$('habit-list').addEventListener('click',event=>{const button=event.target.closest('[data-habit]');if(!button)return;const previous=totals(state);if(!recordHabit(state,dateKey(),button.dataset.habit))return;companionChat.interrupt();persist();switchTab('room');greetDogs();const next=totals(state),beforeGrowth=growthForXP(previous.xp),afterGrowth=growthForXP(next.xp);if(afterGrowth.index>beforeGrowth.index){toast(`こむぎが${afterGrowth.stage.name}に成長したよ！いっしょに大きくなったね。`);}else{toast(next.level>previous.level?`こむぎが Lv. ${next.level} に育ったよ！ 10たねを集めたよ`:'こむぎがしっぽをふりふり！ なつき度 +2 ♡');}});
 $('shop-items').addEventListener('click',event=>{const button=event.target.closest('[data-item]');if(!button)return;const id=button.dataset.item,item=ITEMS.find(i=>i.id===id);if(state.owned.includes(id)){const decorated=state.decor.includes(id);state.decor=decorated?state.decor.filter(x=>x!==id):[...state.decor,id];persist();render();toast(decorated?'大切にしまっておいたよ。':`${item.name}を飾ったよ。`);}else if(buyItem(state,id)){persist();render();toast(`${item.name}が、おへやにやってきた！`);}});
 $('mood-options').addEventListener('click',event=>{const button=event.target.closest('[data-mood]');if(!button)return;const mood=button.dataset.mood;dayForEdit().mood=mood;persist();render();toast('今日の気持ちを、そっと残したよ。');});
 $('weight-open').addEventListener('click',()=>{const weight=today().weight;$('weight-value').value=weight??'';$('weight-error').textContent='';$('delete-weight').hidden=!Number.isFinite(weight);$('weight-dialog').dataset.date=dateKey();$('weight-dialog').showModal();});
@@ -80,6 +92,7 @@ $('delete-weight').addEventListener('click',()=>{if($('weight-dialog').dataset.d
 $('growth-open').addEventListener('click',()=>$('growth-dialog').showModal());
 $('settings-open').addEventListener('click',()=>$('settings-dialog').showModal());document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$(button.dataset.close).close()));
 $('export-data').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`こつこつ日和-${dateKey()}.json`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('きろくのバックアップを保存したよ。');});
-function refreshDate(){if(lastDate!==dateKey()){lastDate=dateKey();render();}else{renderCompanionFeeling();}}window.addEventListener('focus',refreshDate);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDate();});setInterval(refreshDate,30000);
+function refreshDate(){if(lastDate!==dateKey()){lastDate=dateKey();render();}else{renderCompanionFeeling();}companionChat.refresh();}window.addEventListener('focus',refreshDate);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDate();else companionChat.refresh();});setInterval(refreshDate,30000);
+window.addEventListener('storage',event=>{if(event.key===CHAT_STORAGE||event.key===null){companionChat.sync();$('companion-chat-toggle').checked=companionChat.enabled;}});
 window.addEventListener('storage',event=>{if(event.key!==STORAGE)return;try{const parsed=event.newValue===null?emptyState():JSON.parse(event.newValue);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);loadFailed=false;render();toast('別のタブのきろくを反映しました。');}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='別のタブのきろくを読み込めませんでした。元のデータは上書きしません。';}});
 switchTab(location.hash.slice(1),false);
