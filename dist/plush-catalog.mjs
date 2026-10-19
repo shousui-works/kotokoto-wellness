@@ -1,5 +1,5 @@
 // Editorial content, not AI generated at runtime. Sources checked 2026-10-19.
-export const CATALOG_VERSION='2026-10-19-dogs-v2';
+export const CATALOG_VERSION='2026-10-19-dogs-v3';
 export const DRAW_COST=50,EXCHANGE_COST=5;
 export const SHELF_SLOTS=Object.freeze(Array.from({length:6},(_,i)=>'shelf-1-'+i));
 const jkc=slug=>[{url:'https://www.jkc.or.jp/breeds/'+slug+'/',title:'JKC 犬種紹介',checkedAt:'2026-10-19'}];
@@ -34,6 +34,26 @@ const entries=[
  '立った耳、毛に覆われた体、ブラシのような尾が北方の犬らしい特徴。顔の模様や毛色には幅があり、見本の灰色と白だけに限りません。',
  'シベリア北東部で人と暮らしていた犬を祖先にもち、そりを引いて軽い荷を長い距離運ぶ仕事で力を発揮してきました。',
  '名前にはシベリアが入りますが、JKCでの原産国表記はアメリカ合衆国です。祖先が暮らした土地と、犬種として整えられた国を分けて見ると発見があります。',jkc('siberian-husky')],
+ ['golden-retriever','ゴールデン・レトリーバー','GOLDEN RETRIEVER','dog','golden-retriever','大型','長毛','イギリス',
+ '金色の毛と、やさしい表情の仲間。',
+ '垂れた耳と、均整のとれた力強い体が特徴。毛色はゴールドからクリームまで幅があり、このぬいぐるみは明るい金色の毛を表しています。',
+ 'イギリスで発達した鳥猟犬です。現在のゴールデン・レトリーバーという名前に統一されたのは1920年のことです。',
+ '名前は金色でも、クリーム色の子も同じ犬種。色の濃さだけでなく、体つきや表情も見比べてみてね。',jkc('golden-retriever')],
+ ['dalmatian','ダルメシアン','DALMATIAN','dog','dalmatian','大型','短毛','クロアチア・ダルメシア地方',
+ '白い毛に、くっきりした水玉模様。',
+ '白い地色に丸い斑点が入り、筋肉質でバランスのよい体をしています。このぬいぐるみは黒い斑点の子を表しています。',
+ 'かつて馬車犬として知られ、速い速度に合わせて走る力を備えてきました。犬種の標準は19世紀のイギリスでまとめられました。',
+ '斑点は黒だけでなく、レバーと呼ばれる茶色の子もいます。水玉の色にも違いがあるのです。',jkc('dalmatian')],
+ ['papillon','パピヨン','PAPILLON','dog','papillon','小型','長毛','フランス、ベルギー',
+ '蝶の羽みたいに広がる、飾り毛の耳。',
+ '大きな耳と長い被毛、軽やかな体つきが印象的。白い地色にさまざまな色の模様があり、この子は茶色の耳と顔の模様をまとっています。',
+ '小さなスパニエルを祖先にもち、人と暮らす愛玩犬として親しまれてきました。JKCの原産国表記はフランス、ベルギーです。',
+ 'パピヨンはフランス語で「蝶」という意味。耳の形を蝶の羽に見立てた名前です。名前の由来を知ると、耳を見るのも楽しくなるね。',jkc('papillon')],
+ ['samoyed','サモエド','SAMOYED','dog','samoyed','中型','ダブルコート','ロシア北部及びシベリア',
+ '白いもふもふと、にっこりした口元。',
+ '立ち耳と豊かな被毛をもつ、北方のスピッツの仲間。白だけでなく、クリームや白地に淡いビスケット色の入る毛色もあります。',
+ 'ロシア北部やシベリアで、人とともに暮らし、狩猟やそり引きで働いてきた犬です。現在は伴侶犬としても親しまれています。',
+ '「サモエド・スマイル」は、目の形や位置と、少し上がった口角がつくる表情の呼び名。にっこり見える顔にも犬種らしさがあるのです。',jkc('samoyed')],
  ['calico','イエネコ（三毛）','DOMESTIC CAT · CALICO','other',null,'個体により異なる','三毛柄','特定の原産国を示す品種ではありません',
  '白・黒・茶色の模様をまとった猫。',
  '白い部分に黒と茶色の模様が入った毛柄を、ここでは三毛と呼びます。模様の位置や広さはそれぞれ違い、同じ配色でも一匹ずつ違う表情に見えます。',
@@ -44,6 +64,7 @@ const entries=[
  '長い耳や力強い後ろ脚が特徴。飼われているうさぎには、体格や耳の形、毛の長さが異なるさまざまな品種があります。この見本は特定の品種を表していません。',
  'カイウサギは野生のヨーロッパのアナウサギにつながる動物です。耳の向きや体の姿勢にも、周囲を気にする様子が現れます。',
  '耳を動かして音の場所を探れます。犬や猫とは違う体の仕組みや動きにも注目すると、動物を見る楽しみが広がります。',[{url:'https://www.rspca.org.uk/adviceandwelfare/pets/rabbits',title:'RSPCA · Pet rabbits',checkedAt:'2026-10-19'}]],
+
 ];
 const ALL_PLUSH=Object.freeze(entries.map(([id,name,english,category,breedId,size,coat,origin,tagline,features,history,trivia,sources],i)=>Object.freeze({id,number:i+1,name,english,category,breedId,size,coat,origin,tagline,features,history,trivia,sources,contentVersion:1,image:'/assets/plush/'+id+'-v1.png'})));
 // Retain retired IDs for old ownership and receipts; only dogs are currently available.
