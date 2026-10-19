@@ -1,5 +1,5 @@
 // Editorial content, not AI generated at runtime. Sources checked 2026-10-19.
-export const CATALOG_VERSION='2026-10-19-v1';
+export const CATALOG_VERSION='2026-10-19-dogs-v2';
 export const DRAW_COST=50,EXCHANGE_COST=5;
 export const SHELF_SLOTS=Object.freeze(Array.from({length:6},(_,i)=>'shelf-1-'+i));
 const jkc=slug=>[{url:'https://www.jkc.or.jp/breeds/'+slug+'/',title:'JKC 犬種紹介',checkedAt:'2026-10-19'}];
@@ -45,5 +45,8 @@ const entries=[
  'カイウサギは野生のヨーロッパのアナウサギにつながる動物です。耳の向きや体の姿勢にも、周囲を気にする様子が現れます。',
  '耳を動かして音の場所を探れます。犬や猫とは違う体の仕組みや動きにも注目すると、動物を見る楽しみが広がります。',[{url:'https://www.rspca.org.uk/adviceandwelfare/pets/rabbits',title:'RSPCA · Pet rabbits',checkedAt:'2026-10-19'}]],
 ];
-export const PLUSH_CATALOG=Object.freeze(entries.map(([id,name,english,category,breedId,size,coat,origin,tagline,features,history,trivia,sources],i)=>Object.freeze({id,number:i+1,name,english,category,breedId,size,coat,origin,tagline,features,history,trivia,sources,contentVersion:1,image:'/assets/plush/'+id+'-v1.png'})));
-export const plushById=id=>PLUSH_CATALOG.find(p=>p.id===id);
+const ALL_PLUSH=Object.freeze(entries.map(([id,name,english,category,breedId,size,coat,origin,tagline,features,history,trivia,sources],i)=>Object.freeze({id,number:i+1,name,english,category,breedId,size,coat,origin,tagline,features,history,trivia,sources,contentVersion:1,image:'/assets/plush/'+id+'-v1.png'})));
+// Retain retired IDs for old ownership and receipts; only dogs are currently available.
+export const PLUSH_CATALOG=Object.freeze(ALL_PLUSH.filter(p=>p.category==='dog'));
+export const plushById=id=>ALL_PLUSH.find(p=>p.id===id);
+export const isActivePlush=id=>PLUSH_CATALOG.some(p=>p.id===id);
