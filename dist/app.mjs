@@ -1,3 +1,4 @@
+import {createShelfPosition} from './shelf-position.mjs?v=1';
 import {createPlushUI} from './plush-ui.mjs?v=1';
 import {createAccountClient} from './account-client.mjs?v=plush-1';
 const account=await createAccountClient();
@@ -180,6 +181,7 @@ function refreshDate(){if(lastDate!==dateKey()){lastDate=dateKey();render();}els
 window.addEventListener('storage',event=>{if(event.key===CHAT_STORAGE||event.key===null){companionChat.sync();$('companion-chat-toggle').checked=companionChat.enabled;}});
 window.addEventListener('storage',event=>{if(account.enabled&&account.user)return;if(event.key!==STORAGE)return;try{const parsed=event.newValue===null?emptyState():JSON.parse(event.newValue);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);loadFailed=false;render();toast('別のタブのきろくを反映しました。');}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='別のタブのきろくを読み込めませんでした。元のデータは上書きしません。';}});
 plushUI=createPlushUI({account,openPanel:()=>switchTab('plush'),toast});
+createShelfPosition({shelf:$('plush-shelf'),scene:$('scene-home'),backdrop:$('scene-home').querySelector('.room-backdrop')});
 progress=createProgressUI({storage,account,getState:()=>state,onChange:()=>render(),onContinue:activity=>{switchTab('room');conversation?.focus(activity.title);},onError:message=>toast(message)});
 conversation=createKomugiConversation({root:$('talk'),storage,fetchImpl:account.fetch,cloud:account.enabled&&!!account.user,getPetName:petName,pendingStore:account.pendingConversation,onClearHistory:()=>account.clearHistory?.(),getContext:()=>({date:dateKey(),hour:new Date().getHours(),stage:growthForXP(totals(state).xp).stage.id,nickname:readProfile().nickname,petName:petName(),...progress.context()}),onReply:showConversationReply,onSend:approachForConversation,onFailure:clearConversationSpeech,onResult:(result,text,context)=>account.enabled&&account.user?({reply:result.reply,receipts:result.receipts??[]}):progress.handleReport(result,text,context),onInteraction:active=>{if(active)companionChat.interrupt();else companionChat.refresh();},onClearTarget:()=>progress.clearTarget()});
 new ResizeObserver(()=>roomMotion.refresh()).observe($('room-console'));
