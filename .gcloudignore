@@ -19,6 +19,7 @@
 !test/progress.test.mjs
 !test/admin-auth.test.mjs
 !test/admin-usage.test.mjs
+!test/plush-gacha.test.mjs
 !test/account-api.test.mjs
 !test/owner-memory.test.mjs
 !test/account-client.test.mjs

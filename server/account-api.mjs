@@ -1,3 +1,4 @@
+import {applyPlush,drawCandidate} from './plush-gacha.mjs';
 import {emptyMemory,normalizeMemory,splitMemoryWindow,conversationInput,memoryDay} from './owner-memory.mjs';
 import {randomUUID} from 'node:crypto';
 import {emptyAccount,publicAccount,importAccount,applyCommand,requireRevision,requireSetup,problem,uuid,fingerprint,dayKey} from './account-model.mjs';
@@ -11,7 +12,7 @@ const originOK=req=>{try{return req.headers['sec-fetch-site']!=='cross-site'&&ne
 async function body(req,limit=2*1024*1024){let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>limit)throw problem(413,'too_large','記録が大きすぎるため、取り込めませんでした。元のデータは残っています。');chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks));}catch{throw problem(400,'invalid_json','送信内容を確認してね。');}}
 const known=error=>fail(error.status??503,error.code??'storage_unavailable',error.status?error.message:'今は記録につながりません。入力を残して、少し待ってから試してね。');
 
-export function createAccountAPI({store,verify,config,generate,summarize=null,now=Date.now,apiAvailable=true,proxy=globalThis.fetch,admin=null}){
+export function createAccountAPI({store,verify,config,generate,summarize=null,now=Date.now,apiAvailable=true,proxy=globalThis.fetch,admin=null,choosePlush=drawCandidate}){
   async function identity(req){const match=/^Bearer ([^\s]+)$/.exec(req.headers.authorization??'');if(!match)throw problem(401,'login_required','Googleでログインして、こむぎと話そう。');
     try{const user=await verify(match[1]);if(!user?.uid||user.uid.includes('/'))throw Error();return user;}catch{throw problem(401,'login_expired','ログインし直してね。入力は残してあります。');}}
   const packet=state=>({state:publicAccount(state)});
@@ -49,6 +50,9 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
         }
         throw problem(404,'not_found','見つかりませんでした。');
       }
+      if(pathname==='/api/plush/history'&&req.method==='GET'){
+        const cursor=new URL(req.url,'https://app.invalid').searchParams.get('cursor');if(cursor&&!uuid(cursor))throw problem(400,'invalid_cursor','履歴の続きを確認してね。');send(res,200,await store.plushHistory(uid,cursor));return true;
+      }
       if(pathname==='/api/chat/session'&&req.method==='GET'){send(res,200,{available:apiAvailable});return true;}
       if(pathname==='/api/sync'&&req.method==='GET'){const revision=new URL(req.url,'https://app.invalid').searchParams.get('revision');if(revision!==null&&/^\d+$/.test(revision)){const state=await store.readIfChanged(uid,Number(revision));send(res,200,state?packet(state):{unchanged:true});return true;}}
       if(['/api/sync','/api/me','/api/export'].includes(pathname)&&req.method==='GET'){send(res,200,packet(await store.read(uid)));return true;}
@@ -62,6 +66,15 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
       }
       if(pathname==='/api/commands'&&req.method==='POST'){
         const input=await body(req,32*1024);if(!uuid(input.requestId))throw problem(400,'invalid_id','要求IDを確認してね。');const hash=fingerprint(input);
+        if(['plush_draw','plush_exchange'].includes(input.command?.type)){
+          const candidate=input.command.type==='plush_draw'?choosePlush():null;
+          const result=await store.gacha(uid,input.requestId,(state,old,enabled)=>{
+            if(old){if(old.fingerprint!==hash)throw problem(409,'request_conflict','同じ要求IDの内容が違います。');const {fingerprint:_,...receipt}=old;return {value:{...packet(state),plushResult:receipt,requestId:input.requestId}};}
+            requireRevision(state,input.revision);requireSetup(state);
+            const next=applyPlush(state,input.command,{id:input.requestId,candidate,now:now(),enabled});
+            return {state:next.state,transaction:{...next.transaction,fingerprint:hash},value:{...packet(next.state),plushResult:next.transaction,requestId:input.requestId}};
+          });send(res,200,result);return true;
+        }
         const result=await store.atomic(uid,input.requestId,(state,op)=>{
           const repeated=replay(op,hash,state);if(repeated)return {value:repeated};requireRevision(state,input.revision);
           let next;

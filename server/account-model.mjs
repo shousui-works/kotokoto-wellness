@@ -1,3 +1,5 @@
+import {emptyCollection} from '../dist/collection-model.mjs';
+import {applyPlush} from './plush-gacha.mjs';
 import {emptyMemory} from './owner-memory.mjs';
 import {createHash} from 'node:crypto';
 import {emptyState,normalizeState,recordHabit,buyItem,petCompanion,MOODS,HABITS} from '../dist/model.mjs';
@@ -7,7 +9,7 @@ import {normalizeConversation} from '../dist/komugi-conversation.mjs';
 export const problem=(status,code,message)=>Object.assign(new Error(message),{status,code});
 export const uuid=id=>typeof id==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id);
 export const fingerprint=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export function emptyAccount(){const legacy=emptyState();return {revision:0,initialized:false,datasetId:null,legacy,progress:emptyProgress(legacy),profile:{version:1,nickname:''},conversation:{version:1,messages:[]},chatEnabled:true,chatLease:null,historyEpoch:"0",messageCounter:0,memory:emptyMemory()};}
+export function emptyAccount(){const legacy=emptyState();return {revision:0,initialized:false,datasetId:null,legacy,progress:emptyProgress(legacy),profile:{version:1,nickname:''},conversation:{version:1,messages:[]},chatEnabled:true,chatLease:null,historyEpoch:"0",messageCounter:0,memory:emptyMemory(),collection:emptyCollection()};}
 export function publicAccount(state){const {chatLease,...copy}=state;return structuredClone(copy);}
 export const dayKey=(now=Date.now())=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
 export function requireRevision(state,revision){if(revision!==state.revision)throw problem(409,'revision_conflict','別の端末で更新されました。最新の内容を確認して、もう一度保存してね。');}
@@ -24,7 +26,7 @@ export function importAccount(payload){
   }catch{throw problem(400,'invalid_import','記録の形式・件数を確認してね。元の記録は残しています。');}
 }
 export function applyCommand(original,command,now=Date.now()){
-  requireSetup(original);if(!command||typeof command.type!=='string')throw problem(400,'invalid_command','操作を確認してね。');
+  requireSetup(original);if(command&&['plush_display','plush_seen'].includes(command.type))return applyPlush(original,command,{now}).state;if(!command||typeof command.type!=='string')throw problem(400,'invalid_command','操作を確認してね。');
   const state=structuredClone(original),today=dayKey(now),at=new Date(now).toISOString();
   const date=command.date??today;if(!validDate(date)||date>today)throw problem(400,'invalid_date','日付を確認してね。');
   const day=()=>state.legacy.days[date]??={habits:[]};
