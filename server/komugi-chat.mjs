@@ -179,7 +179,7 @@ export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchIm
       });
       if (!response.ok) return fail(response.status === 429 ? 429 : 502, 'upstream_unavailable', '今はお返事が届きにくいみたい。少し待って、また話しかけてね。');
       const result=await response.json();
-      await captureCacheUsage('chat',result,Date.now()-started,onUsage);
+      await captureCacheUsage('chat',result,Date.now()-started,onUsage?(entry,meta)=>onUsage(entry,{...meta,uid:id}):null);
       const report = extractReport(result,input);
       return report ? {status: 200, body: {requestId: input.requestId, ...report}}
         : fail(502, 'invalid_reply', 'うまくお返事できなかったみたい。もう一度聞かせてね。');

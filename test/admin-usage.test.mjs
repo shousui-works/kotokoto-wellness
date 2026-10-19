@@ -37,3 +37,21 @@ test('Firestore accounting writes minimal events and one daily aggregate atomica
  const store=new FirestoreUsageStore(db);await store.record(entry,meta);await store.record(entry,meta);assert.equal(docs.size,2);assert.equal(docs.get('aiUsageDays/2026-10-19').calls,1);assert.equal([...docs.keys()].filter(k=>k.startsWith('aiUsageEvents/')).length,1);
  assert.equal(await store.isAdmin('normal'),false);docs.set('adminRoles/owner',{enabled:true});assert.equal(await store.isAdmin('owner'),true);
 });
+
+test('user totals deduplicate responses, combine days, and exclude unattributed legacy usage from averages',async()=>{
+ const store=new MemoryUsageStore(),now=Date.parse('2026-10-19T01:00:00Z');
+ await store.record(entry,{...meta,uid:'alice'});await store.record(entry,{...meta,uid:'bob'}); // same response must not move users
+ await store.record({...entry,purpose:'memory'},{...meta,responseId:'a-2',uid:'alice',at:'2026-10-17T15:01:00Z'});
+ await store.record(entry,{...meta,responseId:'b-1',uid:'bob'});
+ await store.record(entry,{...meta,responseId:'legacy'});
+ await store.record(entry,{...meta,responseId:'outside',uid:'other',at:'2026-09-01T00:00:00Z'});
+ const d=await store.dashboard(7,now);assert.equal(d.total.calls,4);assert.equal(d.userSummary.activeUsers,2);assert.equal(d.userSummary.unattributedCalls,1);assert.equal(d.userSummary.perUser.calls,1.5);assert.equal(d.userSummary.perUser.costNanos,1785000);assert.equal(d.userSummary.perCall.costNanos,1190000);
+ assert.equal(d.users[0].uid,'alice');assert.equal(d.users[0].calls,2);assert.equal(d.users[0].activeDays,2);assert.equal(d.users[1].calls,1);
+ assert.equal(store.events.get('response-1').uid,undefined);assert.equal(store.events.get('response-1').userKey.length,64);
+ const empty=await store.dashboard(7,Date.parse('2026-01-01'));assert.equal(empty.userSummary.perUser,null);assert.equal(empty.userSummary.perCall,null);
+});
+test('Firestore user aggregates are atomic with global aggregates and cannot double-count retries',async()=>{
+ const docs=new Map(),ref=path=>({path,doc:id=>ref(path+'/'+id)}),db={collection:name=>ref(name),async runTransaction(fn){let writing=false;await fn({get:async r=>{assert.equal(writing,false);return {exists:docs.has(r.path),data:()=>docs.get(r.path)};},set:(r,v)=>{writing=true;docs.set(r.path,structuredClone(v));}});}};
+ const store=new FirestoreUsageStore(db);await store.record(entry,{...meta,uid:'alice'});await store.record(entry,{...meta,uid:'bob'});
+ assert.equal(docs.size,3);const u=[...docs].find(([k])=>k.startsWith('aiUsageUserDays/'))[1];assert.equal(u.uid,'alice');assert.equal(u.calls,1);assert.equal(u.byPurpose.chat.calls,1);
+});
