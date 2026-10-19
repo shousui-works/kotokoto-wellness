@@ -7,7 +7,7 @@ test('client keeps an editor revision, restores connectivity with an unchanged c
  globalThis.document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,{value:'',textContent:'',hidden:false,addEventListener(){},showModal(){}});return elements.get(id);},addEventListener(){}};
  globalThis.window={addEventListener:(name,fn)=>events.set(name,fn)};globalThis.location={hostname:'localhost',reload(){}};
  t.after(()=>Object.assign(globalThis,old));
- let cloud={...emptyAccount(),initialized:true,datasetId:'fixture',revision:10},disconnected=false,captured;
+ let cloud={...emptyAccount(),initialized:true,datasetId:'fixture',revision:10},disconnected=false,captured,recover=false;
  const local=memory();local.setItem('kotokoto-wellness-v1',JSON.stringify({version:1,days:{'2026-01-01':{habits:[]}},owned:[],decor:[]}));
  const sdkLoader=async()=>[{initializeApp:()=>({})},{getAuth:()=>({currentUser:{uid:'alice',email:'alice@example.test',getIdToken:async()=>'alice-token'},authStateReady:async()=>{}}),GoogleAuthProvider:class {},getRedirectResult:async()=>null,onAuthStateChanged(){},signOut:async()=>{},signInWithPopup:async()=>{},signInWithRedirect:async()=>{}}];
  const fetchImpl=async(path,init)=>{
@@ -15,7 +15,7 @@ test('client keeps an editor revision, restores connectivity with an unchanged c
   if(disconnected)throw new TypeError('offline');
   assert.equal(init.headers.Authorization,'Bearer alice-token');
   if(path.startsWith('/api/sync'))return Response.json(path.includes('revision=10')?{unchanged:true}:{state:cloud});
-  if(path==='/api/commands'){captured=JSON.parse(init.body);return Response.json({error:{code:'revision_conflict',message:'最新を確認してね。'}},{status:409});}
+  if(path==='/api/commands'){captured=JSON.parse(init.body);if(recover)return Response.json({state:{...cloud,revision:11},plushResult:{requestId:captured.requestId,item:'pomeranian'}});return Response.json({error:{code:'revision_conflict',message:'最新を確認してね。'}},{status:409});}
   throw Error('unexpected route');
  };
  const client=await createAccountClient({local,sdkLoader,fetchImpl,schedule(){}});
@@ -24,5 +24,7 @@ test('client keeps an editor revision, restores connectivity with an unchanged c
  disconnected=true;await events.get('online')();assert.equal(client.writable,false);
  disconnected=false;await events.get('online')();assert.equal(client.writable,true);
  assert.equal(JSON.parse(local.getItem('kotokoto-wellness-v1')).days['2026-01-01'].habits.length,0);
+ recover=true;const pending={requestId:'00000000-0000-4000-8000-000000000001',revision:9,command:{type:'plush_draw'}};local.setItem('kotokoto-cloud-pending-v1:alice',JSON.stringify(pending));
+ const recovered=await createAccountClient({local,sdkLoader,fetchImpl,schedule(){}});assert.deepEqual(captured,pending);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);assert.equal(recovered.state.revision,11);
 });
 test('migration preview never rewrites corrupt or future local records',()=>{const local=memory();local.setItem('kotokoto-wellness-v1','{"version":2}');assert.throws(()=>localImport(local));assert.equal(local.getItem('kotokoto-wellness-v1'),'{"version":2}');});

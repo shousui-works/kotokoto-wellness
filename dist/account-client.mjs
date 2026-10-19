@@ -93,6 +93,9 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     render();
   }
   await sync();setupUI();
+  // A lost response must replay the original draw ID, not charge for a new draw.
+  if(user&&state?.initialized&&!offline&&pending&&['plush_draw','plush_exchange'].includes(pending.command?.type)){try{await mutate(pending.command);}catch(error){notice=error.message;render();}}
+
   const draftInput=$('conversation-input');if(user&&draftInput){draftInput.value=local.getItem('kotokoto-cloud-draft:'+user.uid)??'';draftInput.addEventListener('input',()=>{if(user)local.setItem('kotokoto-cloud-draft:'+user.uid,draftInput.value);});}
   let initialUID=user?.uid??null;onAuthStateChanged(auth,next=>{if((next?.uid??null)===initialUID)return;generation++;if(initialUID){local.removeItem(cacheKey(initialUID));local.removeItem(pendingKey(initialUID));local.removeItem('kotokoto-cloud-draft:'+initialUID);local.removeItem('kotokoto-cloud-chat-pending:'+initialUID);}user=next;state=null;map.clear();location.reload();});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync();});window.addEventListener('focus',()=>sync());window.addEventListener('online',()=>sync());schedule(()=>{if(!document.hidden)sync();},30000);
