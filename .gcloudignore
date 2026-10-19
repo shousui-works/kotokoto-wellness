@@ -25,6 +25,7 @@
 !test/profile.test.mjs
 !test/name-intro.test.mjs
 !test/companion-face.test.mjs
+!test/companion-affection.test.mjs
 **/.env
 **/.env.*
 **/*.pem

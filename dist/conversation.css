@@ -185,3 +185,12 @@
 #memory-details {margin:24px 0;}
 #memory-details summary {cursor:pointer;font-weight:700;}
 .owner-memory {white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;}
+
+/* Short affection bursts follow the dog, leaving the face and bubble unobstructed. */
+.companion-hearts{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:visible}
+.companion-heart{position:absolute;left:var(--heart-x);bottom:var(--heart-y);font-family:Georgia,serif;font-size:var(--heart-size);font-weight:400;line-height:1;color:#d4939c;text-shadow:0 1px 5px #fff8e9c9;opacity:0;animation:komugi-heart-float 3.2s ease-out var(--heart-delay) both;will-change:transform,opacity}
+.dog[data-affection-burst="3"] .companion-heart,.dog[data-affection-burst="4"] .companion-heart{color:#d58294}
+.room-scene--world .dog[data-affection-burst]::after,.room-scene--world .dog[data-conversation=near]::after{opacity:0!important}
+@keyframes komugi-heart-float{0%{opacity:0;transform:translate(-50%,7px) scale(.65) rotate(var(--heart-rotation))}18%{opacity:.94}65%{opacity:.85}100%{opacity:0;transform:translate(calc(-50% + var(--heart-drift)),var(--heart-rise)) scale(1.1) rotate(0deg)}}
+.companion-hearts.is-still .companion-heart{animation:none;opacity:.8;transform:translateX(-50%) rotate(var(--heart-rotation));will-change:auto}
+@media(prefers-reduced-motion:reduce){.companion-heart{animation:none!important;opacity:.8;transform:translateX(-50%);will-change:auto}}
