@@ -29,18 +29,18 @@ export const COMPANION_FEELINGS={
   lonely:{id:'lonely',label:'ちょっぴりさみしい',lines:['おかえり。休んでいた日も、きみのペースで大丈夫。','会いに来てくれてありがとう。ここで、ひと息つこうね。']},
   soothed:{id:'soothed',label:'会えて、ほっとした',lines:['きみの手、やさしいね。なでてくれて、ありがとう。','そんなきみといられて、ぼくはしあわせだよ。']}
 };
-export function affectionFor(state){
-  const score=Math.min(100,Math.floor(totals(state).xp/5));
+export function affectionFor(state,progress=null){
+  const score=Math.min(100,Math.max(Math.floor(totals(state).xp/5),progress?.score??0));
   const label=score>=100?'べったり':score>=50?'だいすき':score>=20?'なかよし':score>=6?'顔なじみ':'はじめまして';
   return {score,label};
 }
-export function companionFeeling(state,now=new Date()){
-  const key=dateKey(now),completed=state.days[key]?.habits.length||0;
+export function companionFeeling(state,now=new Date(),progress=null){
+  const key=dateKey(now),completed=(state.days[key]?.habits.length||0)+(progress?.todayCount??0);
   if(completed>=3)return COMPANION_FEELINGS.excited;
   if(completed>0)return COMPANION_FEELINGS.happy;
   const elapsed=now.getTime()-(state.lastPettedAt??0);
   if(state.lastPettedAt&&elapsed>=0&&elapsed<15*60*1000)return COMPANION_FEELINGS.soothed;
-  const last=Object.keys(state.days).filter(date=>date<=key&&state.days[date].habits.length>0).sort().at(-1);
+  const last=[...Object.keys(state.days).filter(date=>date<=key&&state.days[date].habits.length>0),...(progress?.recordDates??[]).filter(date=>date<=key)].sort().at(-1);
   if(!last)return COMPANION_FEELINGS.curious;
   const gap=Math.round((Date.parse(key+'T00:00:00Z')-Date.parse(last+'T00:00:00Z'))/86400000);
   if(gap>=2||(gap===1&&now.getHours()>=18))return COMPANION_FEELINGS.lonely;

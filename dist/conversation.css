@@ -1,0 +1,187 @@
+.room-console{position:fixed;z-index:22;left:50%;bottom:calc(12px + var(--safe-bottom) + var(--room-bottom,0px));translate:-50% 0;width:calc(100% - 24px);max-width:560px;border-radius:23px;overflow:hidden;background:#fffdf4f0;box-shadow:0 9px 40px #4f4a2921;display:flex;flex-direction:column;max-height:calc(var(--room-height,100dvh)*.7)}
+.room-conversation{min-height:0;display:flex;flex-direction:column}
+.conversation-clear{border:0;background:transparent;color:#9b937e;font-size:8px;text-decoration:underline;padding:5px;display:none}
+.conversation-target{font-size:10px;color:#8c7e60;margin:0 15px 5px;line-height:1.6}
+.conversation-target button{margin-left:8px;border:0;background:transparent;color:#8c7e60;font-size:12px}
+.conversation-thread{flex:1;min-height:0;max-height:112px;overflow-y:auto;overscroll-behavior:contain;padding:5px 14px 7px;display:flex;flex-direction:column;gap:8px;scroll-padding:10px;scrollbar-width:thin;scrollbar-color:#d3d9c7 transparent}
+.conversation-message{flex:none;max-width:94%;align-self:flex-start;min-width:55px}
+.conversation-message--user{align-self:flex-end}
+.conversation-author{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.conversation-message p{margin:0;background:#edf2e2;border:1px solid #e1e8d3;border-radius:4px 14px 14px;padding:8px 11px;color:#536449;font-size:12px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+.conversation-message--user p{border-radius:14px 4px 14px 14px;background:#fff9ed;border-color:#eee6d4;color:#827252}
+.conversation-message time{display:none}
+.conversation-receipts{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.conversation-receipt{font-size:9px;line-height:1.6;border-radius:8px;background:#e5edda;color:#768963;padding:3px 7px}
+.conversation-receipt--pending{background:#f7efdc;color:#a18a5e}
+.conversation-receipt b{font-weight:500;margin-left:4px}
+.conversation-compose{flex:none;padding:12px 12px 8px}
+.conversation-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.conversation-input-row{display:flex;align-items:flex-end;gap:7px;padding:4px 5px 4px 10px;border:1px solid #dbe3cd;border-radius:17px;background:#fffef8}
+.conversation-input-row:focus-within{border-color:#9eb48a;box-shadow:0 0 0 2px #9eb48a1c}
+.conversation-input-row textarea{display:block;flex:1;min-width:0;resize:none;border:0;background:transparent;color:#536047;font:inherit;font-size:16px;line-height:1.5;height:38px;min-height:38px;max-height:90px;padding:7px 1px;margin:0;outline:0}
+.conversation-input-row textarea::placeholder{color:#a0a68e;font-size:13px}
+.conversation-send{border:0;flex:none;border-radius:50%;width:36px;height:36px;background:#7f9668;color:#fff;display:grid;place-items:center;margin-bottom:1px}
+.conversation-send svg{width:19px!important;height:19px!important;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.conversation-send:disabled{background:#dce3d0;color:#fff;cursor:default}
+.conversation-meta{display:flex;justify-content:space-between;gap:8px;margin:6px 3px 0;color:#9ca18d;font-size:8px;line-height:1.5}
+.conversation-meta p{margin:0;font-size:8px;line-height:1.6}
+#conversation-count{visibility:hidden;white-space:nowrap}
+.conversation-compose:focus-within #conversation-count{visibility:visible}
+.conversation-state{display:flex;align-items:center;gap:6px;padding:0 15px}
+.conversation-status{font-size:10px;color:#87916f;line-height:1.6;margin:0}
+.conversation-status:not(:empty){padding:4px 0}
+#conversation-reconnect{font-size:9px;color:#758660;background:#edf2e3;border:0;border-radius:12px;padding:5px 8px;white-space:nowrap;margin-left:auto}
+.conversation-warning{margin:0;padding:6px 14px;background:#fff4dd;color:#8a7350;font-size:10px;line-height:1.6;flex:none}
+.room-console .room-dock.tabs{position:static;translate:none;left:auto;bottom:auto;flex:none;width:100%;max-width:none;border:0;border-top:1px solid #e9ebdc;border-radius:0;box-shadow:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;padding:4px 8px 5px;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin:0}
+.room-console .room-dock.tabs button{min-height:42px;border-radius:12px;flex-direction:row;gap:5px;padding:3px 4px;font-size:9px}
+.room-console .dock-symbol{height:23px;width:26px}
+.room-console .room-dock button svg{height:20px;width:20px}
+.room-console .dock-count{top:-3px;right:-4px;font-size:7px}
+.room-console .room-dock .dock-pet{background:#edf2e3}
+.daily-points-card{position:relative;background:#edf2e3;border:1px solid #dde5cd;border-radius:18px;padding:20px;margin-bottom:22px;color:#738260}
+.daily-points-card>div>span{display:block;font-size:11px}
+.daily-points-card strong{display:block;font:500 44px 'Zen Maru Gothic',sans-serif;margin:2px 0;color:#61764e}
+.daily-points-card small{font-size:10px;color:#899477}
+.room-sheet .daily-points-card p{font-size:10px;margin:14px 0 0;color:#8e977e}
+.daily-flower{position:absolute;right:26px;top:24px;font-size:58px;color:#cad7b3}
+.daily-quests{display:flex;flex-direction:column;gap:7px;margin:12px 0 21px}
+.daily-quest{display:flex;align-items:center;gap:10px;border:1px solid #e9eade;border-radius:12px;padding:10px 12px;background:#fdfcf7;color:#939a83}
+.daily-quest.is-done{background:#f0f5e7;border-color:#d6e1c3;color:#71845b}
+.quest-mark{font-size:17px;width:19px;text-align:center}
+.daily-quest>div{flex:1;min-width:0}.daily-quest strong{display:block;font-size:11px;font-weight:500}.daily-quest small{display:block;font-size:9px;color:#a0a68f;margin-top:3px}.daily-quest b{font-size:11px;font-weight:500;color:#a39c7d}
+.room-sheet .report-open{margin:15px 0 22px}
+.legacy-records{border-top:1px solid #e5e8d9;padding-top:15px}.legacy-records summary{font-size:11px;color:#829170;cursor:pointer;padding:7px 0 16px}
+.daily-report-panel{margin-bottom:26px}.room-sheet .daily-report-panel h2{font-size:16px;margin:0}
+.room-sheet .report-date-label{font-size:8px;margin:0;color:#a0a58f}.room-sheet .report-date-label input{display:block;width:auto;max-width:132px;font-size:10px;padding:6px 7px;border-radius:9px;margin-top:4px}
+.points-chart{display:flex;align-items:flex-end;gap:3px;overflow-x:auto;padding:15px 0 0;min-height:145px;border-bottom:1px solid #e5e8d8;scrollbar-width:thin}
+.points-day{flex:1;min-width:19px;border:0;border-radius:6px 6px 0 0;background:transparent;padding:0 1px 7px;display:flex;flex-direction:column;align-items:center;color:#a1a68f;gap:5px}
+.points-day.is-selected{background:#edf1e3}.points-value{font-size:8px}.points-bar{height:94px;display:flex;width:12px;flex-direction:column;justify-content:flex-end;overflow:hidden;border-radius:4px;background:linear-gradient(transparent 96%,#e1e6d6 96%)}.points-exercise{display:block;background:#8ca774;width:100%;flex:none}.points-bonus{display:block;background:#d9bc83;width:100%;flex:none}.points-date{font-size:7px;white-space:nowrap}
+.room-sheet .chart-legend{font-size:8px;color:#a1a58f;line-height:1.8;margin:8px 0 18px}.chart-legend>span:first-child{color:#8ca774}.chart-legend>span:nth-child(2){color:#c1a773;margin:0 8px}
+.report-score-line{display:flex;align-items:baseline;gap:9px;color:#7d8f69}.report-score-line b{font:500 36px 'Zen Maru Gothic',sans-serif}.report-score-line span{font-size:10px}
+.room-sheet .report-praise{font-family:'Zen Maru Gothic',sans-serif;font-size:12px;color:#7e8c6c;line-height:1.8;background:#f0f3e8;padding:12px 14px;border-radius:12px;margin:13px 0}
+.daily-activity{display:flex;gap:9px;align-items:center;justify-content:space-between;border-bottom:1px solid #eaecdf;padding:12px 0}.daily-activity-copy{min-width:0}.daily-activity strong{font-size:11px;font-weight:500;color:#758565}.room-sheet .daily-activity p{font-size:9px;line-height:1.8;margin:5px 0;color:#9a9e88;overflow-wrap:anywhere}.activity-edit{border:0;background:transparent;color:#a1a58e;font-size:9px;flex:none;padding:7px}.pending-label{display:inline-block;font-size:9px;color:#a58c5c;background:#f7efdc;border-radius:6px;padding:3px 6px}.activity-continue{font-size:9px;color:#7d9068;background:#eaf0de;border:0;border-radius:8px;padding:5px 8px;margin-left:7px}
+@media(min-width:900px){.room-console{bottom:calc(18px + var(--room-bottom,0px));max-width:540px}.conversation-thread{max-height:106px}}
+@media(max-width:600px){.room-console .room-dock.tabs button{font-size:8px;gap:4px}.room-console .dock-symbol{width:23px}}
+@media(max-height:600px){.room-console{max-height:65dvh}.conversation-thread{max-height:66px}.conversation-meta{display:none}.room-console .room-dock.tabs button{min-height:32px}.conversation-input-row textarea{min-height:32px;height:32px;padding:5px 1px}.conversation-send{height:31px;width:31px}.conversation-compose{padding-top:3px;padding-bottom:5px}}
+.reading-conversation .companion-bubble{visibility:hidden}
+
+.report-quests{display:flex;flex-wrap:wrap;gap:5px;margin:12px 0}.report-quest{font-size:9px;padding:5px 8px;background:#ecf2e0;color:#81916d;border-radius:8px}
+
+/* The room conversation is spoken by Komugi; the bottom bar is the composer. */
+.conversation-result{display:flex;flex-wrap:wrap;gap:4px;padding:0 15px 5px}
+.conversation-result[hidden],.conversation-thread[hidden],.companion-speech-hint[hidden]{display:none}
+.companion-bubble.is-conversation{width:300px;padding:15px 18px 13px;cursor:pointer}
+.companion-bubble.is-conversation #companion-message{font-size:15px;line-height:1.85}
+.companion-speech-hint{display:block;margin-top:8px;font-size:9px;color:#a18a63;text-align:right;letter-spacing:.3px}
+@media(max-height:600px){.companion-bubble.is-conversation{width:290px;padding:10px 14px}.companion-bubble.is-conversation #companion-message{font-size:13px;line-height:1.7}.companion-speech-hint{margin-top:4px}}
+
+/* History belongs with the room utilities, away from the composer. */
+.room-conversation .conversation-target:not([hidden]){margin-top:10px}
+.room-conversation .conversation-result:not([hidden]){padding-top:10px}
+.conversation-history-dialog{height:min(76dvh,640px);max-height:calc(100dvh - 24px)}
+.conversation-history-dialog[open]{display:flex;flex-direction:column}
+.conversation-history-dialog .sheet-top{position:relative;flex:none}
+.conversation-history-dialog .conversation-thread{flex:1;min-height:0;max-height:none;padding:20px 22px;gap:16px;scrollbar-width:thin}
+.conversation-history-dialog .conversation-message time{display:block;font-size:9px;color:#9a9e8e;margin:4px 3px 0;text-align:right}
+.conversation-history-dialog .conversation-message p{font-size:13px;line-height:1.85}
+.conversation-history-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 22px calc(10px + var(--safe-bottom));border-top:1px solid #e5e9dc;color:#9b9d8e;font-size:9px;flex:none}
+.conversation-history-footer .conversation-clear{display:block;font-size:10px;min-height:36px;padding:6px 0}
+.conversation-history-empty{flex:1;display:grid;place-items:center;text-align:center;color:#929a83;font-size:12px;padding:30px;line-height:1.9}
+.conversation-history-empty[hidden]{display:none}
+@media(max-width:600px){.room-hud .header-actions{gap:6px}.room-hud .brand{padding:9px 10px;gap:6px}.room-hud .brand b{font-size:14px;letter-spacing:.6px}.room-hud .brand-mark{font-size:23px}.room-hud .seed-balance{padding:7px 9px;gap:4px}.room-hud .seed-balance>span:last-child{display:none}}
+@media(max-height:600px){.room-conversation .conversation-compose{padding-top:9px}}
+
+.room-scene--world .dog{transform-origin:50% calc(100% - var(--paw-inset)*100%)}
+
+.room-scene--world .dog[data-conversation]{transition:none}
+
+/* iOS keeps CSS height media queries unchanged when only its visual viewport shrinks. */
+.room-compact .conversation-meta{display:none}
+.room-compact .companion-bubble.is-conversation{width:290px;padding:10px 14px}
+.room-compact .companion-bubble.is-conversation #companion-message{font-size:13px;line-height:1.7}
+.room-compact .companion-speech-hint{margin-top:4px}
+.room-tight .companion-bubble.is-conversation{width:calc(50% - 4px)}
+.keyboard-open .room-console{bottom:calc(8px + var(--room-bottom,0px));border-radius:18px}
+.keyboard-open .room-console .room-dock.tabs,.keyboard-open .pet-profile,.keyboard-open .room-controls,.keyboard-open .room-roam-note{display:none}
+.keyboard-open .room-hud{top:calc(var(--room-top,0px) + 8px)}
+.keyboard-open .room-hud .brand small{display:none}
+.keyboard-open .room-hud .brand{padding:7px 10px}
+.keyboard-open .room-console .conversation-compose{padding:9px 12px}
+.keyboard-open .conversation-result{max-height:32px;overflow-y:auto}
+.keyboard-open .conversation-target{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.keyboard-open .companion-bubble:not(.is-conversation){visibility:hidden}
+.keyboard-open .companion-bubble.is-conversation #companion-message{max-height:max(25px,calc(var(--room-height,100dvh) - 210px));overflow-y:auto}
+.keyboard-open:not(.room-landscape) .room-backdrop{background-image:url('./assets/room-portrait-v2.jpg')}
+.keyboard-open.room-landscape .room-backdrop{background-image:url('./assets/room-landscape-v2.jpg')}
+
+/* Keep utilities behind one menu so the room belongs to Komugi. */
+.room-hud{justify-content:flex-end}
+.room-hud .brand,.room-hud .seed-balance,.pet-profile,.room-roam-note{display:none}
+.bubble-byline{display:none}
+.room-console .conversation-meta{margin:0;height:0;overflow:hidden}
+.room-tools{position:relative;pointer-events:auto}
+.room-tools>summary{list-style:none;display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;background:#fffdf1bd;color:#768664;cursor:pointer;box-shadow:0 2px 12px #55492a0c}
+.room-tools>summary::-webkit-details-marker{display:none}
+.room-tools>summary svg{width:22px;height:22px;fill:currentColor;stroke:currentColor}
+.room-tools[open]>summary{background:#fffdf1}
+.room-tools-panel{position:absolute;right:0;top:46px;width:min(280px,calc(100vw - 32px));max-height:calc(var(--room-height,100dvh) - 90px - var(--safe-top));overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:5px;padding:12px;border:1px solid #ffffffc9;border-radius:19px;background:#fffdf5fa;box-shadow:0 10px 35px #514b2d22}
+.room-tools .room-dock.tabs{position:static;translate:none;width:100%;max-width:none;padding:0;margin:0 0 5px;border:0;border-radius:0;box-shadow:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.room-tools .room-dock.tabs button{min-height:62px;font-size:10px;border-radius:12px}
+.room-tools .dock-count{display:none}
+.room-tools .header-actions,.room-tools .room-controls{position:static;inset:auto;display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%}
+.room-tools .room-tool,.room-tools .room-controls button{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:42px;width:100%;padding:9px 12px;border:0;border-radius:11px;background:transparent;color:#738260;text-align:left;font-size:12px;box-shadow:none}
+.room-tools .room-tool:hover,.room-tools .room-controls button:hover{background:#edf1e3}
+.room-tools .room-tool svg{height:18px;width:18px}
+.room-tools .room-controls .roam-toggle{font-size:13px}
+.room-tools .room-controls .roam-toggle::after{content:'動きをおやすみ';font-size:12px}
+.room-tools .room-controls .roam-toggle[aria-pressed=true]::after{content:'動きを再開'}
+.room-tools .header-actions{border-top:1px solid #e7eadc;padding-top:5px;margin-top:4px}
+.room-tools .room-controls{border-top:1px solid #e7eadc;padding-top:5px}
+.room-tools .room-play-tools:empty{display:none}
+.conversation-compose[hidden]{display:none}
+.name-intro-form .conversation-input-row input{display:block;flex:1;min-width:0;width:0;height:38px;border:0;background:transparent;color:#536047;font:inherit;font-size:16px;line-height:1.5;padding:7px 1px;margin:0;outline:0}
+.name-intro-later{flex:none;min-height:36px;border:0;background:transparent;color:#8d947e;font-size:11px;padding:4px 7px}
+.name-intro-form .conversation-status{padding:0 3px}
+
+/* Animate the artwork, leaving the walk position, feet and speech anchor stable. */
+.room-scene--world .dog[data-conversation=near] .dog-art{
+  animation:komugi-closeup-breathe 3.2s ease-in-out infinite,komugi-closeup-sway 11.4s ease-in-out infinite;
+  animation-play-state:running;
+}
+@keyframes komugi-closeup-breathe{
+  0%,100%{transform:scale(1,1)}
+  48%{transform:scale(1.012,1.024)}
+}
+@keyframes komugi-closeup-sway{
+  0%,12%,42%,70%,100%{rotate:0deg}
+  21%,28%{rotate:-1.6deg}
+  34%{rotate:.7deg}
+  53%,59%{rotate:1.2deg}
+  64%{rotate:-.5deg}
+  82%,88%{rotate:-.8deg}
+  94%{rotate:.4deg}
+}
+.room-scene--world .dog[data-conversation=near][data-motion-paused=true] .dog-art{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.room-scene--world .dog[data-conversation=near] .dog-art{animation:none!important}}
+
+/* Face frames: the body is held on column zero; only the head region changes. */
+.dog{--face-fit:.73;--face-paw:.00552;--face-center:-6.55%;--face-x:0%}
+.dog--young{--face-fit:.765;--face-paw:.01381;--face-center:-7.5%}
+.dog--adult{--face-fit:.787;--face-paw:.03315;--face-center:-7.5%}
+.dog-face-art{position:absolute;inset:0;display:none;translate:var(--face-center) 0;scale:var(--face-fit);transform-origin:50% calc(100% - var(--face-paw)*100%)}
+.dog-face-base,.dog-face-frame{position:absolute;inset:0;background-image:url('./assets/komugi-pomeranian-talk-v1.png');background-size:400% 300%;background-repeat:no-repeat;background-position:0% var(--pose-y)}
+.dog-face-frame{background-position:var(--face-x) var(--pose-y);clip-path:inset(0 0 40% 0)}
+.room-scene--world .dog.has-face-frames[data-conversation=near]{--paw-inset:var(--face-paw)}
+.room-scene--world .dog.has-face-frames[data-conversation=near] .dog-art{visibility:hidden;animation:none}
+.room-scene--world .dog.has-face-frames[data-conversation=near] .dog-face-art{display:block;animation:komugi-closeup-breathe 3.2s ease-in-out infinite}
+.room-scene--world .dog.has-face-frames[data-conversation=near][data-motion-paused=true] .dog-face-art{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.room-scene--world .dog .dog-face-art{animation:none!important}}
+
+#account-dialog{max-width:440px}#account-dialog button:not(.icon-btn){display:block;width:100%;margin-top:12px}#account-email{overflow-wrap:anywhere}#account-setup{margin-top:20px}body.account-loading .room-console{opacity:.65}
+
+#account-names-form input {width:100%;box-sizing:border-box;margin:8px 0 16px;}
+#account-names-form h3 {margin-top:18px;}
+
+#memory-details {margin:24px 0;}
+#memory-details summary {cursor:pointer;font-weight:700;}
+.owner-memory {white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;}
