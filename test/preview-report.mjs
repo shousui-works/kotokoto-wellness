@@ -21,7 +21,7 @@ function fixture(_url,init){
   if(text==='20分歩いたよ'){
     const weight=context.weightKg;
     actions=[action('walk','20分歩いた',{minutes:20,estimatedKcal:weight===null?null:100,estimateBasis:weight===null?null:`${context.weightDate}の体重記録${weight}kg・通常の歩行20分を使う目安（オフラインの固定応答）`})];
-    reply=weight===null?'20分歩けたんだね、えらいねー。計算に使う体重を教えてもらえる？':'20分歩けたんだね、えらいねー。記録してある体重を使って、目安を考えるね。';
+    reply=weight===null?'20分歩けたんだね、えらいねー。今の体重も教えてもらえる？':'20分歩けたんだね、えらいねー。きみが自分のために一歩を重ねて、ぼくもうれしいな。';
   }
   return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply,actions})}]}]});
 }
