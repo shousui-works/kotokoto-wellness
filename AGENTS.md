@@ -138,3 +138,11 @@
 こむぎはカロリー計算・記録・保存・達成判定の実務を会話で説明しない。「ぼくが計算するね」「記録しておくね」「記録の体重を使って目安を考えるね」と約束せず、具体的な行動を喜び気持ちに寄り添う。不足情報だけ自然に一つ尋ね、本人が明示的に数値/計算方法を質問した場合のみ推定であることを示して短く答える。estimatedKcal/estimateBasisと記録・点数の処理は裏側で継続する。
 
 2026-10-19 こむぎの実務的な発言を抑える口調修正を公開。計算・保存の説明を促していた指示を削除し、喜びと具体的な褒め言葉を優先。推定値/根拠の構造化と不足情報の自然な質問は維持。PR #2へafd85ecで反映し、後続PR #3へ通常merge済み。Node103件とCloud Build内テスト成功。Cloud Build 624ae3bc-0a7d-403b-9b39-9e9e5870f6fc / sha256:bd1c1cb369a7f24fc67c9a9deaefcc0725961893bdbe1efc62dfdf842190b7d0 をTerraformでイメージ1件のみ適用。公開応答・認証ヘルパー・未認証API401・静的8ファイル一致、適用後app plan差分なしを確認。実ユーザーの健康情報をAPIテスト送信していない。
+
+## 管理コンソール
+
+`/admin.html` と `dist/admin*.mjs` / `admin.css` が利用量の管理画面。サーバーはFirestore `adminRoles/{uid}.enabled` を毎回確認し、一般ユーザー403/未ログイン401。管理者のUIDやメールをソースへ固定しない。登録は運用者の `scripts/set-admin.mjs --project kotokoto-biyori --email <本人> --grant` で検証済みGoogleアカウントへ行う。APIやプロフィールから権限を変更しない。詳細は `docs/admin-usage-dashboard.md`。
+`server/admin-usage.mjs` はAPIが返すトークン使用量を `aiUsageEvents` と `aiUsageDays` に同一transactionで保存し、response IDのhashで重複を排除する。本文・名前・UID・体重等は保存しない。金額は公式のgpt-6-luna Standard単価とキャッシュ読取/書込を区別した概算USD（確認2026-10-19）、推論は出力に含める。実請求・税・GCPは別。使用量不明を0円と断定しない。旧count-onlyログはbackfill-ai-usageで重複しない取り込みができ、会話本文は参照しない。
+admin-usage/admin-authのテストと隔離コレクションを使うcheck-admin-storageで認可・料金・同時重複排除を確認。preview-adminは架空UI専用で公開しない。管理者登録以外の本人の記録・会話は本番でテスト変更しない。
+
+2026-10-19 管理コンソール公開: ログイン中の本人GoogleアカウントをFirebaseで確認して専用adminRoles台帳へ登録（UID/メールをソースへ保存しない）。Node111件＋admin-auth1件、隔離コレクションの実Firestore同時重複テスト、架空の非健康会話1件による実Luna model/tier/usage→保存→料金算定を確認し検証データ削除。旧count-onlyログ4件を取り込み済み。Cloud Build 7604b3dd-38e5-45ce-ae55-876c611e6a83 / sha256:b00008d2aa109e709c5322036684d74e90e6b7d5c150ade5ba1c66640c5d92eb をイメージ1件のみ更新して公開。本人のGoogleログインで本番管理画面の実データを表示し、未認証管理API401、公開6ファイル一致、app plan差分なしを確認。スマホの期間/グラフ切替・横はみ出しなしを架空UIで確認。検証サーバー/タブ終了、viewport復元。

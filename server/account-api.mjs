@@ -11,7 +11,7 @@ const originOK=req=>{try{return req.headers['sec-fetch-site']!=='cross-site'&&ne
 async function body(req,limit=2*1024*1024){let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>limit)throw problem(413,'too_large','記録が大きすぎるため、取り込めませんでした。元のデータは残っています。');chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks));}catch{throw problem(400,'invalid_json','送信内容を確認してね。');}}
 const known=error=>fail(error.status??503,error.code??'storage_unavailable',error.status?error.message:'今は記録につながりません。入力を残して、少し待ってから試してね。');
 
-export function createAccountAPI({store,verify,config,generate,summarize=null,now=Date.now,apiAvailable=true,proxy=globalThis.fetch}){
+export function createAccountAPI({store,verify,config,generate,summarize=null,now=Date.now,apiAvailable=true,proxy=globalThis.fetch,admin=null}){
   async function identity(req){const match=/^Bearer ([^\s]+)$/.exec(req.headers.authorization??'');if(!match)throw problem(401,'login_required','Googleでログインして、こむぎと話そう。');
     try{const user=await verify(match[1]);if(!user?.uid||user.uid.includes('/'))throw Error();return user;}catch{throw problem(401,'login_expired','ログインし直してね。入力は残してあります。');}}
   const packet=state=>({state:publicAccount(state)});
@@ -38,6 +38,17 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
       if(pathname==='/api/account/config'&&req.method==='GET'){send(res,200,{mode:'required',firebase:config});return true;}
       const user=await identity(req),uid=user.uid;
       if(!['GET','HEAD'].includes(req.method)&&!originOK(req))throw problem(403,'origin_rejected','この画面からもう一度試してね。');
+      if(pathname.startsWith('/api/admin/')){
+        const allowed=admin?await admin.isAdmin(uid):false;
+        if(pathname==='/api/admin/session'&&req.method==='GET'){send(res,200,{admin:allowed});return true;}
+        if(!allowed)throw problem(403,'admin_required','管理者だけが利用できます。');
+        if(pathname==='/api/admin/dashboard'&&req.method==='GET'){
+          const rawDays=new URL(req.url,'https://app.invalid').searchParams.get('days')??'30';
+          if(!['7','30','90'].includes(rawDays))throw problem(400,'invalid_range','期間は7・30・90日から選んでください。');
+          send(res,200,await admin.dashboard(Number(rawDays),now()));return true;
+        }
+        throw problem(404,'not_found','見つかりませんでした。');
+      }
       if(pathname==='/api/chat/session'&&req.method==='GET'){send(res,200,{available:apiAvailable});return true;}
       if(pathname==='/api/sync'&&req.method==='GET'){const revision=new URL(req.url,'https://app.invalid').searchParams.get('revision');if(revision!==null&&/^\d+$/.test(revision)){const state=await store.readIfChanged(uid,Number(revision));send(res,200,state?packet(state):{unchanged:true});return true;}}
       if(['/api/sync','/api/me','/api/export'].includes(pathname)&&req.method==='GET'){send(res,200,packet(await store.read(uid)));return true;}

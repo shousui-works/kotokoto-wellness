@@ -187,3 +187,7 @@ if(account.enabled)account.subscribe(()=>{if(account.user){state=account.state?n
 conversation.open();
 switchTab(location.hash.slice(1),false);
 if(!account.needsSetup)nameIntro.show();
+
+// Discover access through the authenticated server; hiding a link is not authorization.
+async function discoverAdmin(){const link=$('admin-open');if(!link)return;link.hidden=true;if(!account.user)return;try{const r=await account.fetch('/api/admin/session');const data=await r.json();link.hidden=!(r.ok&&data.admin===true);}catch{}}
+void discoverAdmin();
