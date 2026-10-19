@@ -12,7 +12,8 @@ export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ
  const root=$('plush'),shelf=$('plush-shelf');
  const heading=document.querySelector('#room-sheet .sheet-top');
  new ResizeObserver(()=>{const height=heading.getBoundingClientRect().height;if(height)root.style.setProperty('--plush-heading',height+'px');}).observe(heading);
- function select(next){tab=next;detail=null;slot=null;choice=null;exchange=null;confirmExchange=null;render();}
+ function resetScroll(){const sheet=$('room-sheet');if(sheet)sheet.scrollTop=0;}
+ function select(next){tab=next;detail=null;slot=null;choice=null;exchange=null;confirmExchange=null;render();resetScroll();}
  async function command(value){if(busy)return null;busy=true;render();try{return await account.command(value);}catch(e){toast(e.message);return null;}finally{busy=false;render();}}
  function presentCapsule(result,resume=false){
   if(!result||result.requestId!==c.lastResult?.requestId||!isActivePlush(result.item))return;
@@ -31,9 +32,9 @@ export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ
   box.append(button('演出をスキップ',()=>box.classList.remove('just-opened'),'plush-skip'));
   const actions=node('div','plush-actions');
   const seen=()=>command({type:'plush_seen',id:result.requestId});
-  actions.append(button('図鑑を見る',async()=>{if(await seen()){tab='book';detail=item.id;render();}}),button('棚に飾る',async()=>{if(await seen()){tab='shelf';choice=item.id;render();}}),button('とじる',seen,'plush-button secondary'));box.append(actions);return box;
+  actions.append(button('図鑑を見る',async()=>{if(await seen()){showDetail(item.id);}}),button('棚に飾る',async()=>{if(await seen()){tab='shelf';choice=item.id;render();}}),button('とじる',seen,'plush-button secondary'));box.append(actions);return box;
  }
- function showDetail(id){if(!isActivePlush(id))return;detail=id;tab='book';openPanel();render();}
+ function showDetail(id){if(!isActivePlush(id))return;detail=id;tab='book';openPanel();render();resetScroll();}
  function detailView(item){const wrap=node('section','plush-detail');wrap.append(button('← 図鑑にもどる',()=>{detail=null;render();},'plush-text-button'),image(item),node('p','plush-eyebrow',`No. ${String(item.number).padStart(3,'0')} · ${item.category==='dog'?'犬種図鑑':'ほかの動物'}`),node('h2','',item.name),node('p','plush-english',item.english),node('p','plush-tagline',item.tagline));
   const facts=node('dl','plush-facts');for(const[label,text]of [['原産国・起源',item.origin],['サイズ区分',item.size],['毛・見た目',item.coat]])facts.append(node('dt','',label),node('dd','',text));wrap.append(facts);
   for(const[title,text]of [['特徴',item.features],['歴史・役割',item.history],['ちょっと豆知識',item.trivia]])wrap.append(node('h3','',title),node('p','',text));
@@ -67,7 +68,7 @@ export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ
     if(confirmExchange===target){const confirmation=node('div','plush-notice');confirmation.setAttribute('role','group');confirmation.setAttribute('aria-label','交換の確認');confirmation.append(node('p','',`ボタン${EXCHANGE_COST}個で「${plushById(target).name}」をお迎えします。`));const yes=button('交換を確定する',async()=>{const r=await command({type:'plush_exchange',item:target});if(r){confirmExchange=null;historyLoaded=false;}});yes.disabled=!writable||c.buttons<EXCHANGE_COST||!!reveal;confirmation.append(yes,button('やめる',()=>{confirmExchange=null;render();},'plush-text-button'));exchangeBox.append(confirmation);}
 }else exchangeBox.append(node('p','','全種類そろったね！ ボタンは次の出会いまで大切に。'));root.append(exchangeBox);
   }else if(tab==='book'){
-   if(detail&&isActivePlush(detail)&&c.owned[detail])root.append(detailView(plushById(detail)));else{root.append(node('h2','',PLUSH_CATALOG.filter(p=>c.owned[p.id]).length===PLUSH_CATALOG.length?'図鑑がそろったね！':'ぬいぐるみ図鑑'),node('p','subtle',`発見 ${PLUSH_CATALOG.filter(p=>c.owned[p.id]).length} / ${PLUSH_CATALOG.length}`));for(const category of ['dog']){root.append(node('h3','',category==='dog'?'犬種図鑑':'ほかの動物'));const grid=node('div','plush-book-grid');for(const p of PLUSH_CATALOG.filter(p=>p.category===category)){const owned=c.owned[p.id],b=button('',()=>{if(owned){detail=p.id;render();}});b.className='plush-book-item';b.disabled=!owned;b.append(node('small','',`No. ${String(p.number).padStart(3,'0')}`),image(p,!owned),node('strong','',owned?p.name:'？？？'),node('small','',owned?`${owned.count}体`:'まだ出会っていない'));grid.append(b);}root.append(grid);}}
+   if(detail&&isActivePlush(detail)&&c.owned[detail])root.append(detailView(plushById(detail)));else{root.append(node('h2','',PLUSH_CATALOG.filter(p=>c.owned[p.id]).length===PLUSH_CATALOG.length?'図鑑がそろったね！':'ぬいぐるみ図鑑'),node('p','subtle',`発見 ${PLUSH_CATALOG.filter(p=>c.owned[p.id]).length} / ${PLUSH_CATALOG.length}`));for(const category of ['dog']){root.append(node('h3','',category==='dog'?'犬種図鑑':'ほかの動物'));const grid=node('div','plush-book-grid');for(const p of PLUSH_CATALOG.filter(p=>p.category===category)){const owned=c.owned[p.id],b=button('',()=>{if(owned)showDetail(p.id);});b.className='plush-book-item';b.disabled=!owned;b.append(node('small','',`No. ${String(p.number).padStart(3,'0')}`),image(p,!owned),node('strong','',owned?p.name:'？？？'),node('small','',owned?`${owned.count}体`:'まだ出会っていない'));grid.append(b);}root.append(grid);}}
   }else if(tab==='shelf'){
    root.append(node('h2','','お気に入りを並べよう'),node('p','subtle',choice?'置きたい棚の枠を選んでね。':'枠と置く子を選んでね。飾っている子は場所を入れ替えられるよ。'));
    const slots=node('div','plush-editor-shelf');for(const[key,index]of SHELF_SLOTS.map((s,i)=>[s,i])){const p=isActivePlush(c.shelf[key])?plushById(c.shelf[key]):null,b=button('',async()=>{slot=key;if(choice&&writable){const r=await command({type:'plush_display',slot:key,item:choice});if(r){choice=null;toast('棚に飾ったよ。');}}render();});b.className='plush-editor-slot';b.setAttribute('aria-pressed',String(slot===key));b.setAttribute('aria-label',`${index<3?'上':'下'}の段 ${index%3+1}番目`);b.append(p?image(p):node('span','','＋'));slots.append(b);}root.append(slots);

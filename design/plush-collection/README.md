@@ -30,3 +30,9 @@
 ## 追加20犬種（2026-10-20）
 
 既存ゴールデン素材をスタイル参照に、内蔵image_genで1犬種1画像ずつ生成。指示は dogs-expansion-v2.prompts.json、素材一覧は dogs-expansion-v2.outputs.json。配信用PNGは dist/assets/plush/ に384×384 RGBAで保存し、原寸はCodex generated_imagesに保持。耳・毛色・毛の質感・鼻先・尾を描き分けた。追加種の固定説明は dist/plush-dogs-v2.mjs、各JKC原典リンクと確認日はカタログに保存。全30犬種の抽選・交換・図鑑・棚で使用。
+
+## 100種類への拡張（2026-10-20）
+
+70体を既存ゴールデン素材を参照して内蔵image_genで1体ずつ生成。共通指示と犬種ごとの造形指定は dogs-expansion-v3.prompts.json、元画像ファイル名は dogs-expansion-v3.outputs.txt。配信用は dist/assets/plush/ の各ID-v1.png（384×384 RGBA）、生成原寸はCodex generated_imagesに保持する。
+
+新規の固定図鑑本文は dist/plush-dogs-v3.mjs。JKCの各原典を2026-10-20に確認し、原産国、毛種、由来、似た犬との違いを要約。マリノアとヘアレスはそれぞれ犬種内のバラエティーとして説明する。キースホンドとポメラニアンの系統上の関係も記載。100は有効なぬいぐるみの種類数で、FCIの犬種番号の数とは同義ではない。既存のID・番号・所持履歴を保ち、No.031〜100だけを追加する。

@@ -1,0 +1,569 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-10-20",
+  "reference": "dist/assets/plush/golden-retriever-v1.png",
+  "transparent_background": true,
+  "common": "Use case: stylized-concept. Create ONE standalone BREED dog collectible plush toy. Reference image is style only: match its handmade velour/felt, fine soft plush fibers, tiny glossy bead eyes, small embroidered smiling mouth, rounded stuffed-toy proportions, gentle warm lighting. Breed features: FEATURES. Seated full body, slight three-quarter front view, paws level. True transparent RGBA background, centered single toy with clear margins around entire ears paws and tail. No floor, pedestal, accessories, text, labels, watermark or other animals. A stuffed toy, not a living dog. Breed distinguishable at 80px shelf size. Natural uncropped ears and undocked tail unless the breed is naturally short-tailed.",
+  "subjects": [
+    {
+      "id": "german-shepherd-dog",
+      "name": "ジャーマン・シェパード・ドッグ",
+      "english": "German Shepherd Dog",
+      "features": "black saddle and tan coat, erect triangular ears, long shepherd muzzle, sturdy athletic frame, long bushy tail",
+      "source": "https://www.jkc.or.jp/breeds/german-shepherd-dog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "rottweiler",
+      "name": "ロットワイラー",
+      "english": "Rottweiler",
+      "features": "black short plush with rust tan eyebrow dots muzzle chest and paws, broad strong muzzle, natural floppy ears and long natural tail, stocky strong body",
+      "source": "https://www.jkc.or.jp/breeds/rottweiler/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "boxer",
+      "name": "ボクサー",
+      "english": "Boxer",
+      "features": "fawn short plush, black short square muzzle and white chest, natural folded ears and long natural tail, athletic square body",
+      "source": "https://www.jkc.or.jp/breeds/boxer/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "great-dane",
+      "name": "グレート・デーン",
+      "english": "Great Dane",
+      "features": "harlequin white with irregular black patches, tall long legs and neck, long rectangular muzzle, natural floppy ears and long tail",
+      "source": "https://www.jkc.or.jp/breeds/great-dane/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "newfoundland",
+      "name": "ニューファンドランド",
+      "english": "Newfoundland",
+      "features": "solid black long thick shaggy plush, large broad head and muzzle, small floppy ears, massive paws and broad sturdy body",
+      "source": "https://www.jkc.or.jp/breeds/newfoundland/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "great-pyrenees",
+      "name": "グレート・ピレニーズ",
+      "english": "Great Pyrenees",
+      "features": "snow white long thick plush, large gentle head, small floppy ears, sturdy big paws, plumed long tail, no erect ears",
+      "source": "https://www.jkc.or.jp/breeds/great-pyrenees/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "irish-wolfhound",
+      "name": "アイリッシュ・ウルフハウンド",
+      "english": "Irish Wolfhound",
+      "features": "rough wiry grey plush, long narrow muzzle with shaggy beard, small folded rose ears, very long legs and deep chest",
+      "source": "https://www.jkc.or.jp/breeds/irish-wolfhound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "deerhound",
+      "name": "ディアハウンド",
+      "english": "Scottish Deerhound",
+      "features": "blue-grey rough wiry plush, narrow long bearded head, small folded rose ears, slender tall sighthound body and long fine tail",
+      "source": "https://www.jkc.or.jp/breeds/deerhound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "greyhound",
+      "name": "グレーハウンド",
+      "english": "Greyhound",
+      "features": "brindle and white short plush, long narrow head, rose-folded ears, deep chest with tucked waist, tall slender legs and long thin tail",
+      "source": "https://www.jkc.or.jp/breeds/greyhound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "whippet",
+      "name": "ウィペット",
+      "english": "Whippet",
+      "features": "blue-grey and white short plush, narrow fine muzzle, small rose ears, arched slender sighthound frame, long legs and thin tail",
+      "source": "https://www.jkc.or.jp/breeds/whippet/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "italian-greyhound",
+      "name": "イタリアン・グレーハウンド",
+      "english": "Italian Greyhound",
+      "features": "fawn and white short plush, extremely fine tiny sighthound frame, delicate long legs, long pointed muzzle, small folded rose ears",
+      "source": "https://www.jkc.or.jp/breeds/italian-greyhound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "afghan-hound",
+      "name": "アフガン・ハウンド",
+      "english": "Afghan Hound",
+      "features": "long flowing silky cream plush coat, darker long fine muzzle, long pendulous silk-covered ears, topknot, elegant long legs and curled tip tail",
+      "source": "https://www.jkc.or.jp/breeds/afghan-hound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "saluki",
+      "name": "サルーキ",
+      "english": "Saluki",
+      "features": "ivory cream and pale golden short body plush with long silky feathered floppy ears and tail, slender long neck and fine long muzzle",
+      "source": "https://www.jkc.or.jp/breeds/saluki/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "borzoi",
+      "name": "ボルゾイ",
+      "english": "Borzoi",
+      "features": "white with reddish-gold patches in long wavy plush, extremely long narrow gently convex muzzle, small folded ears, tall arched elegant frame",
+      "source": "https://www.jkc.or.jp/breeds/borzoi/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "basenji",
+      "name": "バセンジー",
+      "english": "Basenji",
+      "features": "red and white very short plush, erect pointed ears, subtle forehead wrinkles, short curled tail, white chest and white feet, fine muzzle",
+      "source": "https://www.jkc.or.jp/breeds/basenji/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "shikoku",
+      "name": "四国",
+      "english": "Shikoku",
+      "features": "sesame coat of red black and cream plush, compact triangular erect ears, medium sturdy Japanese spitz body, thick curled tail",
+      "source": "https://www.jkc.or.jp/breeds/shikoku/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "kishu",
+      "name": "紀州",
+      "english": "Kishu",
+      "features": "white short dense plush, triangular upright ears, medium strong Japanese spitz frame, defined longer muzzle and curled tail",
+      "source": "https://www.jkc.or.jp/breeds/kishu/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "hokkaido",
+      "name": "北海道",
+      "english": "Hokkaido",
+      "features": "black and tan thick dense plush coat, small upright thick triangular ears, broad Japanese spitz head, compact powerful frame, curled tail",
+      "source": "https://www.jkc.or.jp/breeds/hokkaido/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "kai",
+      "name": "甲斐",
+      "english": "Kai",
+      "features": "dark brown and black tiger-brindle short dense plush, upright triangular ears, medium lean Japanese spitz build, sickle-curved bushy tail",
+      "source": "https://www.jkc.or.jp/breeds/kai/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "japanese-spitz",
+      "name": "日本スピッツ",
+      "english": "Japanese Spitz",
+      "features": "pure snow white long fluffy plush, narrow pointed muzzle, small erect triangular ears, black bead eyes and nose, fluffy tail over back",
+      "source": "https://www.jkc.or.jp/breeds/japanese-spitz/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "chin",
+      "name": "狆",
+      "english": "Japanese Chin",
+      "features": "black and white silky plush, short flat broad face, wide spaced bead eyes, feathered floppy ears and lavish curled plume tail, small compact body",
+      "source": "https://www.jkc.or.jp/breeds/chin/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "japanese-terrier",
+      "name": "日本テリア",
+      "english": "Japanese Terrier",
+      "features": "smooth short white body plush, black and tan head, fine narrow terrier muzzle, small folded V ears and slim delicate legs",
+      "source": "https://www.jkc.or.jp/breeds/japanese-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "american-cocker-spaniel",
+      "name": "アメリカン・コッカー・スパニエル",
+      "english": "American Cocker Spaniel",
+      "features": "solid buff golden long plush coat, domed head and short defined muzzle, very long feathered floppy ears, rounded body and silky skirt, natural tail",
+      "source": "https://www.jkc.or.jp/breeds/american-cocker-spaniel/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "english-cocker-spaniel",
+      "name": "イングリッシュ・コッカー・スパニエル",
+      "english": "English Cocker Spaniel",
+      "features": "blue roan black and white flecked plush coat with black long floppy ears, longer spaniel muzzle and feathering on chest legs and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/english-cocker-spaniel/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "english-springer-spaniel",
+      "name": "イングリッシュ・スプリンガー・スパニエル",
+      "english": "English Springer Spaniel",
+      "features": "liver brown and white plush, long drooping feathered ears, white blaze on face, medium athletic spaniel body and feathered long natural tail",
+      "source": "https://www.jkc.or.jp/breeds/english-springer-spaniel/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "irish-setter",
+      "name": "アイリッシュ・セター",
+      "english": "Irish Red Setter",
+      "features": "rich mahogany red silky long plush, long slim head and low drooping feathered ears, elegant long legs and feathered natural tail",
+      "source": "https://www.jkc.or.jp/breeds/irish-setter/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "gordon-setter",
+      "name": "ゴードン・セター",
+      "english": "Gordon Setter",
+      "features": "black and rich tan long silky plush, tan brows muzzle chest and legs, long feathered floppy ears, broad long muzzle and elegant sturdy setter frame",
+      "source": "https://www.jkc.or.jp/breeds/gordon-setter/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "english-setter",
+      "name": "イングリッシュ・セター",
+      "english": "English Setter",
+      "features": "white and orange belton fine speckled plush coat, long silky feathering, long narrow muzzle, floppy ears and elegant long legs",
+      "source": "https://www.jkc.or.jp/breeds/english-setter/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "weimaraner",
+      "name": "ワイマラナー",
+      "english": "Weimaraner",
+      "features": "solid silver-grey short plush, long floppy ears, elegant long muzzle, amber bead eyes and grey nose, athletic long-legged frame and natural long tail",
+      "source": "https://www.jkc.or.jp/breeds/weimaraner/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "short-haired-hungarian-vizsla",
+      "name": "ショートヘアード・ハンガリアン・ビズラ",
+      "english": "Hungarian Short-haired Vizsla",
+      "features": "solid russet golden short plush, long floppy ears, matching brown nose and amber bead eyes, lean long-legged body and long natural tail",
+      "source": "https://www.jkc.or.jp/breeds/short-haired-hungarian-vizsla/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "german-shorthaired-pointer",
+      "name": "ジャーマン・ショートヘアード・ポインター",
+      "english": "German Shorthaired Pointer",
+      "features": "solid liver brown head and floppy ears, white short plush body covered in liver speckles and patches, long muzzle and athletic long legs, natural long tail",
+      "source": "https://www.jkc.or.jp/breeds/german-shorthaired-pointer/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "brittany-spaniel",
+      "name": "ブリタニー・スパニエル",
+      "english": "Brittany Spaniel",
+      "features": "orange and white short wavy plush with orange patches and white facial blaze, compact sporting spaniel shape, short floppy ears and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/brittany-spaniel/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "portuguese-water-dog",
+      "name": "ポーチュギ－ズ・ウォーター・ドッグ",
+      "english": "Portuguese Water Dog",
+      "features": "black dense curly plush with white chest and muzzle patch, sturdy square body, floppy curl-covered ears, medium broad head and long plumed tail",
+      "source": "https://www.jkc.or.jp/breeds/portuguese-water-dog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "romagna-water-dog",
+      "name": "ロマーニャ・ウォーター・ドッグ",
+      "english": "Lagotto Romagnolo",
+      "features": "brown and white dense woolly curly plush, broad rounded head and short wide muzzle, small floppy ears, compact sturdy medium frame",
+      "source": "https://www.jkc.or.jp/breeds/romagna-water-dog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "old-english-sheepdog",
+      "name": "オールド・イングリッシュ・シープドッグ",
+      "english": "Old English Sheepdog",
+      "features": "grey and white long shaggy plush, white head and chest, hair falling over forehead with tiny bead eyes still visible, shaggy large paws and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/old-english-sheepdog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "bearded-collie",
+      "name": "ビアデッド・コリー",
+      "english": "Bearded Collie",
+      "features": "slate grey and white long straight shaggy plush, distinct long beard and white facial blaze, longer collie body, soft drooping ears and long plumed tail",
+      "source": "https://www.jkc.or.jp/breeds/bearded-collie/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "rough-collie",
+      "name": "ラフ・コリー",
+      "english": "Rough Collie",
+      "features": "sable brown and white very long plush, huge white ruff, very long tapered wedge muzzle, small semi-erect tipped ears, long flowing tail",
+      "source": "https://www.jkc.or.jp/breeds/rough-collie/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "belgian-shepherd-dog",
+      "name": "ベルジアン・シェパード・ドッグ",
+      "english": "Belgian Shepherd Dog Malinois variety",
+      "features": "short fawn plush with black facial mask and black ear tips, erect triangular ears, long alert muzzle, athletic square frame and long tail",
+      "source": "https://www.jkc.or.jp/breeds/belgian-shepherd-dog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "australian-shepherd",
+      "name": "オーストラリアン・シェパード",
+      "english": "Australian Shepherd",
+      "features": "blue merle grey black and white long plush with tan eyebrow dots and cheeks, semi-folded ears, white blaze and ruff, natural long plumed tail",
+      "source": "https://www.jkc.or.jp/breeds/australian-shepherd/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "australian-cattle-dog",
+      "name": "オーストラリアン・キャトル・ドッグ",
+      "english": "Australian Cattle Dog",
+      "features": "blue mottled speckled short dense plush, tan legs and cheeks, black eye patch, erect triangular ears and compact strong body",
+      "source": "https://www.jkc.or.jp/breeds/australian-cattle-dog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "welsh-corgi-cardigan",
+      "name": "ウェルシュ・コーギー・カーディガン",
+      "english": "Welsh Corgi Cardigan",
+      "features": "brindle brown and white plush, long low body and very short legs, large rounded upright ears, white chest and long bushy fox-like tail",
+      "source": "https://www.jkc.or.jp/breeds/welsh-corgi-cardigan/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "pekingese",
+      "name": "ペキニーズ",
+      "english": "Pekingese",
+      "features": "fawn long silky plush, dark short flat broad muzzle, lion-like neck ruff, low broad body and short paws, long fringed floppy ears and plumed curled tail",
+      "source": "https://www.jkc.or.jp/breeds/pekingese/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "chinese-crested-dog",
+      "name": "チャイニーズ・クレステッド・ドッグ",
+      "english": "Chinese Crested Dog hairless variety",
+      "features": "peach soft felt nearly hairless body, long white silky plush crest on head and socks on paws and plume at tail tip, large upright ears and fine legs",
+      "source": "https://www.jkc.or.jp/breeds/chinese-crested-dog/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "bolognese",
+      "name": "ボロニーズ",
+      "english": "Bolognese",
+      "features": "pure white fluffy flocked cotton-like plush, loose tufts rather than tight curls, compact small body, floppy ears, short fine muzzle and black nose",
+      "source": "https://www.jkc.or.jp/breeds/bolognese/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "havanese",
+      "name": "ハバニーズ",
+      "english": "Havanese",
+      "features": "black and white long softly wavy plush, large black patches and white facial blaze, long floppy feathered ears, small sturdy body and plumed curved tail",
+      "source": "https://www.jkc.or.jp/breeds/havanese/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "coton-de-tulear",
+      "name": "コトン・ド・テュレアール",
+      "english": "Coton de Tulear",
+      "features": "pure white matte cotton-like long soft plush, small dark bead eyes, slightly longer muzzle, soft floppy ears, low small body and fluffy tail",
+      "source": "https://www.jkc.or.jp/breeds/coton-de-tulear/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "lhasa-apso",
+      "name": "ラサ・アプソ",
+      "english": "Lhasa Apso",
+      "features": "golden long straight plush hair with darker ear tips, center-parted long facial hair and beard, long furry floppy ears, low sturdy body and tail curled over back",
+      "source": "https://www.jkc.or.jp/breeds/lhasa-apso/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "tibetan-spaniel",
+      "name": "チベタン・スパニエル",
+      "english": "Tibetan Spaniel",
+      "features": "golden plush with dark short muzzle and face mask, small floppy feathered ears, silky medium-long body coat and thick neck ruff, curled plumed tail",
+      "source": "https://www.jkc.or.jp/breeds/tibetan-spaniel/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "affenpinscher",
+      "name": "アーフェンピンシャー",
+      "english": "Affenpinscher",
+      "features": "solid black shaggy rough plush, monkey-like short muzzle with bushy beard and eyebrows, small natural folded ears, compact square tiny body and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/affenpinscher/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "brussels-griffon",
+      "name": "ブリュッセル・グリフォン",
+      "english": "Brussels Griffon",
+      "features": "reddish rough plush with dark short broad muzzle, prominent beard and moustache, small forward folded natural ears, compact sturdy little body and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/brussels-griffon/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "miniature-pinscher",
+      "name": "ミニチュア・ピンシャー",
+      "english": "Miniature Pinscher",
+      "features": "solid stag-red short smooth plush, slender long legs, small upright natural ears, sleek pointed muzzle and long natural curved tail",
+      "source": "https://www.jkc.or.jp/breeds/miniature-pinscher/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "toy-manchester-terrier",
+      "name": "トイ・マンチェスター・テリア",
+      "english": "Toy Manchester Terrier",
+      "features": "black and tan very short plush, long fine wedge muzzle, very large upright pointed ears, slim delicate tiny terrier body and long fine tail",
+      "source": "https://www.jkc.or.jp/breeds/toy-manchester-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "west-highland-white-terrier",
+      "name": "ウエスト・ハイランド・ホワイト・テリア",
+      "english": "West Highland White Terrier",
+      "features": "pure white rough shaggy plush, round shaggy face, small pointed upright ears, short sturdy legs, black nose and straight carrot-like tail",
+      "source": "https://www.jkc.or.jp/breeds/west-highland-white-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "scottish-terrier",
+      "name": "スコティッシュ・テリア",
+      "english": "Scottish Terrier",
+      "features": "solid black wiry plush, long rectangular head with long beard and eyebrows, large sharply erect ears, very short legs and long low sturdy body, upright tail",
+      "source": "https://www.jkc.or.jp/breeds/scottish-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "cairn-terrier",
+      "name": "ケアーン・テリア",
+      "english": "Cairn Terrier",
+      "features": "wheaten grey brindle shaggy rough plush, broad short scruffy muzzle, small upright pointed ears, compact short-legged body and short upright tail",
+      "source": "https://www.jkc.or.jp/breeds/cairn-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "norfolk-terrier",
+      "name": "ノーフォーク・テリア",
+      "english": "Norfolk Terrier",
+      "features": "red wheaten rough plush, small forward-drooping ears, shaggy eyebrows and beard, short sturdy legs, compact terrier body and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/norfolk-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "norwich-terrier",
+      "name": "ノーリッチ・テリア",
+      "english": "Norwich Terrier",
+      "features": "red rough shaggy plush, small clearly erect pointed ears, scruffy short muzzle, compact short-legged terrier body and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/norwich-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "wire-fox-terrier",
+      "name": "ワイアー・フォックス・テリア",
+      "english": "Wire Fox Terrier",
+      "features": "white wiry plush body with black saddle patch, tan head and black nose, long rectangular bearded muzzle, forward folded V ears and straight upright natural tail",
+      "source": "https://www.jkc.or.jp/breeds/wire-fox-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "airedale-terrier",
+      "name": "エアデール・テリア",
+      "english": "Airedale Terrier",
+      "features": "tan wiry plush legs and head with black saddle body, long rectangular bearded muzzle and bushy eyebrows, small folded ears, long sturdy legs and natural tail",
+      "source": "https://www.jkc.or.jp/breeds/airedale-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "bedlington-terrier",
+      "name": "ベドリントン・テリア",
+      "english": "Bedlington Terrier",
+      "features": "blue-grey lamb-like curly plush, pear-shaped head with pale woolly topknot, arched back, long drooping ears ending in white tassels, slender muzzle",
+      "source": "https://www.jkc.or.jp/breeds/bedlington-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "bull-terrier",
+      "name": "ブル・テリア",
+      "english": "Bull Terrier",
+      "features": "pure white short plush, distinctive long egg-shaped head with convex down-sloping nose, small triangular bead-like eyes, tiny upright pointed ears, muscular compact body",
+      "source": "https://www.jkc.or.jp/breeds/bull-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "dandie-dinmont-terrier",
+      "name": "ダンディ・ディンモント・テリア",
+      "english": "Dandie Dinmont Terrier",
+      "features": "pepper-grey body with creamy fluffy topknot and tan paws in soft rough plush, long low body and short legs, long floppy ears and curved natural tail",
+      "source": "https://www.jkc.or.jp/breeds/dandie-dinmont-terrier/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "basset-hound",
+      "name": "バセット・ハウンド",
+      "english": "Basset Hound",
+      "features": "tricolor black tan and white short plush, extremely long floppy ears and long wrinkled muzzle, drooping eyelid embroidery, very short stout legs and long heavy body",
+      "source": "https://www.jkc.or.jp/breeds/basset-hound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "bloodhound",
+      "name": "ブラッドハウンド",
+      "english": "Bloodhound",
+      "features": "black saddle and tan short plush, very long soft drooping ears, long deeply wrinkled forehead and gentle pendulous muzzle, large paws and sturdy hound frame",
+      "source": "https://www.jkc.or.jp/breeds/bloodhound/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "rhodesian-ridgeback",
+      "name": "ローデシアン・リッジバック",
+      "english": "Rhodesian Ridgeback",
+      "features": "red wheaten short plush, long defined muzzle and folded V ears, black nose, athletic sturdy frame, distinct narrow ridge of reversed plush hair along back visible in three-quarter view",
+      "source": "https://www.jkc.or.jp/breeds/rhodesian-ridgeback/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "chow-chow",
+      "name": "チャウ・チャウ",
+      "english": "Chow Chow",
+      "features": "red thick fluffy lion-like plush, very broad short muzzle, tiny upright rounded ears partly buried in large ruff, small blue-purple embroidered tongue in smile, curled thick tail",
+      "source": "https://www.jkc.or.jp/breeds/chow-chow/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "shar-pei",
+      "name": "シャー・ペイ",
+      "english": "Shar Pei",
+      "features": "fawn short plush with softly stitched broad skin folds on head and shoulders, broad hippopotamus-like muzzle, tiny folded ears and high curled tail, sturdy compact frame",
+      "source": "https://www.jkc.or.jp/breeds/shar-pei/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "alaskan-malamute",
+      "name": "アラスカン・マラミュート",
+      "english": "Alaskan Malamute",
+      "features": "grey and white very thick fluffy plush, broad face and white mask, small upright ears, warm brown bead eyes, powerful body and large plume tail over back",
+      "source": "https://www.jkc.or.jp/breeds/alaskan-malamute/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "keeshond",
+      "name": "キースホンド",
+      "english": "Keeshond",
+      "features": "silver-grey and black long thick plush, huge neck ruff with black-tipped hairs, distinct dark spectacle markings around bead eyes, small erect ears and thick curled tail",
+      "source": "https://www.jkc.or.jp/breeds/keeshond/",
+      "checkedAt": "2026-10-20"
+    },
+    {
+      "id": "schipperke",
+      "name": "スキッパーキ",
+      "english": "Schipperke",
+      "features": "solid black dense short plush with thick neck ruff, pointed fox-like muzzle, small sharply upright ears, compact small spitz frame and natural curled tail",
+      "source": "https://www.jkc.or.jp/breeds/schipperke/",
+      "checkedAt": "2026-10-20"
+    }
+  ]
+}
