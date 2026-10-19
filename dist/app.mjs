@@ -3,12 +3,13 @@ const account=await createAccountClient();
 const storage=account.storage;
 import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
-import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=praise-1';
+import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=idle-1';
 import {createKomugiConversation} from './komugi-conversation.mjs?v=send-key-1';
 import {createProgressUI} from './progress-ui.mjs?v=records-5';
 import {createRoomViewport} from './room-viewport.mjs?v=name-intro-1';
 import {PROFILE_STORAGE,loadProfile,saveProfile,addressCompanionLine,createPetNameLabels} from './profile.mjs?v=names-2';
 import {createNameIntro} from './name-intro.mjs?v=name-intro-1';
+import {createIdleSpeech} from './companion-lines.mjs?v=idle-1';
 import {createCompanionAffection} from './companion-affection.mjs?v=hearts-1';
 import {createCompanionFaces} from './companion-face.mjs?v=face-1';
 const updatePetLabels=createPetNameLabels();
@@ -22,6 +23,7 @@ const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let
 const totals=s=>{const t=baseTotals(s),xp=progress?.companion.xp??t.xp;return {...t,xp,level:Math.floor(xp/40)+1,progress:xp%40};};
 const affectionFor=s=>baseAffectionFor(s,progress?.companion);
 const companionFeeling=(s,now=new Date())=>baseCompanionFeeling(s,now,progress?.companion);
+const idleSpeech=createIdleSpeech();
 function persist(){if(account.enabled&&account.user)throw Error('クラウドの保存操作が必要です。');if(loadFailed)return;try{storage.setItem(STORAGE,JSON.stringify(state));$('storage-warning').hidden=true;}catch{$('storage-warning').textContent='このブラウザに保存できません。きろくは画面を閉じると消えるため、設定からバックアップしてください。';$('storage-warning').hidden=false;}}
 async function cloudSave(command,revision){try{await account.command(command,revision===undefined?{}:{revision});return true;}catch(error){toast(error.message);return false;}}
 function toast(message){const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;host.append($('toast'));$('toast').textContent=petText(message);$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3600);}
@@ -50,7 +52,8 @@ function applyFeeling(dog,feeling,bonded=false){
 }
 function renderCompanionSpeech(feeling=companionFeeling(state)){
   const speech=activeConversation??(activeListening?{label:'お返事を考え中',text:'…'}:null)??(activeNamePrompt?{label:'はじめまして',text:'ぼくはこむぎ。きみのこと、なんて呼んだらいい？'}:null)??activePraise??activeChat;
-  const label=speech?.label??feeling.label,rawMessage=speech?.text??feeling.lines[0];
+  const idle=!speech?idleSpeech.line({feeling,score:affectionFor(state).score,rotate:!document.hidden&&!document.querySelector('dialog[open]')&&!conversation?.isInteracting&&(companionChat?.enabled??true)}):null;
+  const label=speech?.label??feeling.label,rawMessage=speech?.text??idle?.text??feeling.lines[0];
   const message=activeConversation||activeListening?rawMessage:addressCompanionLine(petText(rawMessage),profile.nickname);
   const changed=$('companion-message').textContent!==message,bubble=document.querySelector('.companion-bubble');
   if($('companion-feeling').textContent!==label)$('companion-feeling').textContent=label;

@@ -4,6 +4,7 @@ steps:
     args:
       - --test
       - test/companion-chat.test.mjs
+      - test/companion-lines.test.mjs
       - test/companion-motion.test.mjs
       - test/companion-affection.test.mjs
       - test/server.test.mjs
