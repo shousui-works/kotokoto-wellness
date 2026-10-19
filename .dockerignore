@@ -1,0 +1,14 @@
+**
+!package.json
+!package-lock.json
+!Dockerfile
+!.dockerignore
+!server/
+!server/**
+!dist/
+!dist/**
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/.git/**

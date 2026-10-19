@@ -1,0 +1,2 @@
+bucket = "your-project-id-kotokoto-tfstate"
+prefix = "kotokoto/foundation"

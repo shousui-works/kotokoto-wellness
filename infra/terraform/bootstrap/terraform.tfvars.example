@@ -1,0 +1,4 @@
+project_id = "your-project-id"
+
+# 追加のstate管理者が必要な場合だけ指定する。
+state_admin_members = []
