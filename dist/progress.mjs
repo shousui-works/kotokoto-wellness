@@ -106,6 +106,17 @@ export function dayReport(progress,date) {
 
 export const reportDates = progress => [...new Set(progress.activities.filter(a=>!a.deleted&&a.date).map(a=>a.date))].sort();
 export const progressTotal = progress => reportDates(progress).reduce((sum,date)=>sum+dayReport(progress,date).total,0);
+// Read the saved exercise values; never estimate missing calories or write another total.
+export function calorieSummary(progress,date){
+  const rows=progress.activities.filter(a=>!a.deleted&&!a.hold&&validDate(a.date)&&(date===undefined||a.date===date)&&EXERCISE_KINDS.includes(a.kind));
+  let reported=0,estimated=0,recorded=0,pending=0,estimatedCount=0;
+  for(const a of rows){
+    if(a.kcal!==null&&a.kcal!==undefined){reported+=a.kcal;recorded++;}
+    else if(a.estimate){estimated+=a.estimate.kcal;estimatedCount++;recorded++;}
+    else pending++;
+  }
+  return {kcal:round1(reported+estimated),reported:round1(reported),estimated:round1(estimated),recorded,pending,estimatedCount,exerciseCount:rows.length};
+}
 export function progressCompanion(progress,legacy,now=new Date()) {
   const today=dateKey(now),records=progress.activities.filter(a=>!a.deleted&&!a.hold&&a.date&&a.date<=today);
   return {score:Math.min(100,progress.baselineAffection+Math.floor(progress.peakPoints/5)),xp:Math.max(totals(legacy).xp,progress.baselineXP+progress.peakPoints),todayCount:records.filter(a=>a.date===today).length,recordDates:records.map(a=>a.date)};
