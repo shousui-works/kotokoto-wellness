@@ -1,0 +1,109 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-10-20",
+  "reference": "dist/assets/plush/golden-retriever-v1.png",
+  "transparent_background": true,
+  "common": "Use case: stylized-concept. Create ONE standalone BREED dog collectible plush toy for the same collection as the reference (style only). Match handmade soft velour/felt and soft plush fibers, tiny glossy black bead eyes, embroidered smiling mouth, rounded cuddly stuffed proportions, gentle warm lighting. Breed features: FEATURES. Seated full body slight three-quarter front view, paws on same baseline. Truly transparent background, isolated single toy centered with clear margin around ears paws and entire tail. No floor, base, pedestal, flowers, text, labels, accessories or other animals. Stuffed toy, not a living dog. Breed recognizable at an 80px shelf size.",
+  "subjects": [
+    [
+      "labrador-retriever",
+      "Labrador Retriever",
+      "solid black short plush, floppy ears, broad muzzle, otter-like tail"
+    ],
+    [
+      "border-collie",
+      "Border Collie",
+      "black and white long plush coat, white muzzle/blaze and chest, semi-erect tipped ears, athletic collie-shaped muzzle, fluffy tail"
+    ],
+    [
+      "beagle",
+      "Beagle",
+      "tricolor short plush: black saddle, tan face and ears, white muzzle chest and paws, long floppy ears, white-tipped tail"
+    ],
+    [
+      "pug",
+      "Pug",
+      "fawn beige short plush, contrasting black flat muzzle and ears, subtle stitched forehead folds, compact body, small curled tail"
+    ],
+    [
+      "french-bulldog",
+      "French Bulldog",
+      "cream short plush, very large upright bat ears with rounded tips, broad short muzzle, compact muscular body, very short tail"
+    ],
+    [
+      "bulldog",
+      "Bulldog",
+      "red and white short plush, stocky broad body, wide short wrinkled muzzle with gentle embroidered folds, little folded rose ears, short legs"
+    ],
+    [
+      "chihuahua",
+      "Chihuahua",
+      "smooth-coated fawn and cream short plush, very large upright ears, rounded apple head, tiny delicate legs, fine pointed muzzle, thin curved tail"
+    ],
+    [
+      "maltese",
+      "Maltese",
+      "pure white silky long plush coat, floppy ears blended into coat, black nose and bead eyes, fine muzzle, tail plumed over body, no hair bow"
+    ],
+    [
+      "shih-tzu",
+      "Shih Tzu",
+      "gold and white long plush coat, short broad muzzle, long drooping furry ears, white facial blaze, chrysanthemum-like face hair, sturdy short body, plumed curled tail, no hair bow"
+    ],
+    [
+      "yorkshire-terrier",
+      "Yorkshire Terrier",
+      "steel blue-grey body with tan face and legs, silky long plush hair, small upright V ears, fine muzzle, petite body, no hair bow"
+    ],
+    [
+      "miniature-schnauzer",
+      "Miniature Schnauzer",
+      "salt-and-pepper grey wiry-looking soft plush, distinctive long beard and bushy eyebrows, natural folded V ears, square sturdy little body"
+    ],
+    [
+      "bichon-frise",
+      "Bichon Frise",
+      "snow white curly plush coat, rounded fluffy head, floppy ears blended into rounded head, distinct small black nose and bead eyes, compact body"
+    ],
+    [
+      "shetland-sheepdog",
+      "Shetland Sheepdog",
+      "sable brown and white long plush coat, large white ruff, narrow wedge-shaped long muzzle, small upright ears with tipped ends, long furry tail"
+    ],
+    [
+      "akita",
+      "Akita",
+      "red and white double-coat plush, broad head, small upright thick triangular ears, strong muzzle, substantial body and large paws, thick curled tail, white chest and cheek undersides"
+    ],
+    [
+      "bernese-mountain-dog",
+      "Bernese Mountain Dog",
+      "long plush tricolor: black body, tan eyebrows and cheeks and legs, white central facial blaze and cross-like chest, floppy ears, broad muzzle and big sturdy paws"
+    ],
+    [
+      "st-bernard",
+      "St. Bernard",
+      "large sturdy stuffed proportions, white and reddish-brown patches, darker mask around eyes, large drooping ears, broad gentle muzzle, large paws, no barrel or collar"
+    ],
+    [
+      "cavalier-king-charles-spaniel",
+      "Cavalier King Charles Spaniel",
+      "Blenheim chestnut and pearly white long plush coat, long feathered floppy ears, white facial blaze, gentle medium-short muzzle, soft chestnut patches, plumed tail"
+    ],
+    [
+      "boston-terrier",
+      "Boston Terrier",
+      "black and white short plush tuxedo coat, white blaze and muzzle and chest, compact short square muzzle, large upright pointed ears, short tail"
+    ],
+    [
+      "jack-russell-terrier",
+      "Jack Russell Terrier",
+      "smooth white short plush coat with tan patches on face and body, small forward folded V ears, defined terrier muzzle, compact athletic body, white legs"
+    ],
+    [
+      "dobermann",
+      "Dobermann",
+      "black and rust tan short plush, slim athletic body and longer muzzle, rust eyebrow dots muzzle chest and paws, natural floppy ears, natural long gently curved tail, no cropped ears or docked tail"
+    ]
+  ]
+}

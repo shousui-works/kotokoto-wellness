@@ -1,0 +1,102 @@
+[
+  {
+    "id": "labrador-retriever",
+    "asset": "dist/assets/plush/labrador-retriever-v1.png",
+    "originalFile": "exec-a396d9f3-9117-4e05-906e-3f8bbb0ad626.png"
+  },
+  {
+    "id": "border-collie",
+    "asset": "dist/assets/plush/border-collie-v1.png",
+    "originalFile": "exec-afb9758f-dbe2-4d92-80a7-e15409fb6624.png"
+  },
+  {
+    "id": "beagle",
+    "asset": "dist/assets/plush/beagle-v1.png",
+    "originalFile": "exec-a4e47ff4-0ae7-4c44-aeeb-86443c7d3fe4.png"
+  },
+  {
+    "id": "pug",
+    "asset": "dist/assets/plush/pug-v1.png",
+    "originalFile": "exec-e3490124-0e63-4612-9318-7ca89fa89fa2.png"
+  },
+  {
+    "id": "french-bulldog",
+    "asset": "dist/assets/plush/french-bulldog-v1.png",
+    "originalFile": "exec-c95eb50d-631e-488e-b0e5-c51a2d5bf527.png"
+  },
+  {
+    "id": "bulldog",
+    "asset": "dist/assets/plush/bulldog-v1.png",
+    "originalFile": "exec-ba8c94c9-3a0b-4f47-861a-121c6c690006.png"
+  },
+  {
+    "id": "chihuahua",
+    "asset": "dist/assets/plush/chihuahua-v1.png",
+    "originalFile": "exec-ee72d926-c64a-4c17-82e8-acfd51420406.png"
+  },
+  {
+    "id": "maltese",
+    "asset": "dist/assets/plush/maltese-v1.png",
+    "originalFile": "exec-e3db6b4b-7f3d-41ae-8c5b-5da2b6ac80ac.png"
+  },
+  {
+    "id": "shih-tzu",
+    "asset": "dist/assets/plush/shih-tzu-v1.png",
+    "originalFile": "exec-2d6ff592-e6ea-484c-bb8f-16c9728bff22.png"
+  },
+  {
+    "id": "yorkshire-terrier",
+    "asset": "dist/assets/plush/yorkshire-terrier-v1.png",
+    "originalFile": "exec-a1002f7c-be37-4572-9d4b-4b1494e11d0e.png"
+  },
+  {
+    "id": "miniature-schnauzer",
+    "asset": "dist/assets/plush/miniature-schnauzer-v1.png",
+    "originalFile": "exec-72246c8d-cbc8-4500-bcfa-b586db318cd0.png"
+  },
+  {
+    "id": "bichon-frise",
+    "asset": "dist/assets/plush/bichon-frise-v1.png",
+    "originalFile": "exec-3856daec-5994-46ab-acac-8c6d1acf045c.png"
+  },
+  {
+    "id": "shetland-sheepdog",
+    "asset": "dist/assets/plush/shetland-sheepdog-v1.png",
+    "originalFile": "exec-4e2e8933-4bea-460b-baf9-f5fe98f8ea70.png"
+  },
+  {
+    "id": "akita",
+    "asset": "dist/assets/plush/akita-v1.png",
+    "originalFile": "exec-35aa31b5-e255-443d-9576-034420e66fee.png"
+  },
+  {
+    "id": "bernese-mountain-dog",
+    "asset": "dist/assets/plush/bernese-mountain-dog-v1.png",
+    "originalFile": "exec-d57ed469-944c-4af1-8e11-cada9735430b.png"
+  },
+  {
+    "id": "st-bernard",
+    "asset": "dist/assets/plush/st-bernard-v1.png",
+    "originalFile": "exec-e0ffba8e-7ef6-424e-b226-50ba91b567d5.png"
+  },
+  {
+    "id": "cavalier-king-charles-spaniel",
+    "asset": "dist/assets/plush/cavalier-king-charles-spaniel-v1.png",
+    "originalFile": "exec-94b1ddf0-0021-4bd9-8dd8-04407bc6c356.png"
+  },
+  {
+    "id": "boston-terrier",
+    "asset": "dist/assets/plush/boston-terrier-v1.png",
+    "originalFile": "exec-e0afdcd0-fb5d-4a64-93d3-01063a72bc5e.png"
+  },
+  {
+    "id": "jack-russell-terrier",
+    "asset": "dist/assets/plush/jack-russell-terrier-v1.png",
+    "originalFile": "exec-1c71a2c2-96e5-4ebe-ae63-e8bb99794c51.png"
+  },
+  {
+    "id": "dobermann",
+    "asset": "dist/assets/plush/dobermann-v1.png",
+    "originalFile": "exec-6d612aff-9824-4202-8d89-1d087fc9d5a6.png"
+  }
+]
