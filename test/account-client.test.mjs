@@ -28,3 +28,19 @@ test('client keeps an editor revision, restores connectivity with an unchanged c
  const recovered=await createAccountClient({local,sdkLoader,fetchImpl,schedule(){}});assert.deepEqual(captured,pending);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);assert.equal(recovered.state.revision,11);
 });
 test('migration preview never rewrites corrupt or future local records',()=>{const local=memory();local.setItem('kotokoto-wellness-v1','{"version":2}');assert.throws(()=>localImport(local));assert.equal(local.getItem('kotokoto-wellness-v1'),'{"version":2}');});
+
+test('welcome waits for restored auth, prompts guests once and lets initialized users enter directly',async t=>{
+ const old={document:globalThis.document,window:globalThis.window,location:globalThis.location};t.after(()=>Object.assign(globalThis,old));
+ for(const signedIn of [false,true]){
+  const elements=new Map();globalThis.document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,{value:'',textContent:'',hidden:false,open:false,shows:0,listeners:new Map(),addEventListener(name,fn){this.listeners.set(name,fn);},showModal(){this.open=true;this.shows++;}});return elements.get(id);},addEventListener(){}};
+  globalThis.window={addEventListener(){}};globalThis.location={hostname:'localhost',reload(){}};
+  let release,started,popups=0;const ready=new Promise(r=>release=r),waiting=new Promise(r=>started=r);
+  const user={uid:'fixture',email:'fixture@example.test',getIdToken:async()=>'fixture-token'},auth={currentUser:null,async authStateReady(){started();await ready;}};
+  const cloud={...emptyAccount(),initialized:true,datasetId:'fixture',profile:{version:1,nickname:'そら',petName:'こむぎ',namesConfigured:true}};
+  const clientPromise=createAccountClient({local:memory(),schedule(){},fetchImpl:async path=>path==='/api/account/config'?Response.json({mode:'required',firebase:{}}):Response.json({state:cloud}),sdkLoader:async()=>[{initializeApp:x=>x},{getAuth:()=>auth,GoogleAuthProvider:class{setCustomParameters(){}},getRedirectResult:async()=>null,onAuthStateChanged(){},signInWithPopup:async()=>{popups++;},signInWithRedirect:async()=>{},signOut:async()=>{}}]});
+  await waiting;assert.equal(elements.get('account-dialog')?.shows??0,0);
+  auth.currentUser=signedIn?user:null;release();const client=await clientPromise;
+  assert.equal(elements.get('account-dialog')?.shows??0,signedIn?0:1);assert.equal(client.needsSetup,!signedIn);assert.equal(popups,0);
+  if(!signedIn){assert.equal(elements.get('account-title').textContent,'ログインしてはじめよう');assert.equal(elements.get('account-login').hidden,false);assert.equal(elements.get('account-logout-help').hidden,true);await elements.get('account-login').listeners.get('click')();assert.equal(popups,1);}
+ }
+});

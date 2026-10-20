@@ -1,6 +1,6 @@
 import {createShelfPosition} from './shelf-position.mjs?v=1';
 import {createPlushUI} from './plush-ui.mjs?v=hundred-dogs-1';
-import {createAccountClient} from './account-client.mjs?v=plush-1';
+import {createAccountClient} from './account-client.mjs?v=welcome-login-1';
 const account=await createAccountClient();
 const storage=account.storage;
 import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1';
@@ -196,7 +196,7 @@ createRoomViewport({input:$('conversation-input'),extraInputs:[$('name-intro-val
 }});
 if(account.enabled)account.subscribe(()=>{if(account.user){state=account.state?normalizeState(account.state.legacy):emptyState();readProfile();progress.reload();conversation.reload();companionChat.sync();$('companion-chat-toggle').checked=account.state?.chatEnabled!==false;render();}});
 conversation.open();
-switchTab(location.hash.slice(1),false);
+switchTab(account.needsSetup?'room':location.hash.slice(1),false);
 if(!account.needsSetup)nameIntro.show();
 
 // Discover access through the authenticated server; hiding a link is not authorization.
