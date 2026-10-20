@@ -6,14 +6,14 @@ const $=id=>document.getElementById(id);
 function node(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
 function image(item,hidden=false){const wrap=node('span','plush-art'+(hidden?' undiscovered':'')),img=node('img');img.src=item.image;img.alt='';img.loading='lazy';img.addEventListener('error',()=>{img.hidden=true;wrap.append(node('span','plush-fallback','✳'));},{once:true});wrap.append(img);return wrap;}
 function button(label,fn,cls='plush-button'){const b=node('button',cls,label);b.type='button';b.addEventListener('click',fn);return b;}
-export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ',getStage=()=>'puppy',createScene=createGachaScene}){
+export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ',getStage=()=>'puppy',createScene=createGachaScene,onViewChange=()=>{}}){
  let identity=account.user?.uid??null,c=emptyCollection(),busy=false,tab='gacha',detail=null,slot=null,choice=null,exchange=null,lastAnimated=null,historyRows=[],cursor=null,historyLoaded=false,historyLoading=false,historyStamp=0,confirmExchange=null;
  let gachaScene=null,openedResultId=null,drawing=false;
  const root=$('plush'),shelf=$('plush-shelf');
  const heading=document.querySelector('#room-sheet .sheet-top');
  new ResizeObserver(()=>{const height=heading.getBoundingClientRect().height;if(height)root.style.setProperty('--plush-heading',height+'px');}).observe(heading);
  function resetScroll(){const sheet=$('room-sheet');if(sheet)sheet.scrollTop=0;}
- function select(next){tab=next;detail=null;slot=null;choice=null;exchange=null;confirmExchange=null;render();resetScroll();}
+ function select(next){if(!['gacha','book','shelf','history'].includes(next))return;tab=next;detail=null;slot=null;choice=null;exchange=null;confirmExchange=null;render();resetScroll();}
  async function command(value){if(busy)return null;busy=true;render();try{return await account.command(value);}catch(e){toast(e.message);return null;}finally{busy=false;render();}}
  function presentCapsule(result,resume=false){
   if(!result||result.requestId!==c.lastResult?.requestId||!isActivePlush(result.item))return;
@@ -47,6 +47,7 @@ export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ
  }
  async function loadHistory(append=false){if(historyLoading||!account.user)return;historyLoading=true;const stamp=++historyStamp;render();try{const r=await account.fetch('/api/plush/history'+(append&&cursor?'?cursor='+encodeURIComponent(cursor):'')),data=await r.json();if(!r.ok)throw Error(data.error?.message??'履歴を確認できませんでした。');if(stamp!==historyStamp||!account.state||account.user?.uid!==identity)return;historyRows=append?[...historyRows,...data.rows]:data.rows;cursor=data.nextCursor;historyLoaded=true;}catch(e){toast(e.message);}finally{historyLoading=false;render();}}
  function render(){
+  onViewChange(tab);
   const uid=account.user?.uid??null;if(uid!==identity||!account.state){identity=uid;openedResultId=null;gachaScene?.close();historyStamp++;historyRows=[];cursor=null;historyLoaded=false;detail=null;choice=null;slot=null;}
   try{c=normalizeCollection(account.state?.collection);}catch(e){root.textContent=e.message;return;}
   if(gachaScene?.active&&(c.lastResult?.requestId!==gachaScene.requestId||c.seenResult===gachaScene.requestId))gachaScene.close();
@@ -80,5 +81,5 @@ export function createPlushUI({account,openPanel,toast,getPetName=()=>'こむぎ
   }
   for(const b of root.querySelectorAll('button'))if(busy)b.disabled=true;
  }
- render();return {render};
+ render();return {render,select,get tab(){return tab;}};
 }
