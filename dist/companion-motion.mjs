@@ -44,6 +44,7 @@ export function createRoomMotion(dogs,{onPosition,getBottomInset=()=>0}={}){
   return {
     refresh:()=>walkers.forEach(walker=>walker.measure()),
     greet:()=>walkers.forEach(walker=>walker.comeHere(true)),
+    setPetting:value=>walkers.forEach(walker=>walker.setPetting(value)),
     approachConversation:()=>Promise.all(walkers.map(walker=>walker.approachConversation())),
     setSpeaking:value=>walkers.forEach(walker=>walker.setSpeaking(value)),
     destroy(){
@@ -98,7 +99,7 @@ export class RoomWalker{
     const paused=String(this.paused||this.reduced()||!this.active);
     if(this.dog.dataset.motionPaused!==paused)this.dog.dataset.motionPaused=paused;
   }
-  get canMove(){return this.active&&this.ready&&!this.reduced()&&!this.paused&&!this.speaking&&!this.conversationMode&&!this.failed;}
+  get canMove(){return this.active&&this.ready&&!this.reduced()&&!this.paused&&!this.petting&&!this.speaking&&!this.conversationMode&&!this.failed;}
   measure(){
     const width=this.scene.clientWidth,height=this.scene.clientHeight;if(!width||!height)return;
     this.roomSize={width,height};this.dogSize=parseFloat(getComputedStyle(this.dog).getPropertyValue('--dog-size'))||260;
@@ -146,6 +147,11 @@ export class RoomWalker{
     this.dog.classList.remove('is-walking','is-acting','is-sniffing','is-playing','is-napping','greet');
     this.ball.classList.remove('is-playing');this.dog.dataset.activity='resting';
     this.scene.classList.add('roam-resting');this.paint();
+  }
+  setPetting(value){
+    this.petting=Boolean(value);
+    if(this.petting){this.conversationFinish?.();this.stop();}
+    else this.resume();
   }
   setSpeaking(value){
     if(!value&&this.conversationMode){this.returnFromConversation();return;}

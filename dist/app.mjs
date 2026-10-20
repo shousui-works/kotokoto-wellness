@@ -3,7 +3,8 @@ import {createPlushUI} from './plush-ui.mjs?v=hundred-dogs-1';
 import {createAccountClient} from './account-client.mjs?v=welcome-login-1';
 const account=await createAccountClient();
 const storage=account.storage;
-import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1';
+import {createRoomMotion} from './companion-motion.mjs?v=stroke-pet-1';
+import {bindCompanionPetting} from './companion-petting.mjs?v=1';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
 import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=idle-1';
 import {createKomugiConversation} from './komugi-conversation.mjs?v=send-key-1';
@@ -177,13 +178,25 @@ async function strokeCompanion(direct=false){
     if(direct&&(activeConversation||activeListening||activeNamePrompt)){
       roomAffection?.speak(affectionFor(state).score);
     }else{
-      greetDogs();
+      if(!direct)greetDogs();
       showCompanionPraise(wasLonely?'おかえり。会いに来てくれて、うれしいな。':'きみの手、やさしいね。なでてくれて、ありがとう。');
     }
     if(!direct)toast('こむぎが、うれしそうに寄ってきたよ。');
   }finally{petting=false;}
 }
-petTouch.addEventListener('click',()=>strokeCompanion(true));
+const petTrail=document.createElement('span');petTrail.className='petting-trail';petTrail.textContent='♡';petTrail.setAttribute('aria-hidden','true');petTouch.append(petTrail);
+let lastPetHeart=0;
+bindCompanionPetting(petTouch,{
+  onHold:value=>roomMotion.setPetting(value),
+  onMove:({x,y})=>{
+    liveDog.classList.add('is-being-petted');
+    liveDog.style.setProperty('--pet-tilt',((x-.5)*5).toFixed(2)+'deg');
+    petTouch.style.setProperty('--pet-x',(x*100)+'%');petTouch.style.setProperty('--pet-y',(y*100)+'%');
+    const now=performance.now();if(now-lastPetHeart>900){lastPetHeart=now;roomAffection?.speak(affectionFor(state).score);}
+  },
+  onEnd:()=>{liveDog.classList.remove('is-being-petted');liveDog.style.removeProperty('--pet-tilt');},
+  onPet:()=>strokeCompanion(true),
+});
 $('pet-companion').addEventListener('click',()=>strokeCompanion());
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
 document.querySelector('.reaction-options').addEventListener('click',event=>{const button=event.target.closest('[data-reaction]');if(button)previewReaction(button.dataset.reaction);});
