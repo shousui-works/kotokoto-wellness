@@ -34,7 +34,7 @@ export function applyCommand(original,command,now=Date.now()){
   switch(command.type){
     case 'habit':{
       const habit=HABITS.find(h=>h.id===command.habit);if(!habit)throw problem(400,'invalid_habit','項目を確認してね。');
-      if(recordHabit(state.legacy,date,habit.id))manual(({walk:'walk',meal:'meal_care',stretch:'stretch',rest:'rest'})[habit.id],habit.title);break;
+      if(recordHabit(state.legacy,date,habit.id))manual(({walk:'walk',meal:'eating_habit',stretch:'stretch',rest:'rest'})[habit.id],habit.title);break;
     }
     case 'weight':{
       if(!Number.isFinite(command.value)||command.value<1||command.value>500)throw problem(400,'invalid_weight','体重は1〜500の範囲で入力してね。');
@@ -45,7 +45,7 @@ export function applyCommand(original,command,now=Date.now()){
       for(const a of state.progress.activities)if(a.kind==='weight'&&a.date===date)a.deleted=true;
       state.progress.revision++;break;
     }
-    case 'mood':if(!Object.hasOwn(MOODS,command.mood))throw problem(400,'invalid_mood','気分を確認してね。');day().mood=command.mood;break;
+    case 'mood':if(!Object.hasOwn(MOODS,command.mood))throw problem(400,'invalid_mood','気分を確認してね。');day().mood=command.mood;manual('mood_log','気分を記録した',{detail:MOODS[command.mood]});break;
     case 'pet':petCompanion(state.legacy,new Date(now));break;
     case 'item':if(state.legacy.owned.includes(command.id)){state.legacy.decor=state.legacy.decor.includes(command.id)?state.legacy.decor.filter(x=>x!==command.id):[...state.legacy.decor,command.id];}else if(!buyItem(state.legacy,command.id))throw problem(400,'item_unavailable','交換できるものを確認してね。');break;
     case 'profile':state.profile=command.namesConfigured?normalizeNames(command.nickname,command.petName):{...state.profile,version:1,nickname:normalizeNickname(command.nickname),petName:normalizeNickname(command.petName??state.profile.petName??'こむぎ')||'こむぎ'};break;

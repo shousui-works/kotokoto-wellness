@@ -12,7 +12,20 @@ export const onAuthStateChanged=(_,fn)=>{listener=fn;fn(auth.currentUser);};
 export const signInWithPopup=async()=>{localStorage.setItem('fixture-user','yes');auth.currentUser=makeUser();listener?.(auth.currentUser);};
 export const signInWithRedirect=signInWithPopup;
 export const signOut=async()=>{localStorage.removeItem('fixture-user');auth.currentUser=null;listener?.(null);};`;
-const api=createAccountAPI({store:new MemoryAccountStore(),config:{projectId:'fixture',authDomain:'localhost',apiKey:'fixture',appId:'fixture'},verify:async t=>{if(t!=='fixture-token')throw Error();return {uid:'fixture-alice'};},generate:async input=>({status:200,body:{reply:'会いに来てくれて、うれしいな。きみの一歩に花まる！',actions:[]}})});
+const dailyLife={
+ '洗濯したよ':['housework','洗濯できたんだね、えらいねー。きれいになって気持ちいいね。'],
+ '小皿に分けたよ':['eating_habit','小皿に分けたんだね。自分に合う食べ方を工夫できて、えらいねー。'],
+ '自炊したよ':['meal_care','自分のごはんを用意したんだね、よくできたね。'],
+ '気分を日記に書いたよ':['mood_log','気持ちを言葉にできたんだね、えらいねー。よしよし。'],
+ '後回しのメールを返したよ':['challenge','気になっていたことに一歩踏み出せたんだね、えらいねー。'],
+ '休憩したよ':['rest','自分のためにひと休みできたね。よしよし。'],
+};
+function generate(input){
+ const text=input.messages.at(-1).content,entries=process.env.DAILY_LIFE==='1'?Object.entries(dailyLife).filter(([evidence])=>text.includes(evidence)):[];
+ const actions=entries.map(([evidence,[kind]])=>({operation:'create',targetId:null,kind,date:input.context.date,title:evidence,evidence,minutes:null,kcal:null,estimatedKcal:null,estimateBasis:null,weightKg:null,detail:null,additional:false}));
+ return {status:200,body:{reply:entries[0]?.[1][1]??'会いに来てくれて、うれしいな。きみの一歩に花まる！',actions}};
+}
+const api=createAccountAPI({store:new MemoryAccountStore(),config:{projectId:'fixture',authDomain:'localhost',apiKey:'fixture',appId:'fixture'},verify:async t=>{if(t!=='fixture-token')throw Error();return {uid:'fixture-alice'};},generate});
 const server=createAppServer({accountHandler:async(req,res,path)=>{
  if(path==='/fixture-sdk.mjs'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(sdk);return true;}
  if(path==='/account-client.mjs'){let text=await readFile(new URL('../dist/account-client.mjs',import.meta.url),'utf8');text=text.replaceAll('https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js','/fixture-sdk.mjs').replaceAll('https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js','/fixture-sdk.mjs');res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'});res.end(text);return true;}

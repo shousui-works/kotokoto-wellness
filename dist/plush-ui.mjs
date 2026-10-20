@@ -1,7 +1,7 @@
 import {createGachaScene} from './plush-gacha-scene.mjs?v=1';
 import {PLUSH_CATALOG,DRAW_COST,EXCHANGE_COST,SHELF_SLOTS,plushById,isActivePlush} from './plush-catalog.mjs';
 import {emptyCollection,normalizeCollection,collectionBalance} from './collection-model.mjs';
-import {progressTotal} from './progress.mjs';
+import {progressTotal} from './progress.mjs?v=daily-life-1';
 const $=id=>document.getElementById(id);
 function node(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
 function image(item,hidden=false){const wrap=node('span','plush-art'+(hidden?' undiscovered':'')),img=node('img');img.src=item.image;img.alt='';img.loading='lazy';img.addEventListener('error',()=>{img.hidden=true;wrap.append(node('span','plush-fallback','✳'));},{once:true});wrap.append(img);return wrap;}

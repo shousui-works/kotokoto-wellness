@@ -142,6 +142,16 @@ test('structured reports require current evidence, known correction targets and 
   assert.equal(extractReport(output([a]),validateChatRequest(payload('昨日ストレッチしたよ'))).actions[0].date,'2026-10-17');
 });
 
+test('daily life kinds pass structured validation without calories; unsupported estimates are rejected',()=>{
+ for(const [kind,evidence] of [['housework','洗濯した'],['eating_habit','小皿に分けた'],['mood_log','気分を日記に書いた'],['challenge','後回しのメールを返した']]){
+  const input=validateChatRequest(payload(evidence));
+  const action={operation:'create',targetId:null,kind,date:'2026-10-18',title:evidence,evidence,minutes:null,kcal:null,weightKg:null,detail:null,additional:false,estimatedKcal:null,estimateBasis:null};
+  const output=a=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'できたんだね、えらいねー。',actions:[a]})}]}]});
+  assert.equal(extractReport(output(action),input).actions[0].kind,kind);
+  assert.equal(extractReport(output({...action,estimatedKcal:20,estimateBasis:'家事を運動に換算'}),input),null);
+ }
+});
+
 test('plans, negations, others and extreme restriction do not become achievement candidates',()=>{
   for(const text of ['ストレッチしようかな','友達が歩いた','今日は筋トレできなかった','食事を抜いた']){
     const input=validateChatRequest(payload(text)),a={operation:'create',targetId:null,kind:'care',date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};

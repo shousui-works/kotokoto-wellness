@@ -1,5 +1,5 @@
 import {emptyState} from './model.mjs';
-import {emptyProgress,normalizeProgress} from './progress.mjs';
+import {emptyProgress,normalizeProgress} from './progress.mjs?v=daily-life-1';
 import {normalizeConversation} from './komugi-conversation.mjs';
 import {normalizeNickname,normalizeNames} from './profile.mjs';
 const KEYS={legacy:'kotokoto-wellness-v1',progress:'kotokoto-progress-v1',profile:'kotokoto-profile-v1',conversation:'kotokoto-komugi-conversation-v1',voice:'kotokoto-companion-chat-v1'};

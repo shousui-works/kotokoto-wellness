@@ -11,13 +11,13 @@ function apply(progress,legacy,actions,text='やった',extra={}){return applyIn
 
 test('different daily quests accumulate once, the same snack action cannot earn other categories',()=>{
   const {legacy,progress}=start();
-  const result=apply(progress,legacy,[action('stretch'),action('snack'),action('meal_care'),action('care'),action('rest')]);
+  const result=apply(progress,legacy,[action('stretch'),action('snack'),action('meal_care'),action('care'),action('rest',{evidence:'休んだ'})],'やった。休んだ');
   const r=dayReport(result.progress,today);
-  assert.equal(r.total,30); // stretch, snack, rest; the same evidence is one food/care action.
+  assert.equal(r.total,14); // stretch 10 + snack 2 + rest 2; one food/care action.
   assert.equal(r.quests.filter(q=>q.done).length,3);
   const again=apply(result.progress,legacy,[action('stretch'),action('snack')]);
   assert.equal(again.delta,0);
-  assert.equal(progressTotal(again.progress),30);
+  assert.equal(progressTotal(again.progress),14);
 });
 
 test('exercise points follow the daily nonlinear formula and have only the first 20kcal quest',()=>{
@@ -30,6 +30,41 @@ test('exercise points follow the daily nonlinear formula and have only the first
   assert.equal(dayReport(c.progress,today).total,43);
   assert.equal(dayReport(c.progress,today).quests.filter(q=>q.id==='exercise'&&q.done).length,1);
   assert.equal(c.delta,23);
+});
+
+test('daily life rewards are small, once per category per date, and never add exercise calories',()=>{
+  const {legacy,progress}=start();
+  const entries=[['meal_care','自炊した'],['eating_habit','小皿に分けた'],['rest','休憩した'],['housework','洗濯した'],['mood_log','気分を書いた'],['challenge','後回しの連絡を返した']];
+  const text=entries.map(([,s])=>s).join('。');
+  const a=apply(progress,legacy,entries.map(([kind,evidence])=>action(kind,{evidence,title:evidence})),text);
+  assert.equal(a.delta,9);assert.equal(dayReport(a.progress,today).kcal,0);assert.equal(dayReport(a.progress,today).exercise,0);
+  assert.deepEqual(a.receipts.map(r=>r.delta).sort(),[1,1,1,2,2,2]);
+  const b=apply(a.progress,legacy,[action('housework',{evidence:'掃除もした',additional:true})],'掃除もした');assert.equal(b.delta,0);
+  const c=apply(b.progress,legacy,[action('challenge',{evidence:'掃除もした'})],'掃除もした');assert.equal(c.delta,0);assert.equal(c.progress.activities.filter(x=>x.kind==='challenge').length,1);
+  const d=apply(c.progress,legacy,[action('housework',{date:'2026-10-17',evidence:'昨日も洗濯した'})],'昨日も洗濯した');assert.equal(d.delta,1);
+  const retry=applyInterpretation(d.progress,{requestId:d.progress.processed.at(-1),actions:[],text:'昨日も洗濯した'},legacy);assert.equal(retry.delta,0);assert.equal(retry.replayed,true);
+  assert.deepEqual(normalizeProgress(JSON.parse(JSON.stringify(d.progress))),d.progress);
+});
+
+test('records without pointVersion retain old bonuses after reload, new reports, and date corrections',()=>{
+  const {legacy,progress}=start();
+  const entries=[['snack','間食を控えた'],['meal_care','自炊した'],['rest','休んだ'],['care','自分をいたわった'],['weight','測った'],['meal_log','食事を記録した']];
+  const initial=apply(progress,legacy,entries.map(([kind,evidence])=>action(kind,{evidence,...(kind==='weight'?{weightKg:60}:{}),...(kind==='meal_log'?{detail:'ごはん'}:{})})),entries.map(([,s])=>s).join('。')).progress;
+  initial.activities.forEach(a=>delete a.pointVersion);initial.peakPoints=45;
+  const old=normalizeProgress(JSON.parse(JSON.stringify(initial)));assert.equal(progressTotal(old),45);
+  const next=apply(old,legacy,[action('housework',{evidence:'洗濯した'})],'洗濯した');assert.equal(next.delta,1);assert.equal(progressTotal(next.progress),46);assert.equal(next.progress.peakPoints,46);
+  assert.equal(dayReport(next.progress,today).quests.find(q=>q.id==='rest').bonus,10);
+  const moved=correctActivity(next.progress,old.activities.find(a=>a.kind==='rest').id,{date:'2026-10-17'},legacy,at);assert.equal(progressTotal(moved),46);assert.equal(dayReport(moved,'2026-10-17').total,10);
+  const fresh=apply(moved,legacy,[action('rest',{evidence:'今日は休憩した'})],'今日は休憩した');assert.equal(fresh.delta,2);assert.equal(dayReport(fresh.progress,today).quests.find(q=>q.id==='rest').bonus,2);
+  assert.throws(()=>normalizeProgress({...fresh.progress,activities:fresh.progress.activities.map(a=>({...a,pointVersion:99}))}));
+});
+
+test('an uncompleted old weight or food report does not raise the rate of a separate new record',()=>{
+  const {legacy,progress}=start();
+  const pending=apply(progress,legacy,[action('weight'),action('meal_log')]).progress;
+  pending.activities.forEach(a=>delete a.pointVersion);
+  const saved=apply(pending,legacy,[action('weight',{weightKg:60,evidence:'測った',additional:true}),action('meal_log',{detail:'ごはん',evidence:'食べた',additional:true})],'測った。食べた');
+  assert.equal(saved.delta,2);assert.equal(dayReport(saved.progress,today).quests.find(q=>q.id==='weight').bonus,1);assert.equal(dayReport(saved.progress,today).quests.find(q=>q.id==='meal_log').bonus,1);
 });
 
 test('missing inputs stay pending, then one activity receives the Luna estimate and its basis',()=>{
@@ -148,11 +183,11 @@ test('manual weight and food records earn fixed bonuses only after actual conten
   const {legacy,progress}=start();
   let a=apply(progress,legacy,[action('weight')]);assert.equal(a.delta,0);
   a=recordManual(a.progress,{id:'manual-weight',kind:'weight',date:today,title:'体重記録',weightKg:60},legacy,at);
-  assert.equal(dayReport(a.progress,today).total,5);
+  assert.equal(dayReport(a.progress,today).total,1);
   const b=apply(a.progress,legacy,[action('meal_log',{detail:'ごはんと焼き魚'})]);
-  assert.equal(dayReport(b.progress,today).total,10);
+  assert.equal(dayReport(b.progress,today).total,2);
   const c=recordManual(b.progress,{id:'manual-weight',kind:'weight',date:today,title:'体重記録',weightKg:61},legacy,at);
-  assert.equal(dayReport(c.progress,today).total,10);
+  assert.equal(dayReport(c.progress,today).total,2);
   assert.equal(c.progress.activities.filter(x=>x.kind==='weight').length,1);
 });
 
@@ -176,9 +211,9 @@ test('invalid and future results fail atomically and unknown storage versions ar
 test('a tiny stretch still earns its first bonus and a saved weight need not be asked again',()=>{
   const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
   const a=apply(progress,legacy,[action('stretch',{minutes:1/60}),action('weight',{evidence:'体重を記録した'})],'やった。体重を記録した');
-  assert.equal(dayReport(a.progress,today).total,15);
+  assert.equal(dayReport(a.progress,today).total,11);
   assert.equal(a.progress.activities.find(x=>x.kind==='weight').needs.length,0);
-  assert.ok(progressCompanion(a.progress,legacy).xp>=15);
+  assert.ok(progressCompanion(a.progress,legacy).xp>=11);
 });
 
 
