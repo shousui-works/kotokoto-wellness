@@ -16,6 +16,7 @@
 !test/server.test.mjs
 !test/komugi-chat.test.mjs
 !test/komugi-conversation.test.mjs
+!test/voice-input.test.mjs
 !test/progress.test.mjs
 !test/admin-auth.test.mjs
 !test/admin-usage.test.mjs

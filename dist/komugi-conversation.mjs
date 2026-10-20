@@ -1,3 +1,4 @@
+import {createVoiceInput} from './voice-input.mjs?v=1';
 export const CONVERSATION_STORAGE = 'kotokoto-komugi-conversation-v1';
 export const MESSAGE_LIMIT = 600;
 const HISTORY_LIMIT = 60;
@@ -66,6 +67,25 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   const thread = $('conversation-thread'), form = $('conversation-form'), input = $('conversation-input');
   const status = $('conversation-status'), warning = $('conversation-warning'), send = $('conversation-send'), clear = $('conversation-clear');
   let saved = loadConversation(storage), busy = false, available = false, sessionPromise = null, pending = pendingStore?.read()??null,expanded=false,recentReceipts=[];
+  let voiceActive=false;
+  const voiceButton=$('conversation-voice'),voiceStatus=$('conversation-voice-status');
+  const voice=createVoiceInput({input,canStart:()=>available&&!busy&&!expanded&&!form.hidden&&!document.querySelector('dialog[open]'),
+    onInput:()=>input.dispatchEvent(new Event('input',{bubbles:true})),
+    onState:({active,phase,notice,supported})=>{
+      voiceActive=active;input.readOnly=active;
+      voiceButton.classList.toggle('is-listening',active);voiceButton.dataset.phase=phase;
+      voiceButton.setAttribute('aria-pressed',String(active));
+      voiceButton.setAttribute('aria-label',active?'音声入力を止める':supported?'音声入力をはじめる':'音声入力の使い方');
+      voiceStatus.textContent=notice;voiceStatus.hidden=!notice;render();
+    },
+  });
+  voiceButton.addEventListener('click',()=>voice.start());
+  const stopHiddenVoice=()=>{if(document.hidden)voice.cancel();};
+  document.addEventListener('visibilitychange',stopHiddenVoice);
+  window.addEventListener('pagehide',()=>voice.cancel());
+  const voicePanels=new MutationObserver(()=>{if(form.hidden||document.querySelector('dialog[open]'))voice.cancel();});
+  voicePanels.observe(form,{attributes:true,attributeFilter:['hidden']});
+  document.querySelectorAll('dialog').forEach(dialog=>voicePanels.observe(dialog,{attributes:true,attributeFilter:['open']}));
 
   function storageWarning(text = '') {
     warning.textContent = text || (!saved.writable ? '保存済みのおはなしを読み込めませんでした。元のデータは上書きせず、今回のおはなしは画面を閉じるまで表示します。' : '');
@@ -96,6 +116,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   }
 
   function setExpanded(value){
+    if(value)voice.cancel();
     expanded=value;document.body.classList.toggle('reading-conversation',expanded);
     historyToggle.setAttribute('aria-expanded',String(expanded));
     if(expanded&&!historyDialog.open)historyDialog.showModal();
@@ -111,7 +132,8 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     thread.scrollTop = thread.scrollHeight;
     root.classList.toggle('is-sending', busy);
     thread.setAttribute('aria-busy', String(busy));
-    send.disabled = busy || !available || !input.value.trim();
+    send.disabled = busy || voiceActive || !available || !input.value.trim();
+    voiceButton.disabled=busy||!available;
     input.disabled = busy || !available;
     clear.disabled = busy || !saved.data.messages.length;
     $('conversation-count').textContent = `${input.value.length} / ${MESSAGE_LIMIT}`;
@@ -121,7 +143,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
       const item=document.createElement('span');item.className='conversation-receipt'+(r.status==='pending'?' conversation-receipt--pending':'');
       item.textContent=r.label+(r.delta>0?' ＋'+r.delta:'');result.append(item);
     }
-    onInteraction(busy||expanded||root.contains(document.activeElement));
+    onInteraction(busy||voiceActive||expanded||root.contains(document.activeElement));
   }
 
   async function session() {
@@ -162,7 +184,8 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   form.addEventListener('submit', async event => {
     event.preventDefault();
     const text = input.value.trim();
-    if (busy || !available || !text || text.length > MESSAGE_LIMIT) return;
+    if (busy || voiceActive || !available || !text || text.length > MESSAGE_LIMIT) return;
+    voice.clearNotice();
     // Unknown network outcomes reuse the same ID and payload for five minutes.
     if (!pending || pending.text !== text || (!cloud&&Date.now() - pending.at > 4 * 60000)) {
       pending = {text, at: Date.now(), body: {requestId: crypto.randomUUID(), messages: requestMessages(saved.data, text), context: getContext()}};
@@ -192,21 +215,21 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     } finally { busy = false; render(); }
   });
 
-  input.addEventListener('input', () => { send.disabled = busy || !available || !input.value.trim(); $('conversation-count').textContent = `${input.value.length} / ${MESSAGE_LIMIT}`;input.style.height='auto';input.style.height=Math.min(90,input.scrollHeight)+'px'; });
+  input.addEventListener('input', () => { if(!voiceActive)voice.clearNotice();send.disabled = busy || voiceActive || !available || !input.value.trim(); $('conversation-count').textContent = `${input.value.length} / ${MESSAGE_LIMIT}`;input.style.height='auto';input.style.height=Math.min(90,input.scrollHeight)+'px'; });
   bindChatEnter(input,form);
   historyToggle.addEventListener('click',()=>{setExpanded(true);render();});
   $('conversation-history-close').addEventListener('click',()=>historyDialog.close());
   historyDialog.addEventListener('close',()=>{setExpanded(false);render();});
   historyDialog.addEventListener('click',event=>{if(event.target!==historyDialog)return;const r=historyDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)historyDialog.close();});
   $('conversation-reconnect').addEventListener('click',()=>{open();});
-  root.addEventListener('focusin',()=>onInteraction(true));root.addEventListener('focusout',()=>queueMicrotask(()=>onInteraction(busy||expanded||root.contains(document.activeElement))));
+  root.addEventListener('focusin',()=>onInteraction(true));root.addEventListener('focusout',()=>queueMicrotask(()=>onInteraction(busy||voiceActive||expanded||root.contains(document.activeElement))));
   clear.addEventListener('click', async () => {
     if (busy || !globalThis.confirm(cloud?'このアカウントのおはなし履歴と、会話から覚えたことを消しますか？ 行動の記録とポイントは残ります。':'このブラウザのおはなし履歴を消しますか？')) return;
     try { if(cloud)await onClearHistory();else storage.removeItem(CONVERSATION_STORAGE); saved = loadConversation(storage); pending = null;pendingStore?.write(null); recentReceipts=[]; storageWarning(); status.textContent = 'おはなし履歴を消しました。'; render(); }
     catch { status.textContent = '履歴を消せませんでした。ブラウザの設定をご確認ください。'; }
   });
   storageWarning(); render();
-  return {open,reload(){saved=loadConversation(storage);render();},get isInteracting(){return busy||expanded||root.contains(document.activeElement);},focus(label=''){
+  return {open,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
     const target=$('conversation-target');target.replaceChildren();target.hidden=!label;
     if(label){target.append(document.createTextNode(label+'のつづき'));const cancel=document.createElement('button');cancel.type='button';cancel.textContent='×';cancel.setAttribute('aria-label','補足する対象を解除');cancel.addEventListener('click',()=>{target.hidden=true;onClearTarget();});target.append(cancel);}
     input.focus();
