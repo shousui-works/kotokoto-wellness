@@ -113,9 +113,9 @@ Lunaは固定モデル `gpt-6-luna` のResponses APIとStructured Outputsで、�
 
 ### 音声入力
 
-入力欄のマイクから日本語の音声を下書きへ入れ、文字を確認・修正してから送信できます。自動送信はしません。ブラウザのWeb Speech API（SpeechRecognition / webkitSpeechRecognition）を使い、開始ボタンを押したときだけ認識を開始します。音声はブラウザの認識サービスで処理される場合があり、端末内だけで処理されるとは限りません。アプリに録音ファイルを保存したりOpenAIへ音声を送信したりする実装はありません。送信ボタンを押したテキストのみ、既存の会話APIへ渡します。
+入力欄のマイクから日本語で話しかけると、認識が正常に終了した時点で確定した文字を自動送信します。マイクを再度押して終了した場合も同じです。手入力の送信ボタンは維持します。ブラウザのWeb Speech API（SpeechRecognition / webkitSpeechRecognition）を使い、開始ボタンを押したときだけ認識を開始します。音声はブラウザの認識サービスで処理される場合があり、端末内だけで処理されるとは限りません。アプリに録音ファイルを保存したりOpenAIへ音声を送信したりする実装はありません。音声認識終了時または送信ボタンを押した時のテキストを、既存の会話APIへ渡します。
 
-認識中は送信と文字編集を止め、終了後に編集可能へ戻します。初期待機15秒・認識30秒・停止待ち3秒で打ち切り、ページ非表示・離脱・パネル表示でも認識を終了します。非対応や許可拒否は既存の下書きを残して案内し、スマホのキーボード側の音声入力も利用できます。対応状況や必要設定はブラウザに依存します（[MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API)、[WebKit](https://webkit.org/blog/11648/new-webkit-features-in-safari-14-1/)）。
+認識中は送信と文字編集を止め、終了時に入力ロックを解除してから既存フォームで1回だけ送信します。未確定の途中結果だけの場合、音声なし、許可拒否、認識エラー、中断・非表示・離脱、停止結果待ちのタイムアウト、600文字で切れた場合は自動送信せず、文字を残して手動で確認・送信できます。初期待機15秒・認識30秒・停止待ち3秒で打ち切り、ページ非表示・離脱・パネル表示でも認識を終了します。非対応や許可拒否は既存の下書きを残して案内し、スマホのキーボード側の音声入力も利用できます。対応状況や必要設定はブラウザに依存します（[MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API)、[WebKit](https://webkit.org/blog/11648/new-webkit-features-in-safari-14-1/)）。
 
 `test/voice-input.test.mjs` は実際の音声や外部APIを使わず検証します。`VOICE_FIXTURE=success PORT=8095 node test/preview-account.mjs` で架空の認識結果を返す画面、`VOICE_FIXTURE=denied` で許可拒否を確認できます。検証用のSDKは公開物に含めません。
 

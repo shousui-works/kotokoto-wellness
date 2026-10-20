@@ -1,4 +1,4 @@
-import {createVoiceInput} from './voice-input.mjs?v=1';
+import {createVoiceInput} from './voice-input.mjs?v=auto-send-1';
 export const CONVERSATION_STORAGE = 'kotokoto-komugi-conversation-v1';
 export const MESSAGE_LIMIT = 600;
 const HISTORY_LIMIT = 60;
@@ -69,13 +69,14 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   let saved = loadConversation(storage), busy = false, available = false, sessionPromise = null, pending = pendingStore?.read()??null,expanded=false,recentReceipts=[];
   let voiceActive=false;
   const voiceButton=$('conversation-voice'),voiceStatus=$('conversation-voice-status');
-  const voice=createVoiceInput({input,canStart:()=>available&&!busy&&!expanded&&!form.hidden&&!document.querySelector('dialog[open]'),
+  const voice=createVoiceInput({input,canStart:()=>available&&!busy&&!expanded&&!form.hidden&&!document.hidden&&!document.querySelector('dialog[open]'),
     onInput:()=>input.dispatchEvent(new Event('input',{bubbles:true})),
+    onComplete:()=>{if(available&&!busy&&!expanded&&!form.hidden&&!document.hidden&&!document.querySelector('dialog[open]'))form.requestSubmit();},
     onState:({active,phase,notice,supported})=>{
       voiceActive=active;input.readOnly=active;
       voiceButton.classList.toggle('is-listening',active);voiceButton.dataset.phase=phase;
       voiceButton.setAttribute('aria-pressed',String(active));
-      voiceButton.setAttribute('aria-label',active?'音声入力を止める':supported?'音声入力をはじめる':'音声入力の使い方');
+      voiceButton.setAttribute('aria-label',active?'音声入力を終えて送信':supported?'音声入力をはじめる':'音声入力の使い方');
       voiceStatus.textContent=notice;voiceStatus.hidden=!notice;render();
     },
   });

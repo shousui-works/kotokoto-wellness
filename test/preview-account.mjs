@@ -15,9 +15,9 @@ export const signOut=async()=>{localStorage.removeItem('fixture-user');auth.curr
 // Browser-driven UI fixture; no real microphone or recognition service is used.
 const voiceSDK=process.env.VOICE_FIXTURE==='unsupported'?'window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined;':`window.SpeechRecognition=class {
  start(){this.timers=[];this.onstart?.();if(${JSON.stringify(process.env.VOICE_FIXTURE)}==='denied'){this.onerror?.({error:'not-allowed'});return;}
- this.timers.push(setTimeout(()=>this.onresult?.({results:[[{transcript:'こんにちは'}]]}),200));
+ this.timers.push(setTimeout(()=>this.onresult?.({results:[Object.assign([{transcript:'こんにちは'}],{isFinal:false})]}),200));
  this.timers.push(setTimeout(()=>this.stop(),8000));}
- stop(){this.abort();this.onresult?.({results:[[{transcript:'こんにちは、会いに来たよ'}]]});this.onend?.();}
+ stop(){this.abort();this.onresult?.({results:[Object.assign([{transcript:'こんにちは、会いに来たよ'}],{isFinal:true})]});this.onend?.();}
  abort(){for(const t of this.timers??[])clearTimeout(t);}
 };`;
 const dailyLife={
