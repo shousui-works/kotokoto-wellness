@@ -1,2 +1,20 @@
 .DS_Store
 .openai/*.tar.gz
+
+# Local credentials, Terraform working files and plans
+.env
+.env.*
+!.env.example
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+*.tfbackend
+crash.log
+crash.*.log
+infra/terraform/bootstrap/backend.tf
+.gcp-build/
+
+node_modules/

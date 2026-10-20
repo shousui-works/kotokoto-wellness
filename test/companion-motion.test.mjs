@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RoomWalker,ACTIVITY_DURATION,chooseActivity,roomBounds,stepToward} from '../dist/companion-motion.mjs';
+import {RoomWalker,ACTIVITY_DURATION,chooseActivity,roomBounds,stepToward,conversationPose} from '../dist/companion-motion.mjs';
 
 class Element{
   constructor(){
@@ -53,6 +53,76 @@ test('くんくんと伏せ寝は時間が来ると終わり、次の自動行�
   }
 }));
 
+test('返事を読む間は正面のおすわりで待ち、読み終わっても手動のおやすみ設定を守る',()=>withWalker(({walker,dog,advance,timers,frames})=>{
+  walker.startActivity('play');walker.setSpeaking(true);
+  advance(30000);
+  assert.equal(dog.dataset.activity,'resting');assert.equal(frames.size,0);assert.equal(timers.size,0);
+  assert.equal(walker.canMove,false);assert.equal(walker.playButton.disabled,true);
+  walker.setSpeaking(false);assert.equal(walker.canMove,true);assert.ok(timers.size);
+  walker.paused=true;walker.setSpeaking(true);walker.setSpeaking(false);
+  assert.equal(walker.paused,true);assert.equal(walker.canMove,false);assert.equal(timers.size,0);
+}));
+
+test('アップ中の絵の動きは、手動停止・非表示・動きを減らす設定に従う',()=>withWalker(({walker,dog,doc,setReduced})=>{
+  walker.approachConversation();walker.conversationFinish?.();walker.updateControls();
+  assert.equal(dog.dataset.conversation,'near');assert.equal(dog.dataset.motionPaused,'false');
+  walker.onPause();assert.equal(dog.dataset.motionPaused,'true');assert.equal(walker.paused,true);
+  walker.onPause();assert.equal(dog.dataset.motionPaused,'false');
+  doc.hidden=true;walker.resume();assert.equal(dog.dataset.motionPaused,'true');
+  doc.hidden=false;walker.resume();assert.equal(dog.dataset.motionPaused,'false');
+  setReduced(true);assert.equal(dog.dataset.motionPaused,'true');assert.equal(walker.paused,false);
+  setReduced(false);assert.equal(dog.dataset.motionPaused,'false');
+}));
+
+test('話しかけると遊びを中断して手前へ大きく寄り、読み終わると元の距離へ戻る',()=>withWalker(({walker,dog,frames,timers})=>{
+  const origin={...walker.position};walker.startActivity('play');
+  walker.approachConversation();
+  assert.equal(walker.activity,null);assert.equal(walker.ball.classList.contains('is-playing'),false);
+  assert.equal(dog.dataset.conversation,'approaching');assert.equal(walker.canMove,false);
+  const approaching=frames.get(walker.conversationFrame);frames.delete(walker.conversationFrame);approaching(performance.now()+2000);
+  const target=conversationPose(375,812,160);
+  assert.equal(dog.dataset.conversation,'near');assert.deepEqual(walker.position,{x:target.x,y:target.y});
+  assert.ok(walker.conversationScale>1.8);assert.equal(dog.classList.contains('is-walking'),false);
+  walker.setSpeaking(false);assert.equal(dog.dataset.conversation,'returning');
+  const returning=frames.get(walker.conversationFrame);frames.delete(walker.conversationFrame);returning(performance.now()+2000);
+  assert.deepEqual(walker.position,origin);assert.equal(walker.conversationScale,null);
+  assert.equal(walker.conversationMode,null);assert.equal(walker.canMove,true);assert.ok(timers.size);
+  approaching(performance.now()+4000);assert.deepEqual(walker.position,origin);
+}));
+
+test('寄ってくる途中の非表示・動きを減らす設定・手動停止でもアニメーションを残さない',()=>withWalker(({walker,doc,frames,timers,setReduced})=>{
+  walker.approachConversation();doc.hidden=true;walker.resume();
+  assert.equal(walker.conversationMode,'near');assert.equal(frames.size,0);
+  doc.hidden=false;setReduced(true);walker.setSpeaking(false);
+  assert.equal(walker.conversationMode,null);assert.equal(frames.size,0);assert.equal(timers.size,0);
+  setReduced(false);walker.paused=true;walker.approachConversation();
+  assert.equal(walker.conversationMode,'near');assert.equal(frames.size,0);
+  walker.setSpeaking(false);assert.equal(walker.paused,true);assert.equal(walker.canMove,false);
+}));
+
+test('会話の寄り位置は入力欄の上に収まり、画面と成長に合わせて拡大率を抑える',()=>{
+  for(const [w,h,inset]of[[320,740,160],[390,844,166],[844,390,120],[1280,720,160]])for(const size of [160,180,200,225]){
+    const p=conversationPose(w,h,size,inset);
+    assert.ok(p.x>0&&p.x<w);assert.ok(p.y>=inset+24&&p.y<h);
+    assert.ok(p.scale>=.95&&p.scale<=2.25);assert.ok(p.scale*size<=w*.9);
+  }
+});
+
+test('キーボードで特に狭い縦画面では横に吹き出しを置ける余白を残す',()=>{
+  for(const w of [320,390])for(const size of [160,225]){
+    const p=conversationPose(w,360,size,70);
+    assert.ok(p.x<w*.4);assert.ok(p.scale*size<=w*.42);
+    assert.ok(360-p.y-p.scale*size*.78>=95);assert.ok(p.y>=94);
+  }
+});
+
+test('横向きのキーボードでも犬の頭を画面内に収める',()=>{
+  for(const size of [160,225]){
+    const p=conversationPose(844,210,size,70);
+    assert.ok(210-p.y-p.scale*size*.78>=85);assert.ok(p.y>=94);
+  }
+});
+
 test('ボールに近づいてから遊び、遊び終わると自動行動に戻る',()=>withWalker(({walker,dog,frames,timers})=>{
   walker.position={x:walker.ballPosition.x-walker.dogSize*.37,y:walker.ballPosition.y};
   walker.play();assert.equal(dog.dataset.activity,'playing');assert.ok(walker.ball.classList.contains('is-playing'));
@@ -86,3 +156,12 @@ test('移動は目的地を飛び越えず、各画面の歩行範囲は収ま�
     const b=roomBounds(w,h,size);assert.ok(b.left<=b.right&&b.left>=0&&b.right<=w);assert.ok(b.front<=b.back&&b.front>0&&b.back<h);
   }
 });
+
+test('常設チャットの上に足元とボールを収める',()=>withWalker(({walker})=>{
+  walker.getBottomInset=()=>250;walker.measure();
+  assert.ok(walker.bounds.front>=270);
+  assert.ok(walker.position.y>=270);
+  walker.ballPosition={x:100,y:100};walker.measure();
+  assert.ok(walker.ballPosition.y>=270);
+  assert.ok(walker.bounds.back<walker.roomSize.height);
+}));
