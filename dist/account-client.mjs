@@ -29,14 +29,15 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
   const original=local.getItem(ownerKey)?{getItem:key=>local.getItem('kotokoto-guest-v2:'+key),setItem:(key,v)=>local.setItem('kotokoto-guest-v2:'+key,v),removeItem:key=>local.removeItem('kotokoto-guest-v2:'+key)}:local;
   if(user){try{pending=JSON.parse(local.getItem(pendingKey(user.uid))??'null');}catch{pending=null;}}
   function notify(){render();for(const listener of listeners)listener();}
-  function install(next){if(!user)return;state=next;map=snapshotStorage(next);try{local.setItem(cacheKey(user.uid),JSON.stringify(next));}catch{}offline=false;locked=false;lastSync=new Date();notify();}
+  function install(next){if(!user||state&&next.revision<state.revision)return;state=next;map=snapshotStorage(next);try{local.setItem(cacheKey(user.uid),JSON.stringify(next));}catch{}offline=false;locked=false;lastSync=new Date();notify();}
   async function request(path,init={}){
     if(!user||locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     const identity=user.uid,identityUser=user,stamp=generation;
     const send=async refresh=>fetchImpl(path,{...init,headers:{...init.headers,Authorization:`Bearer ${await identityUser.getIdToken(refresh)}`},cache:'no-store',signal:AbortSignal.timeout(path==='/api/chat'?55000:30000)});
     let response=await send(false);if(response.status===401)response=await send(true);
-    if(generation!==stamp||user?.uid!==identity)throw Error('アカウントが変わったため、前の操作は表示していません。');
     const data=await response.json();
+    if(generation!==stamp||user?.uid!==identity)throw Error('アカウントが変わったため、前の操作は表示していません。');
+    if(locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     if(response.status===401){locked=true;state=null;map.clear();local.removeItem(cacheKey(identity));notify();}
     if(!response.ok){const error=Object.assign(new Error(data.error?.message??'保存できませんでした。入力は残しています。'),{status:response.status,code:data.error?.code,retryable:data.error?.retryable===true});throw error;}
     if(data.state)install(data.state);if(path==='/api/chat'&&user)local.removeItem('kotokoto-cloud-draft:'+user.uid);return data;
