@@ -148,7 +148,8 @@ const speechBubble=createCompanionBubble(document.querySelector('.companion-bubb
 roomMotion=createRoomMotion(document.querySelectorAll('[data-companion]'),{onPosition:point=>speechBubble.place({...point,viewportTop:$('scene-home').getBoundingClientRect().top}),getBottomInset:()=>Math.max(0,$('scene-home').getBoundingClientRect().bottom-$('room-console').getBoundingClientRect().top)});
 roomFaces=createCompanionFaces(document.querySelectorAll('[data-companion]'));
 roomAffection=createCompanionAffection(document.querySelectorAll('[data-companion]'));
-$('room-play-tools').append($('scene-home').querySelector('.room-controls'));
+// Motion stays automatic; direct petting and conversation are the interactions.
+$('scene-home').querySelector('.room-controls').remove();
 const roomTools=$('room-tools');
 roomTools.addEventListener('click',event=>{if(event.target.closest('button'))roomTools.open=false;});
 roomTools.addEventListener('toggle',()=>companionChat?.refresh());
@@ -198,7 +199,6 @@ bindCompanionPetting(petTouch,{
   onEnd:()=>{liveDog.classList.remove('is-being-petted');liveDog.style.removeProperty('--pet-tilt');},
   onPet:()=>strokeCompanion(true),
 });
-$('pet-companion').addEventListener('click',()=>strokeCompanion());
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
 document.querySelector('.reaction-options').addEventListener('click',event=>{const button=event.target.closest('[data-reaction]');if(button)previewReaction(button.dataset.reaction);});
 
