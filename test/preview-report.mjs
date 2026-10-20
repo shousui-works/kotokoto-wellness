@@ -1,4 +1,4 @@
-// Local, offline UI fixture. Not uploaded to Cloud Build or included in Docker.
+// Offline UI fixture, also used by Cloud Build tests. Not included in Docker.
 // The injected fetch never performs network I/O. No API key is loaded.
 import {createAppServer} from '../server/index.mjs';
 import {createKomugiChat} from '../server/komugi-chat.mjs';

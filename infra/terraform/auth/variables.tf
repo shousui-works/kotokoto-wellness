@@ -46,9 +46,9 @@ variable "existing_auth_config_confirmed" {
 variable "authorized_domains" {
   type        = set(string)
   default     = []
-  description = "管理する場合は既存の正当なドメインを全て含める。"
+  description = "管理する場合は既存の正当なドメインを全て含める。既存のlocalhostは明示した場合だけ維持する。"
   validation {
-    condition     = alltrue([for host in var.authorized_domains : can(regex("^[a-z0-9][a-z0-9.-]+[.][a-z]{2,}$", host))]) && (!var.manage_auth_config || contains(var.authorized_domains, var.auth_domain))
+    condition     = alltrue([for host in var.authorized_domains : host == "localhost" || can(regex("^[a-z0-9][a-z0-9.-]+[.][a-z]{2,}$", host))]) && (!var.manage_auth_config || contains(var.authorized_domains, var.auth_domain))
     error_message = "許可ドメインはホスト名で指定し、管理時はauth_domainと維持する既存ドメインを含めてください。"
   }
 }
