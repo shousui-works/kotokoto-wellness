@@ -250,3 +250,36 @@ run "reject_incomplete_required_config" {
   }
   expect_failures = [google_cloud_run_v2_service.app]
 }
+
+run "push_off_by_default" {
+  command = plan
+  assert {
+    condition     = length(google_cloud_run_v2_job.push) == 0 && length(google_cloud_scheduler_job.push) == 0 && length(google_secret_manager_secret_iam_member.runtime_push) == 0
+    error_message = "通知は既定で無効です。"
+  }
+}
+run "reject_push_without_account_or_key" {
+  command = plan
+  variables { enable_push_schedule = true }
+  expect_failures = [google_cloud_run_v2_job.push]
+}
+run "push_job_has_only_push_key_and_authenticated_scheduler" {
+  command = plan
+  variables {
+    account_mode          = "required"
+    account_backend_ready = true
+    account_config = {
+      project_id     = "example-project"
+      database_id    = "kotokoto-wellness"
+      web_app_id     = "1:123456789:web:abc123"
+      auth_domain    = "example-project.firebaseapp.com"
+      public_api_key = "AIzaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+    push_secret_version  = "1"
+    enable_push_schedule = true
+  }
+  assert {
+    condition     = google_cloud_run_v2_job.push[0].template[0].template[0].containers[0].args[0] == "server/push-dispatch.mjs" && length([for env in google_cloud_run_v2_job.push[0].template[0].template[0].containers[0].env : env if env.name == "OPENAI_API_KEY"]) == 0 && google_cloud_scheduler_job.push[0].http_target[0].oauth_token[0].service_account_email == "kotokoto-biyori-schedule@example-project.iam.gserviceaccount.com"
+    error_message = "通知JobはOpenAIキーなし、Schedulerは既存専用SAで認証します。"
+  }
+}

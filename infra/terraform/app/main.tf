@@ -91,6 +91,25 @@ resource "google_cloud_run_v2_service" "app" {
         }
       }
 
+      dynamic "env" {
+        for_each = var.push_secret_version == null ? [] : [var.push_secret_version]
+        content {
+          name = "WEB_PUSH_VAPID"
+          value_source {
+            secret_key_ref {
+              secret  = "${var.app_name}-web-push-vapid"
+              version = env.value
+            }
+          }
+        }
+      }
+      dynamic "env" {
+        for_each = var.push_secret_version == null ? {} : { WEB_PUSH_SUBJECT = var.push_subject }
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
       startup_probe {
         initial_delay_seconds = 0
         timeout_seconds       = 1
@@ -151,7 +170,7 @@ resource "google_cloud_run_v2_service" "app" {
     }
   }
 
-  depends_on = [google_secret_manager_secret_iam_member.runtime_openai, google_project_service_identity.iap]
+  depends_on = [google_secret_manager_secret_iam_member.runtime_openai, google_secret_manager_secret_iam_member.runtime_push, google_project_service_identity.iap]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "invoker" {

@@ -50,3 +50,22 @@ run "enable_account_apis_and_separate_workers" {
     error_message = "必要APIと専用SAを作り、実行SAを分離してください。"
   }
 }
+
+run "push_secret_disabled_by_default" {
+  command = plan
+  assert {
+    condition     = length(google_secret_manager_secret.web_push) == 0
+    error_message = "通知鍵の保管先は既定で作成しません。"
+  }
+}
+run "push_secret_metadata_only" {
+  command = plan
+  variables {
+    enable_push_infrastructure    = true
+    enable_account_infrastructure = true
+  }
+  assert {
+    condition     = google_secret_manager_secret.web_push[0].secret_id == "kotokoto-biyori-web-push-vapid"
+    error_message = "VAPID鍵の保管先を固定します。秘密値はTerraformで作りません。"
+  }
+}
