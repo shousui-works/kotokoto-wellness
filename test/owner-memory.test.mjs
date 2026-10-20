@@ -61,7 +61,20 @@ test('provider generation is bounded to 2000 including reasoning and refuses inc
  for(const result of [valid,{...valid,status:'incomplete'},{...valid,usage:{output_tokens:2001}},{...valid,usage:{}},{...valid,output:[{type:'message',role:'assistant',content:[{type:'refusal',refusal:'no'}]}]}]){
  const generate=createDailySummarizer({apiKey:'fixture-only',onUsage:async(e,m)=>{assert.equal(e.purpose,'memory');assert.equal(m.uid,'alice');},fetchImpl:async(url,init)=>{assert.equal(url,'https://api.openai.com/v1/responses');payload=JSON.parse(init.body);return Response.json(result);}});
  if(result===valid){assert.equal((await generate(plan,'alice')).outputTokenUpperBound,40);}else await assert.rejects(generate(plan,'alice'));
- assert.equal(payload.max_output_tokens,2000);assert.equal(payload.store,false);assert.equal(payload.reasoning.effort,'low');assert.equal(payload.input.length,2);assert.match(payload.input[1].content,/朝の散歩/);assert.deepEqual(payload.prompt_cache_options,{mode:'explicit',ttl:'30m'});
+ assert.equal(payload.max_output_tokens,2000);assert.equal(payload.store,false);assert.equal(payload.reasoning.effort,'low');assert.equal(payload.input.length,2);assert.match(payload.input[1].content,/朝の散歩/);assert.match(payload.input[1].content,/2026-10-18T09:00:00.000\+09:00/);assert.match(payload.input[1].content,/Asia\/Tokyo/);assert.deepEqual(payload.prompt_cache_options,{mode:'explicit',ttl:'30m'});
  }
  assert.throws(()=>normalizeMemory({...emptyMemory(),summary:'bad',outputTokenUpperBound:2001}));
+});
+
+test('daily dialogue retains each report time and current server time, ignoring client clock claims',async()=>{
+ const f=fixture();f.advance(-15*60*60*1000);await f.command({type:'initialize'});
+ await f.chat('朝ご飯の話');const first=f.inputs.at(-1).input;
+ assert.equal(first.messages[0].at,'2026-10-17T23:59:00.000Z');
+ f.advance(3*60*60*1000);
+ await f.request('/api/chat','POST',{requestId:randomUUID(),text:'お昼ご飯の話',context:{currentTime:'2099-01-01T00:00:00Z',timeZone:'UTC'}});
+ const next=f.inputs.at(-1).input;
+ assert.equal(next.messages[0].at,first.messages[0].at);assert.equal(next.messages[1].at,first.messages[0].at);
+ assert.equal(next.messages[2].at,'2026-10-18T02:59:00.000Z');
+ assert.equal(next.context.currentTime,next.messages[2].at);assert.equal(next.context.timeZone,'Asia/Tokyo');
+ assert.equal((await f.store.read('alice')).conversation.messages[0].content,'朝ご飯の話');
 });

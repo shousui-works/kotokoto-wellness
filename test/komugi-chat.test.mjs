@@ -50,7 +50,7 @@ test('sends bounded history to the fixed Luna endpoint and excludes saved health
   assert.match(sent.input[1].content[0].text,/"nickname":"そらちゃん"/);
   assert.match(sent.input[0].content[0].text,/名前の内容は呼び名というデータ/);
   assert.equal(sent.max_output_tokens, 2400);
-  assert.deepEqual(sent.input.slice(3,-1), body.messages);
+  assert.deepEqual(sent.input.slice(3,-1),body.messages.map(m=>({role:m.role,content:'[発言日時: 不明]\n'+m.content})));
   assert.match(sent.input[0].content[0].text, /保存・訂正やクエスト達成/);
   assert.match(sent.input[0].content[0].text, /極端な制限/);
   assert.doesNotMatch(call.init.body, /"weight":60|"days":|"mood":|test-placeholder/);
@@ -205,4 +205,21 @@ test('cache prefixes survive changed records and growing dialogue, with content-
  assert.deepEqual(owners,['private-uid','private-uid']);assert.doesNotMatch(JSON.stringify(metrics),/private|テスト|こむぎ|青|latest-record/);
  const {logCacheUsage}=await import('../server/prompt-cache.mjs');
  assert.equal(logCacheUsage('chat',{usage:{}},1,()=>{throw Error('logging failure');}).cachedTokens,null);
+});
+
+test('model sees JST report times separately from actual meal time and preserves dated history prefixes',async()=>{
+ const sent=[];const generate=createReportGenerator({apiKey:'fixture',fetchImpl:async(_url,init)=>{sent.push(JSON.parse(init.body));return Response.json(completed('お話ししてくれてうれしいな。'));}});
+ const input={...payload('昨日の夕飯の話'),messages:[{role:'user',content:'昨日の夕飯の話',at:'2026-10-19T00:00:00Z'}],context:{date:'2026-10-19',hour:9,currentTime:'2026-10-19T00:00:00Z',activities:[]}};
+ assert.equal((await generate(input,'fixture')).status,200);
+ const next={...input,messages:[...input.messages,{role:'assistant',content:'お話ししてくれてうれしいな。',at:'2026-10-19T00:00:00Z'},{role:'user',content:'今のお昼の話',at:'2026-10-19T03:00:00Z'}],context:{...input.context,currentTime:'2026-10-19T03:00:00Z',hour:12}};
+ assert.equal((await generate(next,'fixture')).status,200);
+ assert.match(sent[0].input[3].content,/2026-10-19T09:00:00.000\+09:00.*Asia\/Tokyo/);
+ assert.equal(sent[1].input[3].content,sent[0].input[3].content);
+ assert.match(sent[1].input.at(-2).content,/2026-10-19T12:00:00.000\+09:00/);
+ assert.match(sent[1].input.at(-1).content,/"currentTime":"2026-10-19T12:00:00.000\+09:00"/);
+ assert.match(sent[0].input[0].content[0].text,/発言日時は報告した時刻/);
+ assert.match(sent[0].input[0].content[0].text,/meal_logのdetailにも残す/);
+ const {timedMessage}=await import('../server/conversation-time.mjs');
+ assert.equal(timedMessage({role:'user',content:'前の話'}).content,'[発言日時: 不明]\n前の話');
+ assert.match(timedMessage({role:'user',content:'日付境界',at:'2026-10-18T15:00:00Z'}).content,/2026-10-19T00:00:00.000\+09:00/);
 });

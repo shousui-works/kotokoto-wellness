@@ -58,7 +58,7 @@ test('only completed exchanges are retained and history has thirty pairs', () =>
   assert.throws(() => normalizeConversation({version: 1, messages: [{role: 'user', content: 'pending', at}]}));
 });
 
-test('API history contains bounded text only, without browser records or timestamps', () => {
+test('API history contains bounded text only, with saved timestamps and without unrelated browser records', () => {
   let data = {version: 1, messages: []};
   for (let i = 0; i < 20; i++) data = appendExchange(data, 'x'.repeat(600), 'y'.repeat(600), at);
   data.weight = 60;
@@ -67,5 +67,5 @@ test('API history contains bounded text only, without browser records or timesta
   assert.ok(messages.reduce((sum, message) => sum + message.content.length, 0) <= 5000);
   assert.equal(messages[0].role, 'user');
   assert.equal(messages.at(-1).content, '今日も来たよ');
-  assert.ok(messages.every(message => Object.keys(message).join(',') === 'role,content'));
+  assert.ok(messages.slice(0,-1).every(message => message.at===at));assert.ok(messages.every(message=>!('weight' in message)));
 });
