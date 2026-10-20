@@ -38,3 +38,45 @@ test('client keeps an editor revision, restores connectivity with an unchanged c
  releaseSync();await oldAuthorizedSync;assert.equal(client.state,null);assert.equal(client.writable,false);assert.equal(local.getItem('kotokoto-cloud-cache-v1:alice'),null);
 });
 test('migration preview never rewrites corrupt or future local records',()=>{const local=memory();local.setItem('kotokoto-wellness-v1','{"version":2}');assert.throws(()=>localImport(local));assert.equal(local.getItem('kotokoto-wellness-v1'),'{"version":2}');});
+
+async function accountHarness(t,{local=memory(),uid='alice',cloud={...emptyAccount(),initialized:true,datasetId:'fixture',revision:1},send}={}){
+ const previous={document:globalThis.document,window:globalThis.window,location:globalThis.location},elements=new Map(),requests=[];
+ globalThis.document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,{value:'',hidden:false,textContent:'',handlers:new Map(),addEventListener(name,fn){this.handlers.set(name,fn);},showModal(){},close(){}});return elements.get(id);},addEventListener(){}};
+ globalThis.window={addEventListener(){}};globalThis.location={hostname:'localhost',reload(){}};t.after(()=>Object.assign(globalThis,previous));
+ const user={uid,getIdToken:async()=>uid+'-token'};
+ const sdkLoader=async()=>[{initializeApp:()=>({})},{getAuth:()=>({currentUser:user,authStateReady:async()=>{}}),GoogleAuthProvider:class{},getRedirectResult:async()=>null,onAuthStateChanged(){}}];
+ const fetchImpl=async(path,init)=>{
+  if(path==='/api/account/config')return Response.json({mode:'required',firebase:{}});
+  if(path.startsWith('/api/sync'))return Response.json({state:cloud});
+  const body=JSON.parse(init.body);requests.push({path,body});return send(path,body);
+ };
+ const client=await createAccountClient({local,sdkLoader,fetchImpl,schedule(){}});
+ return {client,local,elements,requests,click:id=>elements.get(id).handlers.get('click')()};
+}
+
+test('401 preserves a pending save across reauthentication for the same UID, without leaking it to another UID',async t=>{
+ const local=memory(),command={type:'weight',value:60};
+ const expired=await accountHarness(t,{local,send:async()=>Response.json({error:{code:'login_expired',message:'ログインし直してね。'}},{status:401})});
+ await assert.rejects(expired.client.command(command),/ログイン/);
+ const pending=JSON.parse(local.getItem('kotokoto-cloud-pending-v1:alice'));assert.deepEqual(pending.command,command);assert.equal(pending.revision,1);assert.equal(expired.client.writable,false);
+ const restored=await accountHarness(t,{local,send:async()=>Response.json({state:{...emptyAccount(),initialized:true,datasetId:'fixture',revision:2}})});
+ await restored.click('account-retry');assert.equal(restored.requests.length,1);assert.deepEqual(restored.requests[0].body,pending);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);
+ local.setItem('kotokoto-cloud-pending-v1:alice',JSON.stringify(pending));
+ const other=await accountHarness(t,{local,uid:'bob',send:async()=>Response.json({state:{...emptyAccount(),initialized:true,revision:2}})});
+ await other.client.command({type:'mood',mood:'good'});assert.notEqual(other.requests[0].body.requestId,pending.requestId);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),JSON.stringify(pending));
+});
+
+test('import retains its ID for unknown outcomes and busy responses, but can recover from a changed-payload conflict',async t=>{
+ const local=memory(),original=JSON.stringify({version:1,days:{'2026-10-18':{habits:['stretch']}},owned:[],decor:[]});
+ local.setItem('kotokoto-wellness-v1',original);local.setItem('kotokoto-names-draft:alice',JSON.stringify({version:1,nickname:'そら',petName:'もち',namesConfigured:true}));
+ let attempts=0;
+ const f=await accountHarness(t,{local,cloud:emptyAccount(),send:async()=>{
+  attempts++;const code=['storage_unavailable','import_busy','request_conflict'][attempts-1];
+  return code?Response.json({error:{code,message:code}},{status:attempts===1?503:409}):Response.json({state:{...emptyAccount(),initialized:true,revision:1}});
+ }});
+ await f.click('account-import');const oldID=f.requests[0].body.requestId;
+ await f.click('account-import');assert.equal(local.getItem('kotokoto-import-request:alice'),oldID);
+ f.elements.get('account-own-name').value='新しい名前';f.elements.get('account-pet-name').value='もち';await f.elements.get('account-names-form').handlers.get('submit')({preventDefault(){}});
+ await f.click('account-import');assert.equal(local.getItem('kotokoto-import-request:alice'),null);
+ await f.click('account-import');assert.equal(f.requests[1].body.requestId,oldID);assert.equal(f.requests[2].body.requestId,oldID);assert.notEqual(f.requests[3].body.requestId,oldID);assert.equal(f.requests[3].body.data.profile.nickname,'新しい名前');assert.equal(local.getItem('kotokoto-wellness-v1'),original);
+});
