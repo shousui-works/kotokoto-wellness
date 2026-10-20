@@ -129,13 +129,13 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     if (!response.ok) throw new Error('おはなしにつながりませんでした。少し待って、もう一度開いてね。');
     const data = await response.json().catch(() => { throw new Error('おはなしにつながりませんでした。少し待って、もう一度開いてね。'); });
     available = data.available === true;
-    if (!available) throw new Error(data.loginRequired?'右上のメニューからログインして、こむぎと話そう。':data.setupRequired?'アカウントで使う記録を選んでね。':'おはなしの準備中です。もう少し待ってね。');
+    if (!available) throw new Error(data.loginRequired?`右上のメニューからログインして、${getPetName()}と話そう。`:data.setupRequired?'アカウントで使う記録を選んでね。':'おはなしの準備中です。もう少し待ってね。');
   }
 
   async function open() {
     if (busy) return;
     saved = loadConversation(storage); storageWarning(); render();
-    status.textContent = 'こむぎにつないでいます…';
+    status.textContent = `${getPetName()}につないでいます…`;
     try { sessionPromise = session(); await sessionPromise; status.textContent = ''; }
     catch (error) { available = false; sessionPromise = null; status.textContent = error.message; }
     render();
@@ -168,7 +168,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
       pending = {text, at: Date.now(), body: {requestId: crypto.randomUUID(), messages: requestMessages(saved.data, text), context: getContext()}};
     }
     pendingStore?.write(pending);
-    setExpanded(false);busy = true; status.textContent = 'こむぎが考え中…'; render();
+    setExpanded(false);busy = true; status.textContent = `${getPetName()}が考え中…`; render();
     try {
       const arrival=Promise.resolve(onSend()).catch(()=>{});
       await sessionPromise;

@@ -20,7 +20,8 @@ const dailyLife={
  '後回しのメールを返したよ':['challenge','気になっていたことに一歩踏み出せたんだね、えらいねー。'],
  '休憩したよ':['rest','自分のためにひと休みできたね。よしよし。'],
 };
-function generate(input){
+async function generate(input){
+ const delay=Math.min(15000,Math.max(0,Number(process.env.REPLY_DELAY_MS)||0));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
  const text=input.messages.at(-1).content,entries=process.env.DAILY_LIFE==='1'?Object.entries(dailyLife).filter(([evidence])=>text.includes(evidence)):[];
  const actions=entries.map(([evidence,[kind]])=>({operation:'create',targetId:null,kind,date:input.context.date,title:evidence,evidence,minutes:null,kcal:null,estimatedKcal:null,estimateBasis:null,weightKg:null,detail:null,additional:false}));
  return {status:200,body:{reply:entries[0]?.[1][1]??'会いに来てくれて、うれしいな。きみの一歩に花まる！',actions}};
