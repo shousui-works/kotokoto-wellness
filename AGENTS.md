@@ -142,7 +142,7 @@
 ## 管理コンソール
 
 `/admin.html` と `dist/admin*.mjs` / `admin.css` が利用量の管理画面。サーバーはFirestore `adminRoles/{uid}.enabled` を毎回確認し、一般ユーザー403/未ログイン401。管理者のUIDやメールをソースへ固定しない。登録は運用者の `scripts/set-admin.mjs --project kotokoto-biyori --email <本人> --grant` で検証済みGoogleアカウントへ行う。APIやプロフィールから権限を変更しない。詳細は `docs/admin-usage-dashboard.md`。
-`server/admin-usage.mjs` はAPIが返すトークン使用量を `aiUsageEvents` と `aiUsageDays` に同一transactionで保存し、response IDのhashで重複を排除する。本文・名前・UID・体重等は保存しない。金額は公式のgpt-6-luna Standard単価とキャッシュ読取/書込を区別した概算USD（確認2026-10-19）、推論は出力に含める。実請求・税・GCPは別。使用量不明を0円と断定しない。旧count-onlyログはbackfill-ai-usageで重複しない取り込みができ、会話本文は参照しない。
+`server/admin-usage.mjs` はAPIが返すトークン使用量を `aiUsageEvents` と `aiUsageDays` に同一transactionで保存し、response IDのhashで重複を排除する。本文・名前・体重等は保存しない。ユーザー別集計ではイベントにUIDのhash、専用の日別集計にUIDを保存し、管理者だけが取得できる。金額は公式のgpt-6-luna Standard単価とキャッシュ読取/書込を区別した概算USD（確認2026-10-19）、推論は出力に含める。実請求・税・GCPは別。使用量不明を0円と断定しない。旧count-onlyログはbackfill-ai-usageで重複しない取り込みができ、会話本文は参照しない。
 admin-usage/admin-authのテストと隔離コレクションを使うcheck-admin-storageで認可・料金・同時重複排除を確認。preview-adminは架空UI専用で公開しない。管理者登録以外の本人の記録・会話は本番でテスト変更しない。
 
 2026-10-19 管理コンソール公開: ログイン中の本人GoogleアカウントをFirebaseで確認して専用adminRoles台帳へ登録（UID/メールをソースへ保存しない）。Node111件＋admin-auth1件、隔離コレクションの実Firestore同時重複テスト、架空の非健康会話1件による実Luna model/tier/usage→保存→料金算定を確認し検証データ削除。旧count-onlyログ4件を取り込み済み。Cloud Build 7604b3dd-38e5-45ce-ae55-876c611e6a83 / sha256:b00008d2aa109e709c5322036684d74e90e6b7d5c150ade5ba1c66640c5d92eb をイメージ1件のみ更新して公開。本人のGoogleログインで本番管理画面の実データを表示し、未認証管理API401、公開6ファイル一致、app plan差分なしを確認。スマホの期間/グラフ切替・横はみ出しなしを架空UIで確認。検証サーバー/タブ終了、viewport復元。
@@ -154,3 +154,5 @@ admin-usage/admin-authのテストと隔離コレクションを使うcheck-admi
 普段の吹き出しはdist/companion-lines.mjsのcreateIdleSpeechを使い、気持ち別の言葉・のんびりした犬のひとこと・なつき度50以上の甘え言葉を混ぜる。約90秒でゆっくり選び直し、入力/返信/モーダル/非表示/声かけオフ時は通常の自動切替を抑制。既存30秒の更新を使い新しい常駐timerやAI呼び出しは増やさない。直近8件のIDだけをkotokoto-companion-idle-v1へ保存して再読み込みでも同じ文に戻りにくくする。体重・会話本文・ポイントは保存しない。時間帯の声かけは各10文へ増やし、固定の第一声を廃止して同じく直近8件を避ける。CHAT_STORAGE v1の設定と時刻の互換性は維持。新しい言葉は実行していない努力や成果を作らず、休息やふたりの何でもない時間も肯定する。companion-lines/chatのテストで重複・再読込・時計変更・優先度を確認。
 
 2026-10-19 普段の言葉と時間帯の声かけを増やした版を公開。Node119件とCloud Build内テスト成功、スマホ固定応答で再読込時の文の変化と横はみ出しなしを確認。Cloud Build 189fdc22-3d02-4500-8054-015c0d11cc19 / sha256:847e3f22a3ee2253537e0a8ee345aee3f0ed609d87eaa3a66259aeda27affbd7 をイメージ1件のみ適用。公開4ファイル一致と認証必須API、適用後plan差分なしを確認。追加のAI呼び出しや本人の記録のテスト変更は行っていない。検証サーバー/タブを終了し、viewportも復元した。
+
+2026-10-19 ユーザー別利用量と平均を追加して公開。サーバー検証済みUIDを会話/記憶生成のusageコールバックへ渡し、aiUsageUserDaysの日別ユーザー集計を全体/eventと同一transactionで保存。UIDのhashはイベント、UIDは管理者限定集計にのみ保存し、通常ログ/AI入力へ増やさない。期間内API利用者の重複を除く人数・1人/1回平均・ユーザー別利用日数/回数/トークン/再利用率/料金を表示。過去の未帰属分は全体のみで、平均から除く。本人の会話/記録から遡及推測しない。10,000ユーザー日を超えたら期間短縮を案内。Node121件、隔離した実Firestoreの集計/同時再送検証成功。スマホ390pxで横はみ出しなしと期間切替を確認。Cloud Build b1ca17e2-3521-471e-9f56-5a379eaeccfa / sha256:44c96e6608114517128667e18fefab2a8486c07c74afa9b28f3695fa9070aa29 をイメージ1件のみ更新。公開6ファイル一致、未認証管理API401、本番管理画面の新項目/過去分5回の未帰属表示、適用後plan差分なしを確認。追加AI呼び出しや本人の会話/記録のテスト変更はなし。検証サーバー/タブ終了、viewport復元済み。

@@ -38,7 +38,7 @@ export function createDailySummarizer({apiKey=process.env.OPENAI_API_KEY,fetchIm
     const r=await fetchImpl('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(timeoutMs),body:JSON.stringify({model:CHAT_MODEL,prompt_cache_options:{...CACHE_OPTIONS,mode:'explicit'},input:[{role:'developer',content:[cacheBlock(SUMMARY_INSTRUCTIONS)]},{role:'user',content:JSON.stringify({previousSummary:previous.summary,previousThroughDate:previous.throughDate,throughDate,transcript})}],reasoning:{effort:'low'},max_output_tokens:MEMORY_TOKEN_LIMIT,store:false,safety_identifier:createHash('sha256').update(uid).digest('hex')})});
     if(!r.ok)throw Error('Memory service unavailable');
     const result=await r.json(),tokens=result.usage?.output_tokens;
-    await captureCacheUsage('memory',result,Date.now()-started,onUsage);
+    await captureCacheUsage('memory',result,Date.now()-started,onUsage?(entry,meta)=>onUsage(entry,{...meta,uid:uid}):null);
     const output=result.output?.filter(item=>item.type==='message')??[];
     if(result.status!=='completed'||!Number.isSafeInteger(tokens)||tokens<1||tokens>MEMORY_TOKEN_LIMIT||output.length!==1||output[0].role!=='assistant'||output[0].content?.length!==1||output[0].content[0].type!=='output_text')throw Error('Incomplete or invalid memory');
     const summary=output[0].content[0].text?.trim();if(!summary||summary.length>24000)throw Error('Invalid summary');

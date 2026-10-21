@@ -59,7 +59,7 @@ test('provider generation is bounded to 2000 including reasoning and refuses inc
  const valid={status:'completed',usage:{output_tokens:40},output:[{type:'message',role:'assistant',content:[{type:'output_text',text:'本人は朝の散歩が好き。'}]}]};let payload;
  const plan={previous:emptyMemory(),throughDate:'2026-10-18',rows:[{role:'user',content:'朝の散歩が好き',at:'2026-10-18T00:00:00Z'}]};
  for(const result of [valid,{...valid,status:'incomplete'},{...valid,usage:{output_tokens:2001}},{...valid,usage:{}},{...valid,output:[{type:'message',role:'assistant',content:[{type:'refusal',refusal:'no'}]}]}]){
- const generate=createDailySummarizer({apiKey:'fixture-only',fetchImpl:async(url,init)=>{assert.equal(url,'https://api.openai.com/v1/responses');payload=JSON.parse(init.body);return Response.json(result);}});
+ const generate=createDailySummarizer({apiKey:'fixture-only',onUsage:async(e,m)=>{assert.equal(e.purpose,'memory');assert.equal(m.uid,'alice');},fetchImpl:async(url,init)=>{assert.equal(url,'https://api.openai.com/v1/responses');payload=JSON.parse(init.body);return Response.json(result);}});
  if(result===valid){assert.equal((await generate(plan,'alice')).outputTokenUpperBound,40);}else await assert.rejects(generate(plan,'alice'));
  assert.equal(payload.max_output_tokens,2000);assert.equal(payload.store,false);assert.equal(payload.reasoning.effort,'low');assert.equal(payload.input.length,2);assert.match(payload.input[1].content,/朝の散歩/);assert.deepEqual(payload.prompt_cache_options,{mode:'explicit',ttl:'30m'});
  }

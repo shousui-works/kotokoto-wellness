@@ -188,8 +188,8 @@ test('only bounded estimation context is forwarded, including previously saved w
 
 
 test('cache prefixes survive changed records and growing dialogue, with content-free usage metrics',async()=>{
- const sent=[],metrics=[];
- const generate=createReportGenerator({apiKey:'fixture',onUsage:e=>metrics.push(e),fetchImpl:async(_url,init)=>{
+ const sent=[],metrics=[],owners=[];
+ const generate=createReportGenerator({apiKey:'fixture',onUsage:(e,m)=>{metrics.push(e);owners.push(m.uid);},fetchImpl:async(_url,init)=>{
    sent.push(JSON.parse(init.body));return Response.json({...completed('こんにちは。'),usage:{input_tokens:5000,input_tokens_details:{cached_tokens:4000,cache_write_tokens:300},output_tokens:50},private:'never log'});
  }});
  const input={...payload('青が好き'),context:{date:'2026-10-19',hour:10,nickname:'テスト',petName:'こむぎ',ownerMemory:'青いボールが好き',memoryThroughDate:'2026-10-18',activities:[]}};
@@ -202,7 +202,7 @@ test('cache prefixes survive changed records and growing dialogue, with content-
  assert.deepEqual(sent[0].prompt_cache_options,{mode:'implicit',ttl:'30m'});
  assert.equal(sent[0].input.filter(m=>Array.isArray(m.content)&&m.content[0].prompt_cache_breakpoint).length,3);
  assert.deepEqual(metrics[0],{event:'openai_prompt_cache',purpose:'chat',inputTokens:5000,cachedTokens:4000,cacheWriteTokens:300,outputTokens:50,elapsedMs:metrics[0].elapsedMs});
- assert.doesNotMatch(JSON.stringify(metrics),/private|テスト|こむぎ|青|latest-record/);
+ assert.deepEqual(owners,['private-uid','private-uid']);assert.doesNotMatch(JSON.stringify(metrics),/private|テスト|こむぎ|青|latest-record/);
  const {logCacheUsage}=await import('../server/prompt-cache.mjs');
  assert.equal(logCacheUsage('chat',{usage:{}},1,()=>{throw Error('logging failure');}).cachedTokens,null);
 });

@@ -29,12 +29,30 @@ export function buildDashboard(rows,days=30,now=Date.now()){
  for(const day of daily){for(const k of Object.keys(total))total[k]+=day[k]??0;for(const p of ['chat','memory'])for(const k of Object.keys(total))byPurpose[p][k]+=day.byPurpose?.[p]?.[k]??0;}
  return {days,from:begin,to:end,timezone:'Asia/Tokyo',currency:'USD',generatedAt:new Date(now).toISOString(),pricing:PRICING,total,byPurpose,daily};
 }
+// User attribution comes only from the verified server-side identity, never browser input.
+const userKey=uid=>typeof uid==='string'&&uid.length>0&&uid.length<=128&&!uid.includes('/')?createHash('sha256').update(uid).digest('hex'):null;
+function dailyUsage(current,event){const next=addUsage(current,event);next.date=event.date;next.byPurpose={...current?.byPurpose,[event.purpose]:addUsage(current?.byPurpose?.[event.purpose],event)};next.updatedAt=event.at;return next;}
+export function userDashboard(dashboard,rows){
+ const users=new Map();
+ for(const row of rows){if(row.date<dashboard.from||row.date>dashboard.to)continue;const key=userKey(row.uid);if(!key)continue;
+  const current=users.get(key)??{id:key,uid:row.uid,...emptyUsage(),activeDays:0};
+  for(const k of Object.keys(emptyUsage()))current[k]+=row[k]??0;current.activeDays++;users.set(key,current);
+ }
+ const list=[...users.values()].sort((a,b)=>b.costNanos-a.costNanos||b.calls-a.calls||a.id.localeCompare(b.id));
+ const attributed=emptyUsage();for(const u of list)for(const k of Object.keys(attributed))attributed[k]+=u[k];
+ const n=list.length,calls=attributed.calls;
+ return {...dashboard,users:list,userSummary:{activeUsers:n,attributed,unattributedCalls:Math.max(0,dashboard.total.calls-calls),
+  perUser:n?{calls:calls/n,costNanos:attributed.unpricedCalls?null:attributed.costNanos/n,inputTokens:attributed.inputTokens/n,outputTokens:attributed.outputTokens/n}:null,
+  perCall:calls?{costNanos:attributed.unpricedCalls?null:attributed.costNanos/calls,inputTokens:attributed.inputTokens/calls,outputTokens:attributed.outputTokens/calls}:null}};
+}
 export class FirestoreUsageStore{
  constructor(db){this.db=db;}
  async isAdmin(uid){return (await this.db.collection('adminRoles').doc(uid).get()).data()?.enabled===true;}
  async record(entry,meta){
   if(typeof meta?.responseId!=='string'||!meta.responseId)throw Error('Usage ID required');
-  const event=usageEvent(entry,meta),id=createHash('sha256').update(meta.responseId).digest('hex'),ref=this.db.collection('aiUsageEvents').doc(id),day=this.db.collection('aiUsageDays').doc(event.date);
+  const event=usageEvent(entry,meta),key=userKey(meta.uid);if(key)event.userKey=key;
+  const id=createHash('sha256').update(meta.responseId).digest('hex'),ref=this.db.collection('aiUsageEvents').doc(id),day=this.db.collection('aiUsageDays').doc(event.date);
+  const userDay=key?this.db.collection('aiUsageUserDays').doc(event.date+'_'+key):null;
   await this.db.runTransaction(async tx=>{
    if((await tx.get(ref)).exists)return;
    if(meta.source==='cloud-log'&&meta.legacyResponseId){
@@ -46,20 +64,25 @@ export class FirestoreUsageStore{
      tx.set(legacyRef,{...legacy,canonicalEventId:id});tx.set(ref,{version:1,legacyEventId:legacyId});return;
     }
    }
-   const current=(await tx.get(day)).data()??{date:event.date,...emptyUsage(),byPurpose:{}};
-   const next=addUsage(current,event);next.date=event.date;next.byPurpose={...current.byPurpose,[event.purpose]:addUsage(current.byPurpose?.[event.purpose],event)};next.updatedAt=event.at;
-   tx.set(ref,event);tx.set(day,next);
+   const current=(await tx.get(day)).data(),personal=userDay?(await tx.get(userDay)).data():null;
+   tx.set(ref,event);tx.set(day,dailyUsage(current,event));
+   if(userDay)tx.set(userDay,{...dailyUsage(personal,event),uid:meta.uid});
   });
  }
  async dashboard(days,now=Date.now()){
   const range=buildDashboard([],days,now);
-  const data=await this.db.collection('aiUsageDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').get();
-  return buildDashboard(data.docs.map(d=>d.data()),days,now);
+  const [data,users]=await this.db.runTransaction(async tx=>{
+   const data=await tx.get(this.db.collection('aiUsageDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date'));
+   const users=await tx.get(this.db.collection('aiUsageUserDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').limit(10001));
+   return [data,users];
+  },{readOnly:true});
+  if(users.size>10000)throw Object.assign(Error('集計件数が多いため、期間を短くしてください。'),{status:413,code:'usage_range_too_large'});
+  return userDashboard(buildDashboard(data.docs.map(d=>d.data()),days,now),users.docs.map(d=>d.data()));
  }
 }
 export class MemoryUsageStore{
- constructor(){this.admins=new Set();this.events=new Map();this.days=new Map();}
+ constructor(){this.admins=new Set();this.events=new Map();this.days=new Map();this.userDays=new Map();}
  async isAdmin(uid){return this.admins.has(uid);}
- async record(entry,meta){if(this.events.has(meta.responseId))return;const e=usageEvent(entry,meta);this.events.set(meta.responseId,e);const old=this.days.get(e.date)??{date:e.date,...emptyUsage(),byPurpose:{}};this.days.set(e.date,{...addUsage(old,e),date:e.date,byPurpose:{...old.byPurpose,[e.purpose]:addUsage(old.byPurpose[e.purpose],e)}});}
- async dashboard(days,now=Date.now()){return buildDashboard([...this.days.values()],days,now);}
+ async record(entry,meta){if(this.events.has(meta.responseId))return;const e=usageEvent(entry,meta),key=userKey(meta.uid);if(key)e.userKey=key;this.events.set(meta.responseId,e);this.days.set(e.date,dailyUsage(this.days.get(e.date),e));if(key){const id=e.date+'_'+key;this.userDays.set(id,{...dailyUsage(this.userDays.get(id),e),uid:meta.uid});}}
+ async dashboard(days,now=Date.now()){return userDashboard(buildDashboard([...this.days.values()],days,now),[...this.userDays.values()]);}
 }
