@@ -28,14 +28,15 @@ test('時間帯の境目と深夜を端末の時刻で区別する',()=>{
   assert.equal(companionChatLine(emptyState(),at(18)).periodKey,dateKey(at(18))+':evening');
 });
 
-test('同じ時間帯で直前と同じ言葉を続けず、新しい時間帯ではあいさつする',()=>{
+test('時間帯を切り替えても直前と同じ言葉や固定の第一声に戻らない',()=>{
   const state=emptyState(),first=companionChatLine(state,at(9));
   const second=companionChatLine(state,at(9),{lastId:first.id,lastPeriodKey:first.periodKey},()=>0);
   assert.notEqual(first.id,second.id);
   const evening=companionChatLine(state,at(18),{lastId:second.id,lastPeriodKey:second.periodKey});
   assert.equal(evening.periodKey,dateKey(at(18))+':evening');
   const nextDay=new Date(2026,9,19,9);
-  assert.match(companionChatLine(state,nextDay,{lastId:first.id,lastPeriodKey:first.periodKey}).text,/おはよう/);
+  assert.notEqual(companionChatLine(state,nextDay,{lastId:first.id,lastPeriodKey:first.periodKey},()=>0).id,first.id);
+  assert.notEqual(companionChatLine(state,at(9),{},()=>0).id,companionChatLine(state,at(9),{},()=>.999).id);
 });
 
 test('記録と気分に寄り添うが、保存済みの記録を変更しない',()=>{
@@ -106,4 +107,42 @@ test('壊れた設定や未来の時刻があっても、声かけが永久に�
     const t=setup({storage:new Map([[CHAT_STORAGE,raw]])});
     t.advance(CHAT_TIMING.first);assert.ok(t.messages.at(-1));t.chat.destroy();
   }
+});
+
+
+test('声かけの直近8件を避ける履歴は再読み込み後も引き継がれる',()=>{
+ const t=setup();t.advance(CHAT_TIMING.first);t.advance(CHAT_TIMING.minGap*4);
+ const ids=t.messages.filter(Boolean).map(x=>x.id);assert.equal(new Set(ids).size,ids.length);
+ const saved=JSON.parse(t.storage.get(CHAT_STORAGE));assert.ok(saved.recentIds.length>=4);assert.ok(saved.recentIds.length<=8);const stamp=t.clock.now();t.chat.destroy();
+ const reloaded=setup({storage:t.storage,stamp});reloaded.advance(CHAT_TIMING.minGap);
+ assert.ok(reloaded.messages.some(Boolean));assert.equal(saved.recentIds.includes(reloaded.messages.find(Boolean).id),false);reloaded.chat.destroy();
+});
+
+test('保存失敗中も新しいメモリ履歴を優先し、復旧時に直近8件を保存する',()=>{
+ const stamp=at(9).getTime(),storage=new Map([[CHAT_STORAGE,JSON.stringify({version:1,enabled:true,lastId:'morning-7',recentIds:Array.from({length:8},(_,i)=>'morning-'+i),lastSpokenAt:stamp-CHAT_TIMING.minGap,nextTalkAt:stamp})]]);
+ const set=storage.set.bind(storage);storage.set=()=>{throw Error('quota');};
+ const t=setup({stamp,storage});t.advance(CHAT_TIMING.first);t.advance(CHAT_TIMING.minGap*2);
+ assert.deepEqual(t.messages.filter(Boolean).map(x=>x.id),['morning-8','morning-0','morning-1']);
+ storage.set=set;t.advance(CHAT_TIMING.minGap);
+ const saved=JSON.parse(storage.get(CHAT_STORAGE));assert.equal(saved.lastId,'morning-2');assert.deepEqual(saved.recentIds,['morning-4','morning-5','morning-6','morning-7','morning-8','morning-0','morning-1','morning-2']);t.chat.destroy();
+});
+test('別タブの新しい履歴はメモリより優先して選択する',()=>{
+ const t=setup();t.advance(CHAT_TIMING.first);
+ const stamp=t.clock.now()+1000;
+ t.storage.set(CHAT_STORAGE,JSON.stringify({version:1,enabled:true,lastId:'morning-8',recentIds:Array.from({length:8},(_,i)=>'morning-'+(i+1)),lastSpokenAt:stamp,nextTalkAt:stamp+CHAT_TIMING.minGap}));
+ t.advance(CHAT_TIMING.minGap+1000);
+ assert.equal(t.messages.filter(Boolean).at(-1).id,'morning-0');t.chat.destroy();
+});
+
+test('オン設定の保存失敗後も声かけを継続し、明示的な別タブ同期では停止する',()=>{
+ const storage=new Map([[CHAT_STORAGE,JSON.stringify({version:1,enabled:false})]]),set=storage.set.bind(storage);
+ storage.set=()=>{throw Error('quota');};
+ const t=setup({storage});t.chat.setEnabled(true);t.advance(CHAT_TIMING.first);
+ assert.equal(t.chat.enabled,true);assert.ok(t.messages.at(-1));
+ t.advance(CHAT_TIMING.minGap*2);assert.equal(t.messages.filter(Boolean).length,3);
+ storage.set=set;t.advance(CHAT_TIMING.minGap);
+ assert.equal(JSON.parse(storage.get(CHAT_STORAGE)).enabled,true);
+ storage.set(CHAT_STORAGE,JSON.stringify({...JSON.parse(storage.get(CHAT_STORAGE)),enabled:false}));
+ t.chat.sync();assert.equal(t.chat.enabled,false);const count=t.messages.filter(Boolean).length;
+ t.advance(CHAT_TIMING.maxGap*2);assert.equal(t.messages.filter(Boolean).length,count);t.chat.destroy();
 });
