@@ -84,3 +84,15 @@ test('admin renders unknown cost averages as unavailable, including per-user row
  assert.equal(nodes.get('average-cost').textContent,'—');assert.equal(nodes.get('call-cost').textContent,'—');
  assert.equal(tables['user-rows'].find(r=>r[0]==='unknown').at(-2),'—');assert.equal(tables['user-rows'].find(r=>r[0]==='unknown').at(-1),'—');assert.equal(tables['user-rows'].find(r=>r[0]==='known').at(-1),'$0.001190');
 });
+
+test('dashboard uses one read-only snapshot while usage changes between queries',async()=>{
+ let calls=1,transactions=0;const reads=[];
+ const snapshot=(name,count)=>({size:1,docs:[{data:()=>({date:'2026-10-19',calls:count,...(name==='aiUsageUserDays'?{uid:'alice'}:{})})}]});
+ const db={collection(name){const q={name,where(){return q;},orderBy(){return q;},limit(n){assert.equal(n,10001);return q;},async get(){const result=snapshot(name,calls);calls++;return result;}};return q;},async runTransaction(fn,options){assert.deepEqual(options,{readOnly:true});transactions++;const captured=calls;return fn({get:async q=>{reads.push(q.name);const result=snapshot(q.name,captured);calls++;return result;}});}};
+ const d=await new FirestoreUsageStore(db).dashboard(7,Date.parse('2026-10-19T01:00:00Z'));
+ assert.equal(d.total.calls,d.userSummary.attributed.calls);assert.equal(d.userSummary.unattributedCalls,0);assert.equal(transactions,1);assert.deepEqual(reads,['aiUsageDays','aiUsageUserDays']);
+});
+test('consistent dashboard reads retain the user-day result limit',async()=>{
+ const db={collection(name){const q={name,where(){return q;},orderBy(){return q;},limit(n){assert.equal(n,10001);return q;}};return q;},async runTransaction(fn,options){assert.deepEqual(options,{readOnly:true});return fn({get:async q=>({size:q.name==='aiUsageUserDays'?10001:0,docs:[]})});}};
+ await assert.rejects(new FirestoreUsageStore(db).dashboard(7),e=>e.status===413&&e.code==='usage_range_too_large');
+});

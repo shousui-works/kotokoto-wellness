@@ -71,10 +71,11 @@ export class FirestoreUsageStore{
  }
  async dashboard(days,now=Date.now()){
   const range=buildDashboard([],days,now);
-  const [data,users]=await Promise.all([
-   this.db.collection('aiUsageDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').get(),
-   this.db.collection('aiUsageUserDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').limit(10001).get(),
-  ]);
+  const [data,users]=await this.db.runTransaction(async tx=>{
+   const data=await tx.get(this.db.collection('aiUsageDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date'));
+   const users=await tx.get(this.db.collection('aiUsageUserDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').limit(10001));
+   return [data,users];
+  },{readOnly:true});
   if(users.size>10000)throw Object.assign(Error('集計件数が多いため、期間を短くしてください。'),{status:413,code:'usage_range_too_large'});
   return userDashboard(buildDashboard(data.docs.map(d=>d.data()),days,now),users.docs.map(d=>d.data()));
  }
