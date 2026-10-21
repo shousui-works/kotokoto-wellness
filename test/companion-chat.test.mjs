@@ -117,3 +117,19 @@ test('声かけの直近8件を避ける履歴は再読み込み後も引き継�
  const reloaded=setup({storage:t.storage,stamp});reloaded.advance(CHAT_TIMING.minGap);
  assert.ok(reloaded.messages.some(Boolean));assert.equal(saved.recentIds.includes(reloaded.messages.find(Boolean).id),false);reloaded.chat.destroy();
 });
+
+test('保存失敗中も新しいメモリ履歴を優先し、復旧時に直近8件を保存する',()=>{
+ const stamp=at(9).getTime(),storage=new Map([[CHAT_STORAGE,JSON.stringify({version:1,enabled:true,lastId:'morning-7',recentIds:Array.from({length:8},(_,i)=>'morning-'+i),lastSpokenAt:stamp-CHAT_TIMING.minGap,nextTalkAt:stamp})]]);
+ const set=storage.set.bind(storage);storage.set=()=>{throw Error('quota');};
+ const t=setup({stamp,storage});t.advance(CHAT_TIMING.first);t.advance(CHAT_TIMING.minGap*2);
+ assert.deepEqual(t.messages.filter(Boolean).map(x=>x.id),['morning-8','morning-0','morning-1']);
+ storage.set=set;t.advance(CHAT_TIMING.minGap);
+ const saved=JSON.parse(storage.get(CHAT_STORAGE));assert.equal(saved.lastId,'morning-2');assert.deepEqual(saved.recentIds,['morning-4','morning-5','morning-6','morning-7','morning-8','morning-0','morning-1','morning-2']);t.chat.destroy();
+});
+test('別タブの新しい履歴はメモリより優先して選択する',()=>{
+ const t=setup();t.advance(CHAT_TIMING.first);
+ const stamp=t.clock.now()+1000;
+ t.storage.set(CHAT_STORAGE,JSON.stringify({version:1,enabled:true,lastId:'morning-8',recentIds:Array.from({length:8},(_,i)=>'morning-'+(i+1)),lastSpokenAt:stamp,nextTalkAt:stamp+CHAT_TIMING.minGap}));
+ t.advance(CHAT_TIMING.minGap+1000);
+ assert.equal(t.messages.filter(Boolean).at(-1).id,'morning-0');t.chat.destroy();
+});
