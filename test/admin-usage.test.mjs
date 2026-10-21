@@ -37,3 +37,14 @@ test('Firestore accounting writes minimal events and one daily aggregate atomica
  const store=new FirestoreUsageStore(db);await store.record(entry,meta);await store.record(entry,meta);assert.equal(docs.size,2);assert.equal(docs.get('aiUsageDays/2026-10-19').calls,1);assert.equal([...docs.keys()].filter(k=>k.startsWith('aiUsageEvents/')).length,1);
  assert.equal(await store.isAdmin('normal'),false);docs.set('adminRoles/owner',{enabled:true});assert.equal(await store.isAdmin('owner'),true);
 });
+
+test('a stalled accounting store cannot indefinitely hold a completed paid response',async()=>{
+ let deadline;
+ try{
+  const outcome=await Promise.race([
+   captureCacheUsage('chat',{id:'response-stalled',usage:{}},1,()=>new Promise(()=>{}),{timeoutMs:10}).then(()=>'returned'),
+   new Promise(resolve=>{deadline=setTimeout(()=>resolve('stalled'),100);})
+  ]);
+  assert.equal(outcome,'returned');
+ }finally{clearTimeout(deadline);}
+});
