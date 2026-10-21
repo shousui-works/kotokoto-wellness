@@ -1,0 +1,28 @@
+import {createAdminAuth} from './admin-auth.mjs';
+const $=id=>document.getElementById(id),number=n=>new Intl.NumberFormat('ja-JP').format(n),money=n=>'$'+(n/1e9).toFixed(6),percent=d=>d.inputTokens?(100*d.cachedTokens/d.inputTokens).toFixed(1)+'%':'—';
+let auth,data,days=30,metric='cost',generation=0;
+function gate(title,message,login=false){$('dashboard').hidden=true;$('admin-gate').hidden=false;$('gate-title').textContent=title;$('gate-message').textContent=message;$('admin-login').hidden=!login;$('admin-retry').hidden=login;data=null;}
+function cell(row,value){const td=document.createElement('td');td.textContent=value;row.append(td);}
+function rows(id,items){const body=$(id);body.replaceChildren();for(const values of items){const tr=document.createElement('tr');for(const v of values)cell(tr,v);body.append(tr);}}
+function chart(){const host=$('usage-chart');host.replaceChildren();if(!data.total.calls){const p=document.createElement('p');p.className='chart-empty';p.textContent='この期間の利用はまだ記録されていません。';host.append(p);return;}
+ const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');const chartWidth=Math.max(320,Math.min(1040,host.clientWidth));svg.setAttribute('viewBox',`0 0 ${chartWidth} 220`);svg.setAttribute('role','img');svg.setAttribute('aria-label',metric==='cost'?'日別の概算利用料金':'日別の入力・出力トークン合計');
+ const vals=data.daily.map(d=>metric==='cost'?d.costNanos:d.inputTokens+d.outputTokens),max=Math.max(...vals,1),left=75,width=chartWidth-90,top=15,height=160,step=width/vals.length;
+ function el(tag,attrs,text){const n=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text)n.textContent=text;svg.append(n);return n;}
+ for(let i=0;i<=3;i++){const y=top+height*i/3;el('line',{x1:left,y1:y,x2:left+width,y2:y,stroke:'#e9ede3','stroke-dasharray':'3 5'});el('text',{x:left-10,y:y+4,'text-anchor':'end',fill:'#99a28f','font-size':11},metric==='cost'?money(max*(3-i)/3):number(Math.round(max*(3-i)/3)));}
+ vals.forEach((v,i)=>{const h=v/max*height,bar=el('rect',{x:left+i*step+step*.18,y:top+height-h,width:Math.max(2,step*.64),height:Math.max(h,v?2:0),rx:3,fill:'#98ae87'});const title=document.createElementNS(ns,'title');title.textContent=data.daily[i].date+' / '+(metric==='cost'?money(v):number(v)+' tokens');bar.append(title);if(i===0||i===vals.length-1||i===Math.floor(vals.length/2))el('text',{x:left+(i+.5)*step,y:204,'text-anchor':'middle',fill:'#8e9b83','font-size':11},data.daily[i].date.slice(5).replace('-','/'));});host.append(svg);
+}
+function render(){const t=data.total;$('total-cost').textContent=(t.unpricedCalls?'≈ ':'')+money(t.costNanos);$('total-calls').textContent=number(t.calls);$('input-tokens').textContent=number(t.inputTokens);$('output-tokens').textContent=number(t.outputTokens);$('cache-rate').textContent=percent(t);$('cache-meter').style.width=(t.inputTokens?Math.min(100,100*t.cachedTokens/t.inputTokens):0)+'%';$('cached-detail').textContent=number(t.cachedTokens)+' tokens を再利用';$('range-label').textContent=data.from.replaceAll('-','/')+' — '+data.to.replaceAll('-','/');$('updated').textContent='更新 '+new Date(data.generatedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+ rows('purpose-rows',['chat','memory'].map(p=>{const v=data.byPurpose[p];return [p==='chat'?'おはなし':'記憶の整理',number(v.calls),number(v.inputTokens),number(v.outputTokens),percent(v),money(v.costNanos)];}));
+ rows('daily-rows',[...data.daily].reverse().map(v=>[v.date.replaceAll('-','/'),number(v.calls),number(v.inputTokens),number(v.outputTokens),number(v.cachedTokens),number(v.cacheWriteTokens),money(v.costNanos)]));
+ $('pricing-note').textContent='料金表の確認日：'+data.pricing.asOf+'。通常入力 $0.10 / キャッシュ読取 $0.01 / 書込 $0.125 / 出力 $0.50（各100万トークン、短いコンテクスト）。長いコンテクストは対応する単価で計算。';
+ $('unpriced-note').textContent=t.unpricedCalls?`${number(t.unpricedCalls)}回は使用量や対応単価が未確認のため、表示料金に含めていません。`:'';chart();}
+async function load(){if(!auth?.user){gate('管理者としてログイン','管理者に登録されたGoogleアカウントでログインしてください。',true);return;}const stamp=++generation;$('refresh').disabled=true;$('dashboard-error').hidden=true;
+ try{const next=await auth.request('/api/admin/dashboard?days='+days);if(stamp!==generation)return;data=next;$('admin-gate').hidden=true;$('dashboard').hidden=false;render();}
+ catch(e){if(stamp!==generation)return;if(e.status===401||e.status===403){gate(e.status===403?'管理者専用の画面です':'ログインを確認してください',e.message,true);}else if(data){$('dashboard-error').textContent=e.message+' 最後に読み込んだ内容を表示しています。';$('dashboard-error').hidden=false;}else gate('読み込めませんでした',e.message);}
+ finally{if(stamp===generation)$('refresh').disabled=false;}}
+for(const button of document.querySelectorAll('[data-days]'))button.addEventListener('click',()=>{days=Number(button.dataset.days);for(const b of document.querySelectorAll('[data-days]'))b.setAttribute('aria-pressed',String(b===button));data=null;void load();});
+for(const button of document.querySelectorAll('[data-chart]'))button.addEventListener('click',()=>{metric=button.dataset.chart;for(const b of document.querySelectorAll('[data-chart]'))b.setAttribute('aria-pressed',String(b===button));if(data)chart();});
+$('refresh').addEventListener('click',load);$('admin-retry').addEventListener('click',load);$('admin-login').addEventListener('click',async()=>{try{await auth.login();}catch(e){gate('ログインを確認してください',e.message,true);}});
+try{auth=await createAdminAuth();auth.subscribe(()=>{generation++;data=null;gate('権限を確認しています','利用状況を読み込んでいます。');void load();});}catch(e){gate('管理画面を開けませんでした',e.message);$('admin-retry').onclick=()=>location.reload();}
+
+window.addEventListener('resize',()=>{if(data)chart();});

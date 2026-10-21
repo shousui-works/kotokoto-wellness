@@ -1,7 +1,7 @@
 import {createHash, randomBytes} from 'node:crypto';
 import {normalizeCandidate, validDate, ACTIVITY_KINDS} from '../dist/progress.mjs';
 import {REPORT_FORMAT, REPORT_INSTRUCTIONS} from './report-schema.mjs';
-import {cacheBlock, CACHE_OPTIONS, logCacheUsage} from './prompt-cache.mjs';
+import {cacheBlock, CACHE_OPTIONS, captureCacheUsage} from './prompt-cache.mjs';
 import {normalizeNickname} from '../dist/profile.mjs';
 
 export const CHAT_MODEL = 'gpt-6-luna';
@@ -189,7 +189,7 @@ export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchIm
       });
       if (!response.ok) return fail(response.status === 429 ? 429 : 502, 'upstream_unavailable', '今はお返事が届きにくいみたい。少し待って、また話しかけてね。');
       const result=await response.json();
-      logCacheUsage('chat',result,Date.now()-started,onUsage);
+      await captureCacheUsage('chat',result,Date.now()-started,onUsage);
       const report = extractReport(result,input);
       return report ? {status: 200, body: {requestId: input.requestId, ...report}}
         : fail(502, 'invalid_reply', 'うまくお返事できなかったみたい。もう一度聞かせてね。');
