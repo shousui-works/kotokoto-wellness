@@ -1,7 +1,7 @@
 import {createAccountClient} from './account-client.mjs?v=names-2';
 const account=await createAccountClient();
 const storage=account.storage;
-import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1';
+import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1-hearts-2';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
 import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=praise-1';
 import {createKomugiConversation} from './komugi-conversation.mjs?v=send-key-1';
@@ -9,7 +9,7 @@ import {createProgressUI} from './progress-ui.mjs?v=records-5';
 import {createRoomViewport} from './room-viewport.mjs?v=name-intro-1';
 import {PROFILE_STORAGE,loadProfile,saveProfile,addressCompanionLine,createPetNameLabels} from './profile.mjs?v=names-2';
 import {createNameIntro} from './name-intro.mjs?v=name-intro-1';
-import {createCompanionAffection} from './companion-affection.mjs?v=hearts-1';
+import {createCompanionAffection} from './companion-affection.mjs?v=hearts-2';
 import {createCompanionFaces} from './companion-face.mjs?v=face-1';
 const updatePetLabels=createPetNameLabels();
 let profile={version:1,nickname:'',petName:'こむぎ'};
@@ -17,7 +17,7 @@ const petName=()=>profile.petName||'こむぎ';
 const petText=text=>text.replaceAll('こむぎ',()=>petName());
 function readProfile(){try{profile=loadProfile(storage);}catch{profile={version:1,nickname:''};$('nickname-status').textContent='保存した名前を読み込めませんでした。元のデータは上書きしません。';}return profile;}
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals as baseTotals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor as baseAffectionFor,companionFeeling as baseCompanionFeeling,petCompanion} from './model.mjs?v=report-1';
-let roomMotion,roomFaces,roomAffection,companionChat,conversation,progress,nameIntro,activeNamePrompt=false,activeConversation=null,activeListening=false,activeChat=null,activePraise=null,praiseTimer;
+let roomMotion,roomFaces,roomAffection,companionChat,conversation,progress,nameIntro,activeNamePrompt=false,activeConversation=null,activeListening=false,activeChat=null,activePraise=null,praiseTimer,speechConversation=null,speechPage=-1;
 const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let state=emptyState(),loadFailed=false;try{const raw=storage.getItem(STORAGE);if(raw!==null){const parsed=JSON.parse(raw);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);}}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='保存済みのきろくを読み込めませんでした。元のデータは上書きしません。ブラウザの設定をご確認ください。';}let currentTab='room',lastDate=dateKey(),toastTimer;const today=()=>state.days[dateKey()]||{habits:[]};const dayForEdit=()=>state.days[dateKey()]??={habits:[]};
 const totals=s=>{const t=baseTotals(s),xp=progress?.companion.xp??t.xp;return {...t,xp,level:Math.floor(xp/40)+1,progress:xp%40};};
 const affectionFor=s=>baseAffectionFor(s,progress?.companion);
@@ -66,7 +66,9 @@ function renderCompanionSpeech(feeling=companionFeeling(state)){
     bubble.title=hint.textContent;bubble.removeAttribute('aria-haspopup');bubble.removeAttribute('aria-controls');bubble.removeAttribute('aria-expanded');
   }else{bubble.title=petName()+'のようすを見る';bubble.setAttribute('aria-haspopup','dialog');bubble.setAttribute('aria-controls','room-sheet');bubble.setAttribute('aria-expanded',String(currentTab==='companion'));}
   if(activeNamePrompt&&!activeConversation){bubble.title='呼ばれたい名前を教える';bubble.removeAttribute('aria-haspopup');bubble.removeAttribute('aria-expanded');bubble.setAttribute('aria-controls','name-intro-form');}
-  if(changed){if(speech&&!activeListening)roomAffection?.speak(affectionFor(state).score);if(activeConversation||activeNamePrompt)roomFaces?.speak(message);bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
+  const pageChanged=activeConversation&&(activeConversation!==speechConversation||activeConversation.index!==speechPage);
+  speechConversation=activeConversation;speechPage=activeConversation?.index??-1;
+  if(changed||pageChanged){if(speech&&!activeListening)roomAffection?.speak(affectionFor(state).score);if(activeConversation||activeNamePrompt)roomFaces?.speak(message);bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
 }
 function showCompanionPraise(text){
   companionChat.interrupt();clearTimeout(praiseTimer);

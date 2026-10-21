@@ -95,6 +95,8 @@ export class RoomWalker{
   }
   get active(){return this.visible&&!document.hidden&&!this.scene.closest('[hidden]');}
   syncVisualMotion(){
+    const manual=String(this.paused);
+    if(this.dog.dataset.motionManuallyPaused!==manual)this.dog.dataset.motionManuallyPaused=manual;
     const paused=String(this.paused||this.reduced()||!this.active);
     if(this.dog.dataset.motionPaused!==paused)this.dog.dataset.motionPaused=paused;
   }
