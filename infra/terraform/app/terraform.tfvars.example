@@ -1,0 +1,34 @@
+project_id = "your-project-id"
+region     = "asia-northeast1"
+app_name   = "kotokoto-biyori"
+
+# scripts/build-cloud-run.mjsが出力した実際のダイジェストに置き換える。
+container_image = "asia-northeast1-docker.pkg.dev/your-project-id/kotokoto-biyori/app@sha256:REPLACE_WITH_BUILD_DIGEST"
+
+# 初回は非公開サービスをgcloud run services proxy経由で確認する。
+allow_public_access = false
+invoker_members = ["user:you@example.com"]
+
+# ログインなしで公開する場合はallow_public_accessをtrueにし、
+# invoker_membersとiap_membersを空、enable_iapをfalseにする。
+
+# IAPは閲覧者制限用。Firebaseのアプリ内ログインとは別機能。
+enable_iap  = false
+iap_members = []
+
+# Luna接続時に、別途登録したSecret Managerのバージョン番号だけを指定する。
+openai_secret_version = null
+
+# 認証対応イメージの完成までは現状維持。設定しただけで機能は追加されない。
+account_mode = "legacy"
+account_config = null
+account_backend_ready = false
+account_maintenance_ready = false
+enable_account_maintenance = false
+# account_config = {
+#   project_id = "your-project-id"
+#   database_id = "kotokoto-wellness"
+#   web_app_id = "1:123456789:web:確認したWebAppID"
+#   auth_domain = "your-app-host.a.run.app"
+#   public_api_key = "確認したFirebase公開用APIキー"
+# }

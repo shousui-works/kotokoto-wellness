@@ -1,0 +1,6 @@
+project_id = "your-project-id"
+region     = "asia-northeast1"
+app_name   = "kotokoto-biyori"
+
+# auth/dataを準備する段階でtrueにする。現行アプリの認証は切り替わらない。
+enable_account_infrastructure = false

@@ -1,0 +1,4 @@
+# バケットの初回作成後にbackend.tfへコピーし、stateをGCSへ移す。
+terraform {
+  backend "gcs" {}
+}

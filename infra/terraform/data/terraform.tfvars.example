@@ -1,0 +1,6 @@
+project_id = "your-project-id"
+database_id = "kotokoto-wellness"
+database_location = "asia-northeast1"
+# Rulesを全拒否にするので、既存の場合はアプリ専用DBか先に確認する。
+dedicated_database_confirmed = false
+enable_deletion_permissions = false

@@ -1,0 +1,7 @@
+project_id = "your-project-id"
+auth_domain = "your-app-host.a.run.app"
+# FirebaseとWebアプリが既存ならcreate前にimportする。
+# OAuthプロバイダーと秘密値はこのrootで管理しない。
+manage_auth_config = false
+existing_auth_config_confirmed = false
+authorized_domains = []
