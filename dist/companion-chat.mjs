@@ -1,4 +1,4 @@
-import {conversationPeriod,pickVaried} from './companion-lines.mjs?v=idle-1';
+import {conversationPeriod,pickVaried} from './companion-lines.mjs?v=idle-2';
 export {conversationPeriod};
 import {dateKey} from './model.mjs?v=praise-1';
 

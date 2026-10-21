@@ -113,5 +113,7 @@ test('壊れた設定や未来の時刻があっても、声かけが永久に�
 test('声かけの直近8件を避ける履歴は再読み込み後も引き継がれる',()=>{
  const t=setup();t.advance(CHAT_TIMING.first);t.advance(CHAT_TIMING.minGap*4);
  const ids=t.messages.filter(Boolean).map(x=>x.id);assert.equal(new Set(ids).size,ids.length);
- const saved=JSON.parse(t.storage.get(CHAT_STORAGE));assert.ok(saved.recentIds.length>=4);assert.ok(saved.recentIds.length<=8);t.chat.destroy();
+ const saved=JSON.parse(t.storage.get(CHAT_STORAGE));assert.ok(saved.recentIds.length>=4);assert.ok(saved.recentIds.length<=8);const stamp=t.clock.now();t.chat.destroy();
+ const reloaded=setup({storage:t.storage,stamp});reloaded.advance(CHAT_TIMING.minGap);
+ assert.ok(reloaded.messages.some(Boolean));assert.equal(saved.recentIds.includes(reloaded.messages.find(Boolean).id),false);reloaded.chat.destroy();
 });
