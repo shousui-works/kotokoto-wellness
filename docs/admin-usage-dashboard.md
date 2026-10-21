@@ -18,7 +18,7 @@ Responsesのusageを会話/記憶の各実API呼び出しから保存する。�
 
 通常入力 = input_tokens - cached_tokens - cache_write_tokens。出力は推論込みで、別途二重計上しない。usage欠落・未対応モデル/処理tier・矛盾する値は料金0と断定せず未算出件数を表示。請求調整・税・GCP料金を含む確定請求ではない。各公式請求画面へのリンクを併設する。
 
-以前の `openai_prompt_cache` の数値だけを持つCloud Runログは `node scripts/backfill-ai-usage.mjs --project=kotokoto-biyori` で再実行安全な取り込みができる。新台帳方式のログを除外し、旧ログのinsertIdを一意キーとする。旧ログにはmodel/tierがないため、当時の固定モデルgpt-6-luna/Standard単価を仮定した概算。ログ上限に達した場合は黙って欠落させず停止。usageログ導入以前や、通信失敗でusageを受け取れなかった呼び出しは復元しない。
+以前の `openai_prompt_cache` の数値だけを持つCloud Runログは `node scripts/backfill-ai-usage.mjs --project=kotokoto-biyori --from=<UTC開始日時> --to=<UTC終了日時>` で再実行安全な取り込みができる。開始以上・終了未満のtimestamp条件を明示し、gcloud既定の直近1日への絞り込みを回避する。開始・終了には実際の旧ログと保管期間を確認したUTC日時（例示形式 `YYYY-MM-DDTHH:mm:ssZ`）を指定し、開始日を推測して固定しない。新台帳方式のログを除外し、旧ログのinsertIdを一意キーとする。旧ログにはmodel/tierがないため、当時の固定モデルgpt-6-luna/Standard単価を仮定した概算。ログ上限に達した場合は黙って欠落させず停止。usageログ導入以前や、通信失敗でusageを受け取れなかった呼び出しは復元しない。
 
 全APIは集計データだけを返し、他ユーザーの会話/健康情報を見る機能は追加しない。管理者設定・AI台帳はアプリデータとして管理し、秘密情報や本人UIDをTerraformへ渡さない。既存のnamed DB IAMと全拒否Rulesを使い、追加のGCP権限は不要。
 
