@@ -38,7 +38,7 @@ test('missing inputs stay pending, then one activity receives the Luna estimate 
   assert.equal(result.delta,0);assert.match(result.reply,/どのくらいの時間/);
   const id=result.progress.activities[0].id;
   result=apply(result.progress,legacy,[action('walk',{operation:'update',targetId:id,minutes:20,evidence:'20分'})],'20分');
-  assert.equal(result.progress.activities.length,1);assert.match(result.reply,/体重/);
+  assert.equal(result.progress.activities.length,1);assert.match(result.reply,/体重/);assert.doesNotMatch(result.reply,/計算|推定|記録|保存/);
   result=apply(result.progress,legacy,[action('walk',{operation:'update',targetId:id,weightKg:60,estimatedKcal:80,estimateBasis:'体重60kg・20分の通常の歩行を前提とした目安',evidence:'60kg'})],'60kg');
   assert.equal(result.progress.activities.length,1);
   assert.equal(dayReport(result.progress,today).kcal,80);
@@ -56,6 +56,7 @@ test('the app does not invent calories even with enough inputs; unknown informat
   assert.equal(dayReport(a.progress,today).kcal,0);
   assert.deepEqual(a.progress.activities[0].needs,['kcal']);
   assert.doesNotMatch(a.reply,/体重/);
+  assert.doesNotMatch(a.reply,/計算|推定|記録|保存|ぼくが考える/);
   const b=apply(a.progress,legacy,[action('walk')]);
   const id=b.progress.activities.at(-1).id;
   const c=apply(b.progress,legacy,[action('walk',{operation:'update',targetId:id,evidence:'わからない'})],'わからない');
