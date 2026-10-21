@@ -40,5 +40,28 @@ test('reduced-motion static hearts respect manual pause and its observer even wh
   dog.dataset.motionManuallyPaused='true';observer();assert.equal(dog.children[0].children.length,0);assert.equal(timers.size,0);
   control.speak(100);assert.equal(dog.children[0].children.length,0);assert.equal(timers.size,0);
   dog.dataset.motionManuallyPaused='false';observer();control.speak(100);assert.equal(dog.children[0].children.length,2);
+  dog.dataset.motionInactive='true';observer();assert.equal(dog.children[0].children.length,0);
+  control.speak(100);assert.equal(dog.children[0].children.length,0);assert.equal(timers.size,0);
+  dog.dataset.motionInactive='false';observer();control.speak(100);assert.equal(dog.children[0].children.length,2);
  }finally{control?.destroy();for(const [key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
+});
+
+for(const scenario of ['dialog','name cancellation'])test(`${scenario} clears an existing affection burst`,async()=>{
+ const {readFile}=await import('node:fs/promises'),{default:vm}=await import('node:vm');
+ const source=await readFile(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ let visible=0,timer=null,refreshes=0;
+ const burst=createAffectionBurst({emit:p=>visible=p.hearts.length,erase:()=>visible=0,schedule:fn=>(timer=fn,1),cancel:()=>timer=null});
+ const context={roomAffection:burst,document:{querySelector:()=>({open:true})},companionChat:{refresh(){refreshes++;}},MutationObserver:class{constructor(callback){this.callback=callback;}},activeNamePrompt:true,roomMotion:{setSpeaking(){}},renderCompanionSpeech(){}};
+ vm.createContext(context);burst.speak(100);assert.equal(visible,7);
+ try{
+  if(scenario==='dialog'){
+   const start=source.indexOf('const chatDialogObserver='),end=source.indexOf("document.querySelectorAll('dialog')",start);
+   vm.runInContext(source.slice(start,end)+'chatDialogObserver.callback();',context);
+  }else{
+   const start=source.indexOf('onCancel:()=>{activeNamePrompt=false;'),end=source.indexOf('}});',start);
+   vm.runInContext('('+source.slice(start+'onCancel:'.length,end+1)+')()',context);
+   assert.equal(context.activeNamePrompt,false);
+  }
+  assert.equal(visible,0);assert.equal(timer,null);assert.equal(refreshes,1);
+ }finally{burst.destroy();}
 });

@@ -1,7 +1,7 @@
 import {createAccountClient} from './account-client.mjs?v=names-2';
 const account=await createAccountClient();
 const storage=account.storage;
-import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1-hearts-2';
+import {createRoomMotion} from './companion-motion.mjs?v=closeup-alive-1-hearts-3';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
 import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=praise-1';
 import {createKomugiConversation} from './komugi-conversation.mjs?v=send-key-1';
@@ -9,7 +9,7 @@ import {createProgressUI} from './progress-ui.mjs?v=records-5';
 import {createRoomViewport} from './room-viewport.mjs?v=name-intro-1';
 import {PROFILE_STORAGE,loadProfile,saveProfile,addressCompanionLine,createPetNameLabels} from './profile.mjs?v=names-2';
 import {createNameIntro} from './name-intro.mjs?v=name-intro-1';
-import {createCompanionAffection} from './companion-affection.mjs?v=hearts-2';
+import {createCompanionAffection} from './companion-affection.mjs?v=hearts-3';
 import {createCompanionFaces} from './companion-face.mjs?v=face-1';
 const updatePetLabels=createPetNameLabels();
 let profile={version:1,nickname:'',petName:'こむぎ'};
@@ -151,7 +151,7 @@ roomTools.addEventListener('keydown',event=>{if(event.key==='Escape'){roomTools.
 companionChat=createCompanionChat({storage,getState:()=>state,canSpeak:()=>!activeNamePrompt&&!activeConversation&&!conversation?.isInteracting&&!roomTools.open&&!document.hidden&&!document.querySelector('dialog[open]'),onMessage:message=>{activeChat=message;renderCompanionSpeech();}});
 $('companion-chat-toggle').checked=companionChat.enabled;
 $('companion-chat-toggle').addEventListener('change',async event=>{if(account.enabled&&account.user){if(!await cloudSave({type:'chat_setting',enabled:event.target.checked})){event.target.checked=account.state?.chatEnabled!==false;return;}}companionChat.setEnabled(event.target.checked);});
-const chatDialogObserver=new MutationObserver(()=>companionChat.refresh());
+const chatDialogObserver=new MutationObserver(()=>{if(document.querySelector('dialog[open]'))roomAffection?.clear();companionChat.refresh();});
 document.querySelectorAll('dialog').forEach(dialog=>chatDialogObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
 $('pet-companion').addEventListener('click',async()=>{const wasLonely=companionFeeling(state).id==='lonely';if(account.enabled&&account.user){if(!await cloudSave({type:'pet'}))return;}else{petCompanion(state);persist();}render();greetDogs();showCompanionPraise(wasLonely?'おかえり。会いに来てくれて、うれしいな。':'きみの手、やさしいね。なでてくれて、ありがとう。');toast('こむぎが、うれしそうに寄ってきたよ。');});
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
@@ -180,7 +180,7 @@ window.addEventListener('storage',event=>{if(account.enabled&&account.user)retur
 progress=createProgressUI({storage,account,getState:()=>state,onChange:()=>render(),onContinue:activity=>{switchTab('room');conversation?.focus(activity.title);},onError:message=>toast(message)});
 conversation=createKomugiConversation({root:$('talk'),storage,fetchImpl:account.fetch,cloud:account.enabled&&!!account.user,getPetName:petName,pendingStore:account.pendingConversation,onClearHistory:()=>account.clearHistory?.(),getContext:()=>({date:dateKey(),hour:new Date().getHours(),stage:growthForXP(totals(state).xp).stage.id,nickname:readProfile().nickname,petName:petName(),...progress.context()}),onReply:showConversationReply,onSend:approachForConversation,onFailure:clearConversationSpeech,onResult:(result,text,context)=>account.enabled&&account.user?({reply:result.reply,receipts:result.receipts??[]}):progress.handleReport(result,text,context),onInteraction:active=>{if(active)companionChat.interrupt();else companionChat.refresh();},onClearTarget:()=>progress.clearTarget()});
 new ResizeObserver(()=>roomMotion.refresh()).observe($('room-console'));
-nameIntro=createNameIntro({form:$('name-intro-form'),chatForm:$('conversation-form'),input:$('name-intro-value'),later:$('name-intro-later'),status:$('name-intro-status'),getNickname:()=>readProfile().nickname,saveNickname:name=>account.enabled&&account.user?account.command({type:'profile',nickname:name}).then(()=>{profile=readProfile();}):(()=>{profile=saveProfile(storage,name);})(),onPrompt:()=>{activeNamePrompt=true;companionChat.interrupt();roomMotion.approachConversation();renderCompanionSpeech();},onComplete:name=>{activeNamePrompt=false;Promise.resolve(approachForConversation()).then(()=>showConversationReply(`${name}って呼ぶね。教えてくれてうれしいな。これからよろしくね！`));},onCancel:()=>{activeNamePrompt=false;roomMotion.setSpeaking(false);renderCompanionSpeech();companionChat.refresh();}});
+nameIntro=createNameIntro({form:$('name-intro-form'),chatForm:$('conversation-form'),input:$('name-intro-value'),later:$('name-intro-later'),status:$('name-intro-status'),getNickname:()=>readProfile().nickname,saveNickname:name=>account.enabled&&account.user?account.command({type:'profile',nickname:name}).then(()=>{profile=readProfile();}):(()=>{profile=saveProfile(storage,name);})(),onPrompt:()=>{activeNamePrompt=true;companionChat.interrupt();roomMotion.approachConversation();renderCompanionSpeech();},onComplete:name=>{activeNamePrompt=false;Promise.resolve(approachForConversation()).then(()=>showConversationReply(`${name}って呼ぶね。教えてくれてうれしいな。これからよろしくね！`));},onCancel:()=>{activeNamePrompt=false;roomMotion.setSpeaking(false);roomAffection?.clear();renderCompanionSpeech();companionChat.refresh();}});
 createRoomViewport({input:$('conversation-input'),extraInputs:[$('name-intro-value')],onChange:({height})=>{
   if(height<=600&&activeConversation&&Array.from(activeConversation.text).length>60){
     const {pages,index}=activeConversation;

@@ -71,6 +71,9 @@ test('アップ中の絵の動きは、手動停止・非表示・動きを減�
   doc.hidden=true;walker.resume();assert.equal(dog.dataset.motionPaused,'true');
   doc.hidden=false;walker.resume();assert.equal(dog.dataset.motionPaused,'false');
   setReduced(true);assert.equal(dog.dataset.motionPaused,'true');assert.equal(walker.paused,false);
+  assert.equal(dog.dataset.motionInactive,'false');
+  walker.visible=false;walker.resume();assert.equal(dog.dataset.motionInactive,'true');assert.equal(dog.dataset.motionPaused,'true');
+  walker.visible=true;walker.resume();assert.equal(dog.dataset.motionInactive,'false');assert.equal(dog.dataset.motionPaused,'true');
   setReduced(false);assert.equal(dog.dataset.motionPaused,'false');assert.equal(dog.dataset.motionManuallyPaused,'false');
   walker.onPause();setReduced(true);assert.equal(dog.dataset.motionPaused,'true');assert.equal(dog.dataset.motionManuallyPaused,'true');
   setReduced(false);assert.equal(dog.dataset.motionManuallyPaused,'true');
