@@ -18,7 +18,7 @@ Responsesのusageを会話/記憶の各実API呼び出しから保存する。�
 
 通常入力 = input_tokens - cached_tokens - cache_write_tokens。出力は推論込みで、別途二重計上しない。usage欠落・未対応モデル/処理tier・矛盾する値は料金0と断定せず未算出件数を表示。請求調整・税・GCP料金を含む確定請求ではない。各公式請求画面へのリンクを併設する。
 
-以前の `openai_prompt_cache` の数値だけを持つCloud Runログは `node scripts/backfill-ai-usage.mjs --project=kotokoto-biyori --from=<UTC開始日時> --to=<UTC終了日時>` で再実行安全な取り込みができる。開始以上・終了未満のtimestamp条件を明示し、gcloud既定の直近1日への絞り込みを回避する。開始・終了には実際の旧ログと保管期間を確認したUTC日時（例示形式 `YYYY-MM-DDTHH:mm:ssZ`）を指定し、開始日を推測して固定しない。新台帳方式のログを除外し、旧ログのinsertIdを一意キーとする。旧ログにはmodel/tierがないため、当時の固定モデルgpt-6-luna/Standard単価を仮定した概算。ログ上限に達した場合は黙って欠落させず停止。usageログ導入以前や、通信失敗でusageを受け取れなかった呼び出しは復元しない。
+以前の `openai_prompt_cache` の数値だけを持つCloud Runログは `node scripts/backfill-ai-usage.mjs --project=kotokoto-biyori --from=<UTC開始日時> --to=<UTC終了日時>` で再実行安全な取り込みができる。開始以上・終了未満のtimestamp条件を明示し、gcloud既定の直近1日への絞り込みを回避する。開始・終了には実際の旧ログと保管期間を確認したUTC日時（例示形式 `YYYY-MM-DDTHH:mm:ssZ`）を指定し、開始日を推測して固定しない。新台帳方式のログを除外し、旧ログのtimestamp（ナノ秒精度を保持して正規化）とinsertIdを複合キーとする。同じinsertIdでも時刻が違えば別イベントとして扱う。旧キーで取り込み済みのイベントは、保存済み時刻・用途・トークン数等が一致し元ログを一意に対応付けられた場合に、同一transactionで新キーの参照マーカーを作り、日次合計を加算しない。旧キーも残して古い取り込みとの二重加算を防ぐ。旧保存値はミリ秒精度のため、同一insertId・同一ミリ秒内に複数の候補があれば自動対応付けせず停止する。その場合は候補全体を含む期間と元ログを確認して別途整合させ、候補を除外して無理に再実行しない。旧ログにはmodel/tierがないため、当時の固定モデルgpt-6-luna/Standard単価を仮定した概算。ログ上限に達した場合は黙って欠落させず停止。usageログ導入以前や、通信失敗でusageを受け取れなかった呼び出しは復元しない。
 
 全APIは集計データだけを返し、他ユーザーの会話/健康情報を見る機能は追加しない。管理者設定・AI台帳はアプリデータとして管理し、秘密情報や本人UIDをTerraformへ渡さない。既存のnamed DB IAMと全拒否Rulesを使い、追加のGCP権限は不要。
 

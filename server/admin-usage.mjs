@@ -37,6 +37,15 @@ export class FirestoreUsageStore{
   const event=usageEvent(entry,meta),id=createHash('sha256').update(meta.responseId).digest('hex'),ref=this.db.collection('aiUsageEvents').doc(id),day=this.db.collection('aiUsageDays').doc(event.date);
   await this.db.runTransaction(async tx=>{
    if((await tx.get(ref)).exists)return;
+   if(meta.source==='cloud-log'&&meta.legacyResponseId){
+    const legacyId=createHash('sha256').update(meta.legacyResponseId).digest('hex'),legacyRef=this.db.collection('aiUsageEvents').doc(legacyId),legacy=(await tx.get(legacyRef)).data();
+    const fields=['at','source','purpose','model','serviceTier','inputTokens','cachedTokens','cacheWriteTokens','outputTokens','elapsedMs'];
+    if(legacy&&!legacy.canonicalEventId&&fields.every(key=>legacy[key]===event[key])){
+     // Old events lost sub-millisecond precision. Never guess between matching source logs.
+     if(meta.legacyMatchCount!==1)throw Error('Ambiguous legacy usage; reconcile the original log before importing');
+     tx.set(legacyRef,{...legacy,canonicalEventId:id});tx.set(ref,{version:1,legacyEventId:legacyId});return;
+    }
+   }
    const current=(await tx.get(day)).data()??{date:event.date,...emptyUsage(),byPurpose:{}};
    const next=addUsage(current,event);next.date=event.date;next.byPurpose={...current.byPurpose,[event.purpose]:addUsage(current.byPurpose?.[event.purpose],event)};next.updatedAt=event.at;
    tx.set(ref,event);tx.set(day,next);
