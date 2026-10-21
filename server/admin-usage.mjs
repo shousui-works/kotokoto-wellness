@@ -42,8 +42,8 @@ export function userDashboard(dashboard,rows){
  const attributed=emptyUsage();for(const u of list)for(const k of Object.keys(attributed))attributed[k]+=u[k];
  const n=list.length,calls=attributed.calls;
  return {...dashboard,users:list,userSummary:{activeUsers:n,attributed,unattributedCalls:Math.max(0,dashboard.total.calls-calls),
-  perUser:n?{calls:calls/n,costNanos:attributed.costNanos/n,inputTokens:attributed.inputTokens/n,outputTokens:attributed.outputTokens/n}:null,
-  perCall:calls?{costNanos:attributed.costNanos/calls,inputTokens:attributed.inputTokens/calls,outputTokens:attributed.outputTokens/calls}:null}};
+  perUser:n?{calls:calls/n,costNanos:attributed.unpricedCalls?null:attributed.costNanos/n,inputTokens:attributed.inputTokens/n,outputTokens:attributed.outputTokens/n}:null,
+  perCall:calls?{costNanos:attributed.unpricedCalls?null:attributed.costNanos/calls,inputTokens:attributed.inputTokens/calls,outputTokens:attributed.outputTokens/calls}:null}};
 }
 export class FirestoreUsageStore{
  constructor(db){this.db=db;}
