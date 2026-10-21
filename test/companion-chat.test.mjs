@@ -133,3 +133,16 @@ test('別タブの新しい履歴はメモリより優先して選択する',()=
  t.advance(CHAT_TIMING.minGap+1000);
  assert.equal(t.messages.filter(Boolean).at(-1).id,'morning-0');t.chat.destroy();
 });
+
+test('オン設定の保存失敗後も声かけを継続し、明示的な別タブ同期では停止する',()=>{
+ const storage=new Map([[CHAT_STORAGE,JSON.stringify({version:1,enabled:false})]]),set=storage.set.bind(storage);
+ storage.set=()=>{throw Error('quota');};
+ const t=setup({storage});t.chat.setEnabled(true);t.advance(CHAT_TIMING.first);
+ assert.equal(t.chat.enabled,true);assert.ok(t.messages.at(-1));
+ t.advance(CHAT_TIMING.minGap*2);assert.equal(t.messages.filter(Boolean).length,3);
+ storage.set=set;t.advance(CHAT_TIMING.minGap);
+ assert.equal(JSON.parse(storage.get(CHAT_STORAGE)).enabled,true);
+ storage.set(CHAT_STORAGE,JSON.stringify({...JSON.parse(storage.get(CHAT_STORAGE)),enabled:false}));
+ t.chat.sync();assert.equal(t.chat.enabled,false);const count=t.messages.filter(Boolean).length;
+ t.advance(CHAT_TIMING.maxGap*2);assert.equal(t.messages.filter(Boolean).length,count);t.chat.destroy();
+});
