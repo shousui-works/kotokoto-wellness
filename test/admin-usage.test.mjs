@@ -78,11 +78,14 @@ test('admin renders unknown cost averages as unavailable, including per-user row
  const {readFile}=await import('node:fs/promises'),{default:vm}=await import('node:vm');
  const source=await readFile(new URL('../dist/admin.mjs',import.meta.url),'utf8');
  const store=new MemoryUsageStore();await store.record(entry,{...meta,uid:'unknown',serviceTier:'unknown'});await store.record(entry,{...meta,responseId:'known',uid:'known'});
+ await store.record(entry,{...meta,responseId:'mixed-unknown',uid:'mixed',serviceTier:'unknown'});await store.record(entry,{...meta,responseId:'mixed-known',uid:'mixed'});
  const data=await store.dashboard(7,Date.parse('2026-10-19T01:00:00Z')),nodes=new Map(),tables={};
+ assert.equal(data.userSummary.perUser.costNanos,null);assert.equal(data.userSummary.perCall.costNanos,null);
  const context={data,$:id=>{if(!nodes.has(id))nodes.set(id,{style:{}});return nodes.get(id);},number:String,money:n=>'$'+(n/1e9).toFixed(6),percent:()=>'',rows:(id,values)=>tables[id]=values,chart(){},Intl,Date};
  vm.runInNewContext(source.slice(source.indexOf('function render(){'),source.indexOf('async function load(){'))+'render();',context);
  assert.equal(nodes.get('average-cost').textContent,'—');assert.equal(nodes.get('call-cost').textContent,'—');
  assert.equal(tables['user-rows'].find(r=>r[0]==='unknown').at(-2),'—');assert.equal(tables['user-rows'].find(r=>r[0]==='unknown').at(-1),'—');assert.equal(tables['user-rows'].find(r=>r[0]==='known').at(-1),'$0.001190');
+ const mixed=tables['user-rows'].find(r=>r[0]==='mixed');assert.equal(mixed[2],'2');assert.equal(mixed[3],'20000');assert.equal(mixed[4],'2000');assert.equal(mixed.at(-2),'≈ $0.001190');assert.equal(mixed.at(-1),'—');
 });
 
 test('dashboard uses one read-only snapshot while usage changes between queries',async()=>{
