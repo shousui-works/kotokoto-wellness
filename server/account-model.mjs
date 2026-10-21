@@ -28,7 +28,7 @@ export function applyCommand(original,command,now=Date.now()){
   const state=structuredClone(original),today=dayKey(now),at=new Date(now).toISOString();
   const date=command.date??today;if(!validDate(date)||date>today)throw problem(400,'invalid_date','日付を確認してね。');
   const day=()=>state.legacy.days[date]??={habits:[]};
-  const manual=(kind,title,values={})=>{state.progress=recordManual(state.progress,{id:`${date}:${kind}`,kind,date,title,...values},state.legacy,at).progress;};
+  const manual=(kind,title,values={})=>{state.progress=recordManual(state.progress,{id:`${date}:${kind}`,kind,date,title,today,...values},state.legacy,at).progress;};
   switch(command.type){
     case 'habit':{
       const habit=HABITS.find(h=>h.id===command.habit);if(!habit)throw problem(400,'invalid_habit','項目を確認してね。');
@@ -51,7 +51,7 @@ export function applyCommand(original,command,now=Date.now()){
     case 'chat_setting':if(typeof command.enabled!=='boolean')throw problem(400,'invalid_setting','設定を確認してね。');state.chatEnabled=command.enabled;break;
     case 'correct_activity':{
       const c=command.changes;if(!c||Object.keys(c).some(k=>!['date','minutes','kcal','weightKg','detail'].includes(k)))throw problem(400,'invalid_correction','訂正内容を確認してね。');
-      state.progress=correctActivity(state.progress,command.id,c,state.legacy,at);break;
+      state.progress=correctActivity(state.progress,command.id,c,state.legacy,at,today);break;
     }
     default:throw problem(400,'invalid_command','この操作には対応していません。');
   }
