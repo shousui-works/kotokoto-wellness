@@ -63,6 +63,17 @@ test('返事を読む間は正面のおすわりで待ち、読み終わって�
   assert.equal(walker.paused,true);assert.equal(walker.canMove,false);assert.equal(timers.size,0);
 }));
 
+test('撫でている間は遊びを止め、会話のアップと手動停止を保ったまま解除できる',()=>withWalker(({walker,dog,timers,frames})=>{
+  walker.startActivity('play');walker.setPetting(true);
+  assert.equal(walker.activity,null);assert.equal(walker.canMove,false);assert.equal(frames.size,0);assert.equal(timers.size,0);
+  walker.setPetting(false);assert.equal(walker.canMove,true);assert.ok(timers.size);
+  walker.approachConversation();walker.setPetting(true);
+  assert.equal(dog.dataset.conversation,'near');assert.equal(frames.size,0);
+  walker.setPetting(false);assert.equal(dog.dataset.conversation,'near');assert.equal(walker.speaking,true);assert.equal(timers.size,0);
+  walker.paused=true;walker.setPetting(true);walker.setPetting(false);
+  assert.equal(walker.paused,true);assert.equal(walker.canMove,false);
+}));
+
 test('アップ中の絵の動きは、手動停止・非表示・動きを減らす設定に従う',()=>withWalker(({walker,dog,doc,setReduced})=>{
   walker.approachConversation();walker.conversationFinish?.();walker.updateControls();
   assert.equal(dog.dataset.conversation,'near');assert.equal(dog.dataset.motionPaused,'false');
