@@ -24,7 +24,7 @@ export function bindCompanionPetting(target,{onHold=()=>{},onMove=()=>{},onEnd=(
     gesture.distance+=distance;
     if(gesture.distance>=18)onMove({x:(event.clientX-rect.left)/rect.width,y:(event.clientY-rect.top)/rect.height,distance:gesture.distance});
   }
-  const up=event=>{if(event.pointerId===gesture?.id)finish();};
+  const up=event=>{if(event.pointerId===gesture?.id){move(event);finish();}};
   const cancel=event=>{if(event.pointerId===gesture?.id)finish(true);};
   const click=event=>{if(event.detail===0)onPet();}; // Keyboard / assistive activation.
   const hidden=()=>{if(target.ownerDocument.hidden)finish(true);};
