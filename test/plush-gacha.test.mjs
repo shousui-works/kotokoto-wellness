@@ -30,8 +30,8 @@ test('concurrent distinct draws cannot overspend and history pages are bounded',
  for(let i=0;i<24;i++){const id=randomUUID();f.store.plushTransactions.set('alice/'+id,{requestId:id,item:'shiba',at:new Date(Date.parse('2026-09-01')+i*1000).toISOString(),fingerprint:'private'});}const a=await f.store.plushHistory('alice'),b=await f.store.plushHistory('alice',a.nextCursor);assert.equal(a.rows.length,20);assert.equal(b.rows.length,5);assert.equal(b.nextCursor,null);assert.equal(new Set([...a.rows,...b.rows].map(x=>x.requestId)).size,25);
 });
 test('uniform selection covers every catalog entry and content includes real source links',()=>{
- for(let i=0;i<PLUSH_CATALOG.length;i++){assert.equal(drawCandidate(n=>{assert.equal(n,30);return i;}),PLUSH_CATALOG[i].id);const p=PLUSH_CATALOG[i];assert.ok(p.name&&p.trivia&&p.features&&p.sources.every(s=>s.url.startsWith('https://')));}
- assert.equal(PLUSH_CATALOG.length,30);assert.ok(PLUSH_CATALOG.every(p=>p.category==='dog'));assert.equal(plushById('calico').category,'other');assert.equal(PLUSH_CATALOG.find(p=>p.id==='shiba').name,'柴');
+ for(let i=0;i<PLUSH_CATALOG.length;i++){assert.equal(drawCandidate(n=>{assert.equal(n,100);return i;}),PLUSH_CATALOG[i].id);const p=PLUSH_CATALOG[i];assert.ok(p.name&&p.trivia&&p.features&&p.sources.every(s=>s.url.startsWith('https://')));}
+ assert.equal(PLUSH_CATALOG.length,100);assert.ok(PLUSH_CATALOG.every(p=>p.category==='dog'));assert.equal(plushById('calico').category,'other');assert.equal(PLUSH_CATALOG.find(p=>p.id==='shiba').name,'柴');
 });
 
 test('draw cannot reuse an earlier normal command ID',async()=>{const f=await fixture(),id=randomUUID();assert.equal((await f.request('/api/commands',{requestId:id,revision:0,command:{type:'mood',mood:'good'}})).status,200);assert.equal((await f.request('/api/commands',{requestId:id,revision:1,command:{type:'plush_draw'}})).status,409);assert.equal((await f.store.read('alice')).collection.spent,0);});
@@ -48,18 +48,18 @@ test('collection UI confirms exchange inline, opens the book and swaps shelf toy
   async click(){if(this.disabled)throw Error('disabled button');if(this.onclick)await this.onclick();for(const fn of this.listeners.click??[])await fn();}
  }
  const old={document:globalThis.document,ResizeObserver:globalThis.ResizeObserver};t.after(()=>Object.assign(globalThis,old));
- const root=new Element('section'),shelf=new Element('div'),header=new Element('div');globalThis.document={createElement:tag=>new Element(tag),getElementById:id=>id==='plush'?root:shelf,querySelector:()=>header};globalThis.ResizeObserver=class{observe(){}};
+ const root=new Element('section'),shelf=new Element('div'),header=new Element('div'),sheet=new Element('dialog');globalThis.document={createElement:tag=>new Element(tag),getElementById:id=>id==='plush'?root:id==='room-sheet'?sheet:shelf,querySelector:()=>header};globalThis.ResizeObserver=class{observe(){}};
  let ui;const account={user:{uid:'fictional'},writable:true,state:funded(),async command(command){this.state=command.type==='plush_exchange'?applyPlush(this.state,command,{id:randomUUID()}).state:applyCommand(this.state,command);ui.render();return {state:this.state};}};
  account.state.collection.buttons=5;for(let i=0;i<4;i++){const id=PLUSH_CATALOG[i].id;account.state.collection.owned[id]={count:1,firstAt:'2026-10-19T00:00:00Z'};account.state.collection.shelf[SHELF_SLOTS[i]]=id;}
  account.state.collection.owned.calico={count:1,firstAt:'2026-10-19T00:00:00Z'};account.state.collection.owned.rabbit={count:1,firstAt:'2026-10-19T00:00:00Z'};
  const {createPlushUI}=await import('../dist/plush-ui.mjs');const messages=[];ui=createPlushUI({account,openPanel(){},toast:x=>messages.push(x)});
- assert.doesNotMatch(root.textContent,/イエネコ|カイウサギ|ほかの動物/);assert.match(root.textContent,/集めた仲間 4 \/ 30/);
+ assert.doesNotMatch(root.textContent,/イエネコ|カイウサギ|ほかの動物/);assert.match(root.textContent,/集めた仲間 4 \/ 100/);
  const b=text=>root.querySelectorAll('button').find(n=>n.textContent===text);
  const selection=root.querySelectorAll('select')[0];selection.value='husky';selection.onchange();
  await b('シベリアン・ハスキーと交換する').click();assert.ok(b('交換を確定する'));assert.equal(account.state.collection.buttons,5);
- await b('交換を確定する').click();assert.equal(account.state.collection.buttons,0);assert.equal(account.state.collection.owned.husky.count,1);assert.match(root.textContent,/新しい仲間/);assert.match(root.textContent,/集めた仲間 5 \/ 30/);
+ await b('交換を確定する').click();assert.equal(account.state.collection.buttons,0);assert.equal(account.state.collection.owned.husky.count,1);assert.match(root.textContent,/新しい仲間/);assert.match(root.textContent,/集めた仲間 5 \/ 100/);
  assert.equal(root.querySelectorAll('select')[0].value,'dachshund');assert.ok(b('ミニチュア・ダックスフンドと交換する'));assert.match(root.querySelectorAll('section').find(n=>n.attrs['aria-label']==='開封結果').className,/just-opened/);
- await b('図鑑を見る').click();assert.match(root.textContent,/原産国表記はアメリカ合衆国/);assert.match(root.textContent,/JKC/);
+ sheet.scrollTop=2000;await b('図鑑を見る').click();assert.equal(sheet.scrollTop,0);assert.match(root.textContent,/原産国表記はアメリカ合衆国/);assert.match(root.textContent,/JKC/);
  await root.querySelectorAll('button').filter(n=>n.textContent==='棚に飾る').at(-1).click();await root.querySelectorAll('button').find(n=>n.attrs['aria-label']==='上の段 1番目').click();assert.equal(account.state.collection.shelf[SHELF_SLOTS[0]],'husky');
  const shiba=root.querySelectorAll('button').find(n=>n.className==='plush-book-item'&&n.children.some(c=>c.tag==='strong'&&c.textContent==='柴'));await shiba.click();assert.equal(account.state.collection.shelf[SHELF_SLOTS[0]],'shiba');assert.equal(account.state.collection.shelf[SHELF_SLOTS[1]],'husky');assert.equal(messages.length,2);
  const historyCalls=[];account.fetch=async path=>{historyCalls.push(path);return Response.json(historyCalls.length===1?{rows:[{item:'calico',at:'2026-10-19T00:00:00Z',cost:50}],nextCursor:'older-page'}:{rows:[{item:'shiba',at:'2026-10-18T00:00:00Z',cost:50}],nextCursor:null});};
@@ -112,10 +112,10 @@ test('four added breeds can be drawn, exchanged and displayed without altering e
 });
 
 
-test('twenty added breeds have complete RGBA assets and support draw, exchange and saved shelf placement',async()=>{
+test('all added breeds have complete RGBA assets and support draw, exchange and saved shelf placement',async()=>{
  const {readFile}=await import('node:fs/promises');
- assert.equal(new Set(PLUSH_CATALOG.map(p=>p.id)).size,30);
- assert.deepEqual(PLUSH_CATALOG.map(p=>p.number),Array.from({length:30},(_,i)=>i+1));
+ assert.equal(new Set(PLUSH_CATALOG.map(p=>p.id)).size,100);
+ assert.deepEqual(PLUSH_CATALOG.map(p=>p.number),Array.from({length:100},(_,i)=>i+1));
  for(const p of PLUSH_CATALOG.slice(10)){
   const png=await readFile(new URL('../dist'+p.image,import.meta.url));assert.equal(png.subarray(1,4).toString(),'PNG');assert.equal(png.readUInt32BE(16),384);assert.equal(png.readUInt32BE(20),384);assert.equal(png[25],6);
   assert.ok(p.origin&&p.history&&p.features&&p.trivia&&p.sources[0].checkedAt==='2026-10-20');
@@ -125,6 +125,16 @@ test('twenty added breeds have complete RGBA assets and support draw, exchange a
  }
 });
 
+test('expanding to one hundred preserves the first thirty IDs, numbers and saved collection receipts',()=>{
+ const ids=['pomeranian','shiba','poodle','corgi','dachshund','husky','golden-retriever','dalmatian','papillon','samoyed','labrador-retriever','border-collie','beagle','pug','french-bulldog','bulldog','chihuahua','maltese','shih-tzu','yorkshire-terrier','miniature-schnauzer','bichon-frise','shetland-sheepdog','akita','bernese-mountain-dog','st-bernard','cavalier-king-charles-spaniel','boston-terrier','jack-russell-terrier','dobermann'];
+ assert.deepEqual(PLUSH_CATALOG.slice(0,30).map(p=>p.id),ids);
+ let old=funded();for(const id of ids.slice(0,5))old=draw(seen(old),id).state;
+ old=applyCommand(old,{type:'plush_display',slot:SHELF_SLOTS[0],item:'pomeranian'});
+ const before=structuredClone(old.collection),next=applyCommand(old,{type:'mood',mood:'good'});
+ assert.deepEqual(next.collection,before);assert.equal(plushById(before.lastResult.item).number,5);
+ assert.equal(collectionBalance(next.collection,progressTotal(next.progress)),collectionBalance(before,progressTotal(old.progress)));
+ assert.equal(PLUSH_CATALOG[30].id,'german-shepherd-dog');assert.equal(PLUSH_CATALOG.at(-1).number,100);
+});
 
 test('unseen results block fresh draws and exchanges across clients without spending; retries and acknowledgement still work',async()=>{
  const f=await fixture(),requestId=randomUUID();

@@ -1,6 +1,7 @@
 // Editorial content, not AI generated at runtime. Sources checked per entry.
 import {additionalDogs} from './plush-dogs-v2.mjs';
-export const CATALOG_VERSION='2026-10-20-dogs-v4';
+import {hundredDogAdditions} from './plush-dogs-v3.mjs';
+export const CATALOG_VERSION='2026-10-20-dogs-v5';
 export const DRAW_COST=50,EXCHANGE_COST=5;
 export const SHELF_SLOTS=Object.freeze(Array.from({length:6},(_,i)=>'shelf-1-'+i));
 const jkc=slug=>[{url:'https://www.jkc.or.jp/breeds/'+slug+'/',title:'JKC 犬種紹介',checkedAt:'2026-10-19'}];
@@ -56,6 +57,7 @@ const entries=[
  'ロシア北部やシベリアで、人とともに暮らし、狩猟やそり引きで働いてきた犬です。現在は伴侶犬としても親しまれています。',
  '「サモエド・スマイル」は、目の形や位置と、少し上がった口角がつくる表情の呼び名。にっこり見える顔にも犬種らしさがあるのです。',jkc('samoyed')],
  ...additionalDogs.map(([id,name,english,size,coat,origin,tagline,features,history,trivia])=>[id,name,english,'dog',id,size,coat,origin,tagline,features,history,trivia,[{url:'https://www.jkc.or.jp/breeds/'+id+'/',title:'JKC 犬種紹介',checkedAt:'2026-10-20'}]]),
+ ...hundredDogAdditions.map(([id,name,english,size,coat,origin,tagline,features,history,trivia,source])=>[id,name,english,'dog',id,size,coat,origin,tagline,features,history,trivia,[{url:source,title:'JKC 犬種紹介',checkedAt:'2026-10-20'}]]),
  ['calico','イエネコ（三毛）','DOMESTIC CAT · CALICO','other',null,'個体により異なる','三毛柄','特定の原産国を示す品種ではありません',
  '白・黒・茶色の模様をまとった猫。',
  '白い部分に黒と茶色の模様が入った毛柄を、ここでは三毛と呼びます。模様の位置や広さはそれぞれ違い、同じ配色でも一匹ずつ違う表情に見えます。',

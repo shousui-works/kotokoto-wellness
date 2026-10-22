@@ -1,5 +1,5 @@
 import {createShelfPosition} from './shelf-position.mjs?v=1';
-import {createPlushUI} from './plush-ui.mjs?v=gacha-scene-1';
+import {createPlushUI} from './plush-ui.mjs?v=hundred-dogs-1';
 import {createAccountClient} from './account-client.mjs?v=plush-1';
 const account=await createAccountClient();
 const storage=account.storage;
