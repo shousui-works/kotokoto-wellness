@@ -156,8 +156,15 @@ export function extractReport(result, input) {
     if(offset!==null&&input.context.date){const d=new Date(input.context.date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-offset);a.date=d.toISOString().slice(0,10);}
     if(/(?:いつ(?!も)|日付|日にち).*(?:わから|分から|覚えて(?:い)?ない)/.test(datedEvidence))a.date=null;
   }
-  return {reply:data.reply.trim(),actions:actions.filter(a=>!/(?:しようかな|したい|してない|しなかった|できなかった|友達が|友人が)/.test(a.evidence)
-    &&(!['snack','meal_care','care','walk','run','strength','exercise'].includes(a.kind)||!/(?:食事を?抜|何も食べ|断食|絶食|食べず|償い|埋め合わせ)/.test(a.evidence)))};
+  return {reply:data.reply.trim(),actions:actions.filter(a=>{
+    const text=[a.title,a.evidence,a.detail??''].join('\n');
+    const compensation=/(?:償い|埋め合わせ)/.test(text)
+      && (/(?:食事|朝食|昼食|夕食|間食|おやつ|食べ|カロリー|運動|走|歩|筋トレ|ストレッチ)/.test(text)
+        || ['walk','run','strength','stretch','exercise'].includes(a.kind));
+    return !/(?:しようかな|したい|してない|しなかった|できなかった|友達が|友人が)/.test(a.evidence)
+      && !/(?:(?:食事|朝食|昼食|夕食)を?抜(?!か(?:ず|ない|なかった))|何も食べ|断食|絶食|食べず)/.test(text)
+      && !compensation;
+  })};
 }
 
 export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchImpl=globalThis.fetch,timeoutMs=30000,onUsage}={}){

@@ -142,11 +142,59 @@ test('structured reports require current evidence, known correction targets and 
   assert.equal(extractReport(output([a]),validateChatRequest(payload('昨日ストレッチしたよ'))).actions[0].date,'2026-10-17');
 });
 
+test('daily life kinds pass structured validation without calories; unsupported estimates are rejected',()=>{
+ for(const [kind,evidence] of [['housework','洗濯した'],['eating_habit','小皿に分けた'],['mood_log','気分を日記に書いた'],['challenge','後回しのメールを返した']]){
+  const input=validateChatRequest(payload(evidence));
+  const action={operation:'create',targetId:null,kind,date:'2026-10-18',title:evidence,evidence,minutes:null,kcal:null,weightKg:null,detail:null,additional:false,estimatedKcal:null,estimateBasis:null};
+  const output=a=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'できたんだね、えらいねー。',actions:[a]})}]}]});
+  assert.equal(extractReport(output(action),input).actions[0].kind,kind);
+  assert.equal(extractReport(output({...action,estimatedKcal:20,estimateBasis:'家事を運動に換算'}),input),null);
+ }
+});
+
 test('plans, negations, others and extreme restriction do not become achievement candidates',()=>{
   for(const text of ['ストレッチしようかな','友達が歩いた','今日は筋トレできなかった','食事を抜いた']){
     const input=validateChatRequest(payload(text)),a={operation:'create',targetId:null,kind:'care',date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
     const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'きみのペースで大丈夫。',actions:[a]})}]}]};
     assert.deepEqual(extractReport(output,input).actions,[]);
+  }
+});
+
+test('extreme restriction is excluded regardless of activity classification',()=>{
+  for(const kind of ['walk','run','strength','stretch','exercise','snack','meal_care','eating_habit','weight','meal_log','rest','housework','mood_log','challenge','care'])
+  for(const text of ['食事を抜くように食べ方を工夫した','何も食べずに過ごした','断食した']){
+    const input=validateChatRequest(payload(text)),a={operation:'create',targetId:null,kind,date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'きみのペースで大丈夫。',actions:[a]})}]}]};
+    assert.deepEqual(extractReport(output,input).actions,[]);
+  }
+});
+
+test('restriction in candidate title or detail is excluded without discarding a separate action',()=>{
+  const input=validateChatRequest(payload('断食した。洗濯した'));
+  const clean={operation:'create',targetId:null,kind:'housework',date:'2026-10-18',title:'洗濯',evidence:'洗濯した',minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+  for(const field of ['title','detail']){
+    const bad={...clean,kind:'challenge',[field]:'断食した'};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[bad,clean]})}]}]};
+    const actions=extractReport(output,input).actions;
+    assert.equal(actions.length,1);assert.equal(actions[0].kind,'housework');
+  }
+});
+
+test('meal skipping is excluded while explicitly not skipping is retained',()=>{
+  for(const [text,count] of [['朝食を抜いた',0],['昼食を抜いた',0],['夕食を抜いた',0],['食事を抜かずに朝食を食べた',1],['朝食を抜かないで食べた',1],['昼食を抜かなかった',1],['朝食を抜かずに食べたが夕食を抜いた',0]]){
+    const input=validateChatRequest(payload(text));
+    const a={operation:'create',targetId:null,kind:'eating_habit',date:'2026-10-18',title:'食べ方',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[a]})}]}]};
+    assert.equal(extractReport(output,input).actions.length,count,text);
+  }
+});
+
+test('ordinary compensation is retained but food or exercise compensation is excluded',()=>{
+  for(const [kind,text,count] of [['challenge','仕事の遅れを埋め合わせるためメールを返した',1],['care','お詫びと償いの気持ちで手紙を書いた',1],['challenge','食べ過ぎた償いに走った',0],['exercise','埋め合わせで運動した',0],['challenge','食事の埋め合わせで掃除した',0],['housework','間食の埋め合わせで掃除した',0],['housework','おやつの埋め合わせで掃除した',0]]){
+    const input=validateChatRequest(payload(text));
+    const a={operation:'create',targetId:null,kind,date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[a]})}]}]};
+    assert.equal(extractReport(output,input).actions.length,count,text);
   }
 });
 

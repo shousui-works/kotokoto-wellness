@@ -1,5 +1,5 @@
 import {dateKey,recentDays} from './model.mjs';
-import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor,calorieSummary} from './progress.mjs?v=calories-1';
+import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor,calorieSummary} from './progress.mjs?v=daily-life-1';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;};
 const amount=n=>new Intl.NumberFormat('ja-JP',{maximumFractionDigits:1}).format(n);

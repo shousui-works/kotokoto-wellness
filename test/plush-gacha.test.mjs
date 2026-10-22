@@ -132,7 +132,7 @@ test('expanding to one hundred preserves the first thirty IDs, numbers and saved
  old=applyCommand(old,{type:'plush_display',slot:SHELF_SLOTS[0],item:'pomeranian'});
  const before=structuredClone(old.collection),next=applyCommand(old,{type:'mood',mood:'good'});
  assert.deepEqual(next.collection,before);assert.equal(plushById(before.lastResult.item).number,5);
- assert.equal(collectionBalance(next.collection,progressTotal(next.progress)),collectionBalance(before,progressTotal(old.progress)));
+ assert.equal(collectionBalance(next.collection,progressTotal(next.progress)),collectionBalance(before,progressTotal(old.progress))+1); // The new mood record earns one point; existing spending stays intact.
  assert.equal(PLUSH_CATALOG[30].id,'german-shepherd-dog');assert.equal(PLUSH_CATALOG.at(-1).number,100);
 });
 

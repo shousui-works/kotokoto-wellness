@@ -4,15 +4,21 @@ export const PROGRESS_STORAGE = 'kotokoto-progress-v1';
 export const QUESTS = Object.freeze([
   {id:'exercise',label:'運動する',detail:'合計20kcalから',bonus:10},
   {id:'stretch',label:'ストレッチする',detail:'少しほぐせたら',bonus:10},
-  {id:'snack',label:'間食を控える',detail:'自分で決めた工夫',bonus:10},
-  {id:'meal_care',label:'食事を工夫する',detail:'食べ方や内容の工夫',bonus:10},
-  {id:'weight',label:'体重を記録する',detail:'測った数字を残す',bonus:5},
-  {id:'meal_log',label:'食事を記録する',detail:'食べた内容を残す',bonus:5},
-  {id:'rest',label:'休む時間をつくる',detail:'自分のためのひと休み',bonus:10},
-  {id:'care',label:'自分なりのひと工夫',detail:'ほかにも、できたこと',bonus:5},
+  {id:'snack',label:'間食を控える',detail:'自分で決めた工夫',bonus:2},
+  {id:'meal_care',label:'食事を工夫する',detail:'自炊や野菜を一品',bonus:2},
+  {id:'eating_habit',label:'食べ方を工夫する',detail:'小皿に分ける・ゆっくり食べる',bonus:1},
+  {id:'weight',label:'体重を記録する',detail:'測った数字を残す',bonus:1},
+  {id:'meal_log',label:'食事を記録する',detail:'食べた内容を残す',bonus:1},
+  {id:'rest',label:'休む時間をつくる',detail:'ひと休みや寝る準備',bonus:2},
+  {id:'housework',label:'暮らしを整える',detail:'掃除・洗濯・片づけ',bonus:1},
+  {id:'mood_log',label:'気持ちを大切にする',detail:'気分を残す・誰かに相談する',bonus:1},
+  {id:'challenge',label:'小さな一歩を踏み出す',detail:'後回しにしていたことに着手',bonus:2},
+  {id:'care',label:'自分なりのひと工夫',detail:'ほかにも、できたこと',bonus:1},
 ]);
-export const ACTIVITY_KINDS = ['walk','run','strength','stretch','exercise','snack','meal_care','weight','meal_log','rest','care'];
+export const ACTIVITY_KINDS = ['walk','run','strength','stretch','exercise','snack','meal_care','eating_habit','weight','meal_log','rest','housework','mood_log','challenge','care'];
 export const EXERCISE_KINDS = ['walk','run','strength','stretch','exercise'];
+const DAILY_LIFE_KINDS=['snack','meal_care','eating_habit','rest','housework','mood_log','challenge','care'];
+const LEGACY_BONUSES={snack:10,meal_care:10,weight:5,meal_log:5,rest:10,care:5};
 const ID = /^[a-zA-Z0-9:_-]{1,100}$/;
 const finite = (value,min,max) => typeof value==='number'&&Number.isFinite(value)&&value>=min&&value<=max;
 export const validDate = value => {try{return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;}catch{return false;}};
@@ -42,12 +48,13 @@ export function normalizeProgress(raw) {
   const ids=new Set();
   const activities=raw.activities.map(a=>{
     const candidate=normalizeCandidate({...a,operation:'create',targetId:null,additional:false});
+    if(a.pointVersion!==undefined&&![1,2].includes(a.pointVersion))throw Error('Invalid point version');
     if(!candidate||!ID.test(a.id)||ids.has(a.id)||typeof a.at!=='string'||Number.isNaN(Date.parse(a.at))
         ||!['duplicate',null].includes(a.hold)||typeof a.deleted!=='boolean'||!Array.isArray(a.corrections))throw Error('Invalid activity');
     if(a.estimate!==null&&(!finite(a.estimate?.kcal,0,20000)||(a.estimate.source==='luna'?typeof a.estimate.basis!=='string'||!a.estimate.basis.trim()||a.estimate.basis.length>300:!finite(a.estimate?.weightKg,1,500)||!finite(a.estimate?.mets,1,20))))throw Error('Invalid estimate');
     if(!Array.isArray(a.needs)||a.needs.some(n=>!['date','duplicate','minutes','weight','kcal','meal'].includes(n)))throw Error('Invalid pending activity');
     ids.add(a.id);
-    return {...candidate,id:a.id,at:a.at,updatedAt:a.updatedAt??a.at,hold:a.hold,deleted:a.deleted,estimate:a.estimate,needs:[...a.needs],praise:typeof a.praise==='string'?a.praise.slice(0,600):'',corrections:a.corrections.slice(-50)};
+    return {...candidate,pointVersion:a.pointVersion??1,id:a.id,at:a.at,updatedAt:a.updatedAt??a.at,hold:a.hold,deleted:a.deleted,estimate:a.estimate,needs:[...a.needs],praise:typeof a.praise==='string'?a.praise.slice(0,600):'',corrections:a.corrections.slice(-50)};
   });
   if(raw.processed.some(id=>typeof id!=='string'||!ID.test(id)))throw Error('Invalid transaction');
   if(raw.baselineXP!==undefined&&!finite(raw.baselineXP,0,1e12))throw Error('Invalid growth baseline');
@@ -91,16 +98,19 @@ export function dayReport(progress,date) {
   const activities=progress.activities.filter(a=>!a.deleted&&a.date===date);
   const eligible=activities.filter(a=>!a.hold);
   let kcal=0;
-  const done=new Set();
+  const done=new Set(),legacyDone=new Set();
   for(const a of eligible){
     if(EXERCISE_KINDS.includes(a.kind))kcal+=a.kcal??a.estimate?.kcal??0;
     if(a.kind==='stretch')done.add('stretch');
-    if(['snack','meal_care','rest','care'].includes(a.kind))done.add(a.kind);
-    if(a.kind==='weight'&&a.weightKg!==null)done.add('weight');
-    if(a.kind==='meal_log'&&a.detail)done.add('meal_log');
+    if(DAILY_LIFE_KINDS.includes(a.kind)||a.kind==='weight'&&a.weightKg!==null||a.kind==='meal_log'&&a.detail){
+      done.add(a.kind);
+      if((a.pointVersion??1)===1)legacyDone.add(a.kind);
+    }
   }
   kcal=round1(kcal);if(kcal>=20)done.add('exercise');
-  const quests=QUESTS.map(q=>({...q,done:done.has(q.id)})),exercise=exercisePoints(kcal),bonus=quests.reduce((s,q)=>s+(q.done?q.bonus:0),0);
+  // Old records retain their awarded rate, including after reloads and corrections.
+  const quests=QUESTS.map(q=>({...q,bonus:legacyDone.has(q.id)?LEGACY_BONUSES[q.id]??q.bonus:q.bonus,done:done.has(q.id)}));
+  const exercise=exercisePoints(kcal),bonus=quests.reduce((s,q)=>s+(q.done?q.bonus:0),0);
   return {date,activities,kcal,exercise,bonus,total:exercise+bonus,quests,pending:activities.filter(a=>a.needs.length),recorded:activities.length>0,praise:eligible.at(-1)?.praise??''};
 }
 
@@ -158,9 +168,11 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     if(!existing&&a.operation==='update')throw Error('Missing correction target');
     if(!existing&&a.operation==='create'){
       const same=progress.activities.filter(x=>!x.deleted&&x.kind===a.kind&&x.date===a.date&&!x.hold);
-      if(['snack','meal_care','care'].includes(a.kind)&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&['snack','meal_care','care'].includes(x.kind)&&x.evidence===a.evidence)){
-        receipts.push({label:'同じ工夫として確認',delta:0,status:'duplicate'});continue;
+      if(DAILY_LIFE_KINDS.includes(a.kind)&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&DAILY_LIFE_KINDS.includes(x.kind)&&x.evidence===a.evidence)){
+        receipts.push({label:'同じ行動として確認',delta:0,status:'duplicate'});continue;
       }
+      // Legacy meal_care also covered eating habits. Different wording cannot establish a separate action.
+      if(a.kind==='eating_habit'&&!a.additional&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&x.kind==='meal_care'&&x.pointVersion===1))a.operation='clarify';
       const exact=same.find(x=>x.evidence===a.evidence||(a.minutes!==null&&a.minutes===x.minutes&&a.kcal===x.kcal&&a.weightKg===x.weightKg));
       if(exact&&!a.additional){receipts.push({label:'同じ行動を確認',delta:0,status:'duplicate'});continue;}
       if(!EXERCISE_KINDS.includes(a.kind)&&same.length&&!a.additional){receipts.push({label:'今日の分は記録済み',delta:0,status:'duplicate'});continue;}
@@ -175,7 +187,7 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       const estimate=a.estimatedKcal!==null?{source:'luna',kcal:round1(a.estimatedKcal),basis:a.estimateBasis}:changed?null:existing.estimate;
       Object.assign(existing,changes,{operation:'create',targetId:null,additional:false,hold,estimate,estimatedKcal:null,estimateBasis:null,updatedAt:at,praise:reply});
     }else{
-      existing={...a,operation:'create',targetId:null,additional:false,id:`${requestId}:${i}`,at,updatedAt:at,hold,estimate:a.estimatedKcal===null?null:{source:'luna',kcal:round1(a.estimatedKcal),basis:a.estimateBasis},estimatedKcal:null,estimateBasis:null,deleted:false,needs:[],praise:reply,corrections:[]};
+      existing={...a,pointVersion:2,operation:'create',targetId:null,additional:false,id:`${requestId}:${i}`,at,updatedAt:at,hold,estimate:a.estimatedKcal===null?null:{source:'luna',kcal:round1(a.estimatedKcal),basis:a.estimateBasis},estimatedKcal:null,estimateBasis:null,deleted:false,needs:[],praise:reply,corrections:[]};
       progress.activities.push(existing);
     }
     touched.push(existing);
