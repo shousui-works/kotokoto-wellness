@@ -42,8 +42,8 @@ export function userDashboard(dashboard,rows){
  const attributed=emptyUsage();for(const u of list)for(const k of Object.keys(attributed))attributed[k]+=u[k];
  const n=list.length,calls=attributed.calls;
  return {...dashboard,users:list,userSummary:{activeUsers:n,attributed,unattributedCalls:Math.max(0,dashboard.total.calls-calls),
-  perUser:n?{calls:calls/n,costNanos:attributed.costNanos/n,inputTokens:attributed.inputTokens/n,outputTokens:attributed.outputTokens/n}:null,
-  perCall:calls?{costNanos:attributed.costNanos/calls,inputTokens:attributed.inputTokens/calls,outputTokens:attributed.outputTokens/calls}:null}};
+  perUser:n?{calls:calls/n,costNanos:attributed.unpricedCalls?null:attributed.costNanos/n,inputTokens:attributed.inputTokens/n,outputTokens:attributed.outputTokens/n}:null,
+  perCall:calls?{costNanos:attributed.unpricedCalls?null:attributed.costNanos/calls,inputTokens:attributed.inputTokens/calls,outputTokens:attributed.outputTokens/calls}:null}};
 }
 export class FirestoreUsageStore{
  constructor(db){this.db=db;}
@@ -55,6 +55,15 @@ export class FirestoreUsageStore{
   const userDay=key?this.db.collection('aiUsageUserDays').doc(event.date+'_'+key):null;
   await this.db.runTransaction(async tx=>{
    if((await tx.get(ref)).exists)return;
+   if(meta.source==='cloud-log'&&meta.legacyResponseId){
+    const legacyId=createHash('sha256').update(meta.legacyResponseId).digest('hex'),legacyRef=this.db.collection('aiUsageEvents').doc(legacyId),legacy=(await tx.get(legacyRef)).data();
+    const fields=['at','source','purpose','model','serviceTier','inputTokens','cachedTokens','cacheWriteTokens','outputTokens','elapsedMs'];
+    if(legacy&&!legacy.canonicalEventId&&fields.every(key=>legacy[key]===event[key])){
+     // Old events lost sub-millisecond precision. Never guess between matching source logs.
+     if(meta.legacyMatchCount!==1)throw Error('Ambiguous legacy usage; reconcile the original log before importing');
+     tx.set(legacyRef,{...legacy,canonicalEventId:id});tx.set(ref,{version:1,legacyEventId:legacyId});return;
+    }
+   }
    const current=(await tx.get(day)).data(),personal=userDay?(await tx.get(userDay)).data():null;
    tx.set(ref,event);tx.set(day,dailyUsage(current,event));
    if(userDay)tx.set(userDay,{...dailyUsage(personal,event),uid:meta.uid});
@@ -62,10 +71,11 @@ export class FirestoreUsageStore{
  }
  async dashboard(days,now=Date.now()){
   const range=buildDashboard([],days,now);
-  const [data,users]=await Promise.all([
-   this.db.collection('aiUsageDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').get(),
-   this.db.collection('aiUsageUserDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').limit(10001).get(),
-  ]);
+  const [data,users]=await this.db.runTransaction(async tx=>{
+   const data=await tx.get(this.db.collection('aiUsageDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date'));
+   const users=await tx.get(this.db.collection('aiUsageUserDays').where('date','>=',range.from).where('date','<=',range.to).orderBy('date').limit(10001));
+   return [data,users];
+  },{readOnly:true});
   if(users.size>10000)throw Object.assign(Error('集計件数が多いため、期間を短くしてください。'),{status:413,code:'usage_range_too_large'});
   return userDashboard(buildDashboard(data.docs.map(d=>d.data()),days,now),users.docs.map(d=>d.data()));
  }
