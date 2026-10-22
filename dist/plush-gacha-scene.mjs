@@ -37,7 +37,7 @@ export function createGachaScene({getPetName=()=> 'こむぎ',getStage=()=> 'pup
   sequence.stop();document.removeEventListener('visibilitychange',visibility);preference.removeEventListener('change',motionChange);
   const old=dialog;dialog=null;if(old?.open)old.close();old?.remove();onClose();
  }
- function visibility(){if(document.hidden)sequence.suspend();}
+ function visibility(){if(!dialog)return;dialog.dataset.hidden=String(document.hidden);if(document.hidden)sequence.suspend();}
  function motionChange(){if(preference.matches)sequence.suspend();}
  function start(result,item,{resume=false}={}){
   if(!result?.requestId||!item)throw Error('保存済みのカプセルを確認できませんでした。');
@@ -62,7 +62,7 @@ export function createGachaScene({getPetName=()=> 'こむぎ',getStage=()=> 'pup
   dialog.append(header,scene,status,footer);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
   document.body.append(dialog);dialog.showModal();sequence.start({resume});
   document.addEventListener('visibilitychange',visibility);preference.addEventListener('change',motionChange);
-  if(document.hidden)sequence.suspend();
+  visibility();
  }
  return {start,close,get active(){return !!dialog;},get requestId(){return dialog?receipt?.requestId:null;}};
 }

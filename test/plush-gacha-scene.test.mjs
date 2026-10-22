@@ -28,15 +28,19 @@ test('opening announces the current breed in the live region, including after an
   setAttribute(k,v){this.attrs[k]=v;}addEventListener(k,fn){this.listeners[k]=fn;}focus(){}showModal(){this.open=true;}close(){this.open=false;}remove(){}
  }
  const old={document:globalThis.document,matchMedia:globalThis.matchMedia};t.after(()=>Object.assign(globalThis,old));
- const body=new Element();globalThis.document={body,createElement:()=>new Element(),addEventListener(){},removeEventListener(){},hidden:false};
+ const listeners=new Map(),body=new Element();globalThis.document={body,createElement:()=>new Element(),addEventListener:(type,fn)=>listeners.set(type,fn),removeEventListener:type=>listeners.delete(type),hidden:false};
  globalThis.matchMedia=()=>({matches:true,addEventListener(){},removeEventListener(){}});
  const {createGachaScene}=await import('../dist/plush-gacha-scene.mjs');const scene=createGachaScene();t.after(()=>scene.close());
  for(const name of ['柴','チワワ']){
   scene.start({requestId:name,isNew:true},{name,image:'/fixture.png'});
   const dialog=body.children.at(-1),status=dialog.children.find(n=>n.attrs.role==='status');
   assert.doesNotMatch(status.textContent,new RegExp(name));
+  const stage=dialog.children.find(n=>n.className==='gacha-scene');
+  assert.equal(dialog.dataset.hidden,String(document.hidden));assert.equal(stage.dataset.phase,'capsule');
+  document.hidden=true;listeners.get('visibilitychange')();assert.equal(dialog.dataset.hidden,'true');assert.equal(stage.dataset.phase,'capsule');
+  document.hidden=false;listeners.get('visibilitychange')();assert.equal(dialog.dataset.hidden,'false');assert.equal(stage.dataset.phase,'capsule');
   dialog.children.find(n=>n.className==='gacha-scene').children.find(n=>n.className==='gacha-capsule').listeners.click();
   assert.equal(status.attrs['aria-live'],'polite');assert.equal(status.textContent,`${name}のぬいぐるみが出てきたよ。`);
-  scene.close();
+  scene.close();assert.equal(listeners.has('visibilitychange'),false);document.hidden=true;
  }
 });
