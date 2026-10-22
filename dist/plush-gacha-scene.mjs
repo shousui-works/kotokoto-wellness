@@ -17,13 +17,13 @@ export function createGachaSequence({onPhase,reduced=()=>false,schedule=setTimeo
 function el(tag,cls,text){const n=document.createElement(tag);n.className=cls;if(text!==undefined)n.textContent=text;return n;}
 function btn(text,fn,cls){const b=el('button',cls,text);b.type='button';b.addEventListener('click',fn);return b;}
 export function createGachaScene({getPetName=()=> 'こむぎ',getStage=()=> 'puppy',onOpened=()=>{},onClose=()=>{}}={}){
- let dialog,scene,title,status,prize,reward,skip,receipt,opened=false,returnButton;
+ let dialog,scene,title,status,prize,reward,skip,receipt,itemName,opened=false,returnButton;
  const preference=matchMedia('(prefers-reduced-motion: reduce)');
  const sequence=createGachaSequence({reduced:()=>preference.matches,onPhase:paint});
  function paint(phase){
   if(!dialog)return;scene.dataset.phase=phase;
   const name=getPetName();
-  status.textContent=({walk:`${name}がガチャを回してくれるよ。`,lever:'せーの……がちゃっ！',drop:'ころころ……何が入っているかな？',capsule:'カプセルをタップしてね。',opening:'ぱかっ！',reveal:'新しい出会いを、どうぞ。'})[phase]??'';
+  status.textContent=({walk:`${name}がガチャを回してくれるよ。`,lever:'せーの……がちゃっ！',drop:'ころころ……何が入っているかな？',capsule:'カプセルをタップしてね。',opening:'ぱかっ！',reveal:`${itemName}のぬいぐるみが出てきたよ。`})[phase]??'';
   prize.hidden=!['drop','capsule','opening'].includes(phase);prize.disabled=phase!=='capsule';
   reward.hidden=phase!=='reveal';skip.hidden=phase==='reveal';returnButton.hidden=phase!=='reveal';
   if(phase==='capsule')prize.focus({preventScroll:true});
@@ -41,7 +41,7 @@ export function createGachaScene({getPetName=()=> 'こむぎ',getStage=()=> 'pup
  function motionChange(){if(preference.matches)sequence.suspend();}
  function start(result,item,{resume=false}={}){
   if(!result?.requestId||!item)throw Error('保存済みのカプセルを確認できませんでした。');
-  if(dialog)close();receipt=result;opened=false;
+  if(dialog)close();receipt=result;itemName=item.name;opened=false;
   dialog=el('dialog','gacha-dialog');dialog.setAttribute('aria-labelledby','gacha-scene-title');
   const header=el('header','gacha-header');title=el('h2','','ちいさな出会いのガチャ');title.id='gacha-scene-title';
   header.append(title,btn('×',close,'gacha-close'));header.lastElementChild.setAttribute('aria-label','演出を閉じる');

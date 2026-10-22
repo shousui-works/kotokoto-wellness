@@ -20,3 +20,23 @@ test('skip, hiding, close and replacement cancel stale timers without auto-openi
  f.sequence.open();f.sequence.suspend();assert.equal(f.sequence.phase,'reveal');assert.equal(f.timers.size,0);
  f.sequence.start();f.sequence.start();assert.equal(f.timers.size,1);f.sequence.stop();assert.equal(f.sequence.phase,'idle');assert.equal(f.sequence.skip(),false);assert.equal(f.timers.size,0);
 });
+
+test('opening announces the current breed in the live region, including after another capsule',async t=>{
+ class Element{
+  constructor(){this.children=[];this.dataset={};this.attrs={};this.listeners={};this.classList={add(){}};}
+  append(...children){this.children.push(...children);}get lastElementChild(){return this.children.at(-1);}
+  setAttribute(k,v){this.attrs[k]=v;}addEventListener(k,fn){this.listeners[k]=fn;}focus(){}showModal(){this.open=true;}close(){this.open=false;}remove(){}
+ }
+ const old={document:globalThis.document,matchMedia:globalThis.matchMedia};t.after(()=>Object.assign(globalThis,old));
+ const body=new Element();globalThis.document={body,createElement:()=>new Element(),addEventListener(){},removeEventListener(){},hidden:false};
+ globalThis.matchMedia=()=>({matches:true,addEventListener(){},removeEventListener(){}});
+ const {createGachaScene}=await import('../dist/plush-gacha-scene.mjs');const scene=createGachaScene();t.after(()=>scene.close());
+ for(const name of ['柴','チワワ']){
+  scene.start({requestId:name,isNew:true},{name,image:'/fixture.png'});
+  const dialog=body.children.at(-1),status=dialog.children.find(n=>n.attrs.role==='status');
+  assert.doesNotMatch(status.textContent,new RegExp(name));
+  dialog.children.find(n=>n.className==='gacha-scene').children.find(n=>n.className==='gacha-capsule').listeners.click();
+  assert.equal(status.attrs['aria-live'],'polite');assert.equal(status.textContent,`${name}のぬいぐるみが出てきたよ。`);
+  scene.close();
+ }
+});
