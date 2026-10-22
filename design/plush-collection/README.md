@@ -28,3 +28,7 @@ PR #8に含むのは承認見本と素材方針のみ。以下の個別PNGと棚
 内蔵image_genで既存の承認見本を参照し、golden-retriever-v1.png / dalmatian-v1.png / papillon-v1.png / samoyed-v1.png を dist/assets/plush/ に透過PNG原寸で保存。生成指示は dogs-expansion-v1.prompt.txt。素材作成時点では、ガチャの有効カタログ・確率・本番は変更していない。
 
 その後、追加4種を長辺384pxへ縮小し、既存6種と合わせた全10種のガチャ/交換/図鑑/棚で使用。透過RGBAを保持し、生成原寸はCodex generated_imagesに保存。JKCの各犬種紹介を確認した固定本文と原典リンクを追加。
+
+## 追加20犬種（2026-10-20）
+
+既存ゴールデン素材をスタイル参照に、内蔵image_genで1犬種1画像ずつ生成。指示は dogs-expansion-v2.prompts.json、素材一覧は dogs-expansion-v2.outputs.json。配信用PNGは dist/assets/plush/ に384×384 RGBAで保存し、原寸はCodex generated_imagesに保持。耳・毛色・毛の質感・鼻先・尾を描き分けた。追加種の固定説明は dist/plush-dogs-v2.mjs、各JKC原典リンクと確認日はカタログに保存。全30犬種の抽選・交換・図鑑・棚で使用。
