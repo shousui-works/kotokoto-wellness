@@ -95,17 +95,17 @@ export function pickVaried(lines,previous={},random=Math.random){
 }
 export function createIdleSpeech({storage,random=Math.random,now=Date.now}={}){
  if(storage===undefined)try{storage=globalThis.localStorage;}catch{}
- let recent=[];try{const raw=JSON.parse(storage?.getItem(IDLE_STORAGE)??'null');if(raw?.version===1&&Array.isArray(raw.recentIds))recent=raw.recentIds.filter(x=>typeof x==='string'&&x.length<=80).slice(-8);}catch{}
- let current=null,key='',chosenAt=0;
+ let recent=[],writable=true;try{const stored=storage?.getItem(IDLE_STORAGE);if(stored!=null){const raw=JSON.parse(stored);if(raw?.version===1&&Array.isArray(raw.recentIds))recent=raw.recentIds.filter(x=>typeof x==='string'&&x.length<=80).slice(-8);else writable=false;}}catch{writable=false;}
+ let current=null,key='',currentFeeling='',chosenAt=0;
  return {line({feeling,score=0,rotate=true}={}){
   const stamp=now(),period=conversationPeriod(new Date(stamp)),nextKey=feeling.id+':'+period;
-  if(current&&key===nextKey&&(!rotate||stamp>=chosenAt&&stamp-chosenAt<IDLE_INTERVAL))return current;
+  if(current&&currentFeeling===feeling.id&&(!rotate||key===nextKey&&stamp>=chosenAt&&stamp-chosenAt<IDLE_INTERVAL))return current;
   const options=[...(feeling.lines??[]),...(IDLE_LINES[feeling.id]??[])].map((text,i)=>({id:feeling.id+'-'+i,text}));
   // Recovery/thanks keep their specific meaning; other states mix in relaxed room chatter.
   if(!['lonely','soothed'].includes(feeling.id))options.push(...ROOM_LINES.map((text,i)=>({id:'room-'+i,text})));
   if(score>=50)options.push(...CLOSE_LINES.map((text,i)=>({id:'close-'+i,text})));
-  current=pickVaried(options,{lastId:current?.id??recent.at(-1),recentIds:recent},random);key=nextKey;chosenAt=stamp;recent=[...recent,current.id].slice(-8);
-  try{storage?.setItem(IDLE_STORAGE,JSON.stringify({version:1,recentIds:recent}));}catch{}
+  current=pickVaried(options,{lastId:current?.id??recent.at(-1),recentIds:recent},random);key=nextKey;currentFeeling=feeling.id;chosenAt=stamp;recent=[...recent,current.id].slice(-8);
+  try{if(writable)storage?.setItem(IDLE_STORAGE,JSON.stringify({version:1,recentIds:recent}));}catch{}
   return current;
  }};
 }

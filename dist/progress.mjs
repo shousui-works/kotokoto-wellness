@@ -138,8 +138,8 @@ export function followupFor(a) {
   if(need==='date')return 'それは、いつやったことかな？';
   if(need==='duplicate')return '前に聞いた分と同じかな？ それとも、追加でやった分？';
   if(need==='minutes')return 'どのくらいの時間、やったの？';
-  if(need==='weight')return a.kind==='weight'?'測った体重は、何kgだった？':'カロリーの目安を考えるために、計算に使う体重（kg）を教えてもらえる？';
-  if(need==='kcal')return 'どんな運動を、どのくらいの強さでやったか、もう少し教えてもらえる？ カロリーの目安はぼくが考えるね。';
+  if(need==='weight')return a.kind==='weight'?'測った体重は、何kgだった？':'体重は、何kgくらいかな？';
+  if(need==='kcal')return 'どんな運動を、どのくらいの強さでやったの？';
   if(need==='meal')return '食べたものを、もう少し聞かせてもらえる？';
   return null;
 }
@@ -171,6 +171,8 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       if(DAILY_LIFE_KINDS.includes(a.kind)&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&DAILY_LIFE_KINDS.includes(x.kind)&&x.evidence===a.evidence)){
         receipts.push({label:'同じ行動として確認',delta:0,status:'duplicate'});continue;
       }
+      // Legacy meal_care also covered eating habits. Different wording cannot establish a separate action.
+      if(a.kind==='eating_habit'&&!a.additional&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&x.kind==='meal_care'&&x.pointVersion===1))a.operation='clarify';
       const exact=same.find(x=>x.evidence===a.evidence||(a.minutes!==null&&a.minutes===x.minutes&&a.kcal===x.kcal&&a.weightKg===x.weightKg));
       if(exact&&!a.additional){receipts.push({label:'同じ行動を確認',delta:0,status:'duplicate'});continue;}
       if(!EXERCISE_KINDS.includes(a.kind)&&same.length&&!a.additional){receipts.push({label:'今日の分は記録済み',delta:0,status:'duplicate'});continue;}
@@ -211,16 +213,16 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
   return {progress,receipts,delta,reply:withFollowup(reply,/わから|わかん|覚えて|あとで|不明/.test(text)?null:followupFor(pending)),replayed:false};
 }
 
-export function recordManual(original,{id,kind,date,title,weightKg=null,detail=null},legacy,at=new Date().toISOString()) {
+export function recordManual(original,{id,kind,date,title,weightKg=null,detail=null,today=dateKey()},legacy,at=new Date().toISOString()) {
   const old=original.activities.find(a=>a.kind===kind&&a.date===date&&!a.deleted&&!a.hold);
-  return applyInterpretation(original,{requestId:`manual:${original.revision+1}:${id}`,today:dateKey(),at,text:title,reply:'自分のためのひと手間、ちゃんとできたね。',actions:[{operation:old?'update':'create',targetId:old?.id??null,kind,date,title,evidence:title,minutes:null,kcal:null,weightKg,detail,additional:false}]},legacy);
+  return applyInterpretation(original,{requestId:`manual:${original.revision+1}:${id}`,today,at,text:title,reply:'自分のためのひと手間、ちゃんとできたね。',actions:[{operation:old?'update':'create',targetId:old?.id??null,kind,date,title,evidence:title,minutes:null,kcal:null,weightKg,detail,additional:false}]},legacy);
 }
 
-export function correctActivity(original,id,changes,legacy,at=new Date().toISOString()) {
+export function correctActivity(original,id,changes,legacy,at=new Date().toISOString(),today=dateKey()) {
   const progress=normalizeProgress(structuredClone(original)),a=progress.activities.find(a=>a.id===id&&!a.deleted);
   if(!a)throw Error('記録が見つかりません。');
   const candidate=normalizeCandidate({...a,...changes,operation:'update',targetId:id});
-  if(!candidate||candidate.date&&candidate.date>dateKey())throw Error('日付や数値を確認してください。');
+  if(!candidate||candidate.date&&candidate.date>today)throw Error('日付や数値を確認してください。');
   a.corrections.push({at,previous:{date:a.date,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,detail:a.detail}});
   const changed=['minutes','weightKg','detail','kcal'].some(key=>candidate[key]!==a[key]);
   Object.assign(a,candidate,{operation:'create',targetId:null,additional:false,updatedAt:at,estimate:changed?null:a.estimate});
