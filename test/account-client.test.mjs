@@ -80,3 +80,14 @@ test('import retains its ID for unknown outcomes and busy responses, but can rec
  await f.click('account-import');assert.equal(local.getItem('kotokoto-import-request:alice'),null);
  await f.click('account-import');assert.equal(f.requests[1].body.requestId,oldID);assert.equal(f.requests[2].body.requestId,oldID);assert.notEqual(f.requests[3].body.requestId,oldID);assert.equal(f.requests[3].body.data.profile.nickname,'新しい名前');assert.equal(local.getItem('kotokoto-wellness-v1'),original);
 });
+
+
+test('pending plush draw is recovered with the original request on initial sync',async t=>{
+ const local=memory(),pending={requestId:'00000000-0000-4000-8000-000000000001',revision:9,command:{type:'plush_draw'}};
+ local.setItem('kotokoto-cloud-pending-v1:alice',JSON.stringify(pending));
+ const f=await accountHarness(t,{local,send:async(path,body)=>{
+  assert.equal(path,'/api/commands');assert.deepEqual(body,pending);
+  return Response.json({state:{...emptyAccount(),initialized:true,datasetId:'fixture',revision:11},plushResult:{requestId:body.requestId,item:'pomeranian'}});
+ }});
+ assert.equal(f.requests.length,1);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);assert.equal(f.client.state.revision,11);
+});
