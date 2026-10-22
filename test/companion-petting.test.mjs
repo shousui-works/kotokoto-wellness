@@ -24,7 +24,7 @@ test('a tap does not pet; a back-and-forth stroke responds during movement and s
 test('outside movement and a second finger do not qualify a gesture',()=>{
   const f=fixture();f.fire('pointerdown');f.fire('pointerdown',{pointerId:2,isPrimary:false});
   f.fire('pointermove',{pointerId:2,clientX:80});f.fire('pointerup',{pointerId:2});assert.equal(f.captured,1);
-  f.fire('pointermove',{clientX:130});f.fire('pointermove',{clientX:50});f.fire('pointerup');assert.equal(f.pets,0);assert.equal(f.moves.length,0);
+  f.fire('pointermove',{clientX:130});f.fire('pointermove',{clientX:50});f.fire('pointerup',{clientX:50});assert.equal(f.pets,0);assert.equal(f.moves.length,0);
 });
 test('cancel, lost capture, hidden tab, and blur release motion without saving',()=>{
   for(const type of ['pointercancel','lostpointercapture','hidden','blur']){
@@ -39,4 +39,18 @@ test('keyboard activation remains available, and destroying removes listeners an
   const f=fixture();f.fire('click',{detail:0});assert.equal(f.pets,1);
   f.fire('pointerdown');f.fire('pointermove',{clientX:60});f.binding.destroy();assert.equal(f.pets,1);assert.equal(f.captured,null);
   f.fire('click',{detail:0});f.fire('pointerdown');assert.equal(f.pets,1);assert.deepEqual(f.holds,[true,false]);
+});
+
+test('release includes the final inside segment but ignores outside and unrelated pointer releases',()=>{
+  const f=fixture();f.fire('pointerdown');f.fire('pointermove',{clientX:40});
+  f.fire('pointerup',{pointerId:2,clientX:90});assert.equal(f.pets,0);assert.equal(f.captured,1);
+  f.fire('pointerup',{clientX:60});assert.equal(f.pets,1);assert.equal(f.captured,null);
+  const outside=fixture();outside.fire('pointerdown');outside.fire('pointermove',{clientX:40});
+  outside.fire('pointerup',{clientX:130});assert.equal(outside.pets,0);
+});
+test('a second finger is ignored without cancelling a qualified primary stroke',()=>{
+  const f=fixture();f.fire('pointerdown');f.fire('pointermove',{clientX:70});
+  f.fire('pointerdown',{pointerId:2,isPrimary:false});f.fire('pointermove',{pointerId:2,clientX:90});
+  f.fire('pointerup',{pointerId:2,clientX:90});assert.equal(f.pets,0);assert.equal(f.captured,1);
+  f.fire('pointerup',{clientX:70});assert.equal(f.pets,1);assert.deepEqual(f.holds,[true,false]);
 });

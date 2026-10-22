@@ -16,3 +16,17 @@ test('broken storage and clock changes cannot freeze idle speech or alter the ha
  let time=0;const idle=createIdleSpeech({storage:{getItem:()=>'{bad',setItem(){throw Error();}},now:()=>time,random:()=>0}),feeling=COMPANION_FEELINGS.curious,before=structuredClone(feeling);
  const first=idle.line({feeling});time=-1000;assert.notEqual(idle.line({feeling}).id,first.id);assert.deepEqual(feeling,before);
 });
+test('period changes do not rotate speech while input, dialogs or chatter-off suppress rotation',()=>{
+ const f=fixture(),idle=f.create(),arg={feeling:COMPANION_FEELINGS.calm},first=idle.line(arg);
+ f.advance(2*60*60*1000);
+ assert.equal(idle.line({...arg,rotate:false}),first);
+ assert.notEqual(idle.line(arg).id,first.id);
+ assert.match(idle.line({feeling:COMPANION_FEELINGS.lonely,rotate:false}).id,/^lonely-/);
+});
+test('unknown or malformed idle history stays intact while in-memory variation works',()=>{
+ for(const raw of ['{bad',JSON.stringify({version:2,recentIds:['future']}),JSON.stringify({version:1,recentIds:'invalid'})]){
+  const f=fixture();f.map.set(IDLE_STORAGE,raw);const idle=f.create(),arg={feeling:COMPANION_FEELINGS.calm},first=idle.line(arg);
+  f.advance(IDLE_INTERVAL);assert.notEqual(idle.line(arg).id,first.id);
+  assert.equal(f.map.get(IDLE_STORAGE),raw);
+ }
+});

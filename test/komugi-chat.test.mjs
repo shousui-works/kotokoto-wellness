@@ -160,6 +160,44 @@ test('plans, negations, others and extreme restriction do not become achievement
   }
 });
 
+test('extreme restriction is excluded regardless of activity classification',()=>{
+  for(const kind of ['walk','run','strength','stretch','exercise','snack','meal_care','eating_habit','weight','meal_log','rest','housework','mood_log','challenge','care'])
+  for(const text of ['食事を抜くように食べ方を工夫した','何も食べずに過ごした','断食した']){
+    const input=validateChatRequest(payload(text)),a={operation:'create',targetId:null,kind,date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'きみのペースで大丈夫。',actions:[a]})}]}]};
+    assert.deepEqual(extractReport(output,input).actions,[]);
+  }
+});
+
+test('restriction in candidate title or detail is excluded without discarding a separate action',()=>{
+  const input=validateChatRequest(payload('断食した。洗濯した'));
+  const clean={operation:'create',targetId:null,kind:'housework',date:'2026-10-18',title:'洗濯',evidence:'洗濯した',minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+  for(const field of ['title','detail']){
+    const bad={...clean,kind:'challenge',[field]:'断食した'};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[bad,clean]})}]}]};
+    const actions=extractReport(output,input).actions;
+    assert.equal(actions.length,1);assert.equal(actions[0].kind,'housework');
+  }
+});
+
+test('meal skipping is excluded while explicitly not skipping is retained',()=>{
+  for(const [text,count] of [['朝食を抜いた',0],['昼食を抜いた',0],['夕食を抜いた',0],['食事を抜かずに朝食を食べた',1],['朝食を抜かないで食べた',1],['昼食を抜かなかった',1],['朝食を抜かずに食べたが夕食を抜いた',0]]){
+    const input=validateChatRequest(payload(text));
+    const a={operation:'create',targetId:null,kind:'eating_habit',date:'2026-10-18',title:'食べ方',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[a]})}]}]};
+    assert.equal(extractReport(output,input).actions.length,count,text);
+  }
+});
+
+test('ordinary compensation is retained but food or exercise compensation is excluded',()=>{
+  for(const [kind,text,count] of [['challenge','仕事の遅れを埋め合わせるためメールを返した',1],['care','お詫びと償いの気持ちで手紙を書いた',1],['challenge','食べ過ぎた償いに走った',0],['exercise','埋め合わせで運動した',0],['challenge','食事の埋め合わせで掃除した',0],['housework','間食の埋め合わせで掃除した',0],['housework','おやつの埋め合わせで掃除した',0]]){
+    const input=validateChatRequest(payload(text));
+    const a={operation:'create',targetId:null,kind,date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[a]})}]}]};
+    assert.equal(extractReport(output,input).actions.length,count,text);
+  }
+});
+
 test('unreported measurements are withheld but Luna calorie estimates are accepted separately with a basis',()=>{
   const a={operation:'create',targetId:null,kind:'walk',date:'2026-10-18',title:'散歩',evidence:'歩いた',minutes:20,kcal:100,weightKg:60,detail:null,additional:false};
   const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'歩いてきたんだね。',actions:[a]})}]}]};
@@ -232,4 +270,27 @@ test('model sees JST report times separately from actual meal time and preserves
  const {timedMessage}=await import('../server/conversation-time.mjs');
  assert.equal(timedMessage({role:'user',content:'前の話'}).content,'[発言日時: 不明]\n前の話');
  assert.match(timedMessage({role:'user',content:'日付境界',at:'2026-10-18T15:00:00Z'}).content,/2026-10-19T00:00:00.000\+09:00/);
+});
+
+test('date hints are scoped to the reported action, including explicit unknown dates and corrections',()=>{
+ const today='2026-10-18';
+ const action=(evidence,date=today,kind='walk')=>({operation:'create',targetId:null,kind,date,title:'行動',evidence,minutes:null,kcal:null,weightKg:null,detail:null,additional:false});
+ const report=(text,actions,activities=[])=>extractReport({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions})}]}]},validateChatRequest({...payload(text),context:{date:today,activities}}));
+ for(const [text,evidence,expected]of[
+  ['昨日は疲れて休んだけど、今日は20分歩いた','20分歩いた',today],
+  ['昨日は休んだ。20分歩いた','20分歩いた',today],
+  ['いつも覚えてるよ。20分歩いた','20分歩いた',today],
+  ['いつも覚えてないことが多いけど今日は歩いた','歩いた',today],
+  ['いつも覚えてないから20分歩いた','20分歩いた',today],
+  ['昨日20分歩いた','20分歩いた','2026-10-17'],
+  ['一昨日、20分歩いた','20分歩いた','2026-10-16'],
+  ['きのう20分歩いた','20分歩いた','2026-10-17'],
+  ['おととい歩いた','歩いた','2026-10-16'],
+  ['いつ歩いたかわからない','いつ歩いたかわからない',null],
+  ['いつ歩いたか覚えていない','いつ歩いたか覚えていない',null],
+ ])assert.equal(report(text,[action(evidence)]).actions[0].date,expected,text);
+ const mixed=report('昨日走った。今日は歩いた',[action('昨日走った',today,'run'),action('今日は歩いた',today)]);assert.deepEqual(mixed.actions.map(a=>a.date),['2026-10-17',today]);
+ const existing={id:'old',kind:'walk',date:today,title:'歩いた',minutes:null,kcal:null,weightKg:null,detail:null,needs:[]};
+ assert.equal(report('昨日だった',[{...action('昨日だった'),operation:'update',targetId:'old'}],[existing]).actions[0].date,'2026-10-17');
+ assert.equal(report('明日歩いた',[action('歩いた','2026-10-19')]),null);
 });

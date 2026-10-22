@@ -14,12 +14,14 @@ export function applyPlush(original,command,{id,now=Date.now(),candidate,enabled
   if(command.item!==null){
    if(!c.owned[command.item])throw bad('そのぬいぐるみは、まだ持っていません。');
    const count=Object.values(shelf).filter(x=>x===command.item).length;
-   if(count>=c.owned[command.item].count){const origin=Object.keys(shelf).find(key=>shelf[key]===command.item),old=c.shelf[command.slot];if(old)shelf[origin]=old;else delete shelf[origin];}
+   if(count>=c.owned[command.item].count){const origin=Object.keys(shelf).find(key=>shelf[key]===command.item),old=c.shelf[command.slot];if(isActivePlush(old))shelf[origin]=old;else delete shelf[origin];}
    shelf[command.slot]=command.item;
   }
   c.shelf=shelf;state.revision++;return {state,transaction:null};
  }
  if(!enabled)throw bad('ガチャはただいまおやすみ中です。','gacha_disabled',409);
+ // Retired results are hidden by the UI and must not prevent another draw.
+ if(c.lastResult&&isActivePlush(c.lastResult.item)&&c.seenResult!==c.lastResult.requestId)throw bad('前のお迎え結果を確認してから、もう一度試してね。','unseen_plush_result',409);
  let item,cost=0,buttonCost=0;
  if(command.type==='plush_draw'){if(collectionBalance(c,progressTotal(state.progress))<DRAW_COST)throw bad('ポイントがもう少したまったら、また開けてみよう。','insufficient_points');item=candidate;cost=DRAW_COST;}
  else if(command.type==='plush_exchange'){item=command.item;if(c.buttons<EXCHANGE_COST)throw bad('交換用のボタンが足りません。','insufficient_buttons');if(c.owned[item])throw bad('まだ持っていない子を選んでね。');buttonCost=EXCHANGE_COST;}
