@@ -1,12 +1,21 @@
 # こつこつ日和のGCPデプロイ計画
 
-2026年10月18日。現在の画面と機能をCloud Runに載せて確認し、既存の記録を引き継いでから普段使う公開先を移す。Lunaとの会話・クエスト・日報の実装は、移設後に既存の合意仕様を基準に進める。
+2026年10月18日の初期計画。画面と機能をCloud Runに載せて確認し、既存の記録を引き継いでから普段使う公開先を移す。Lunaとの会話・クエスト・日報の実装は、移設後に既存の合意仕様を基準に進める。
 
 2026年10月18日に、ユーザーが選択した専用プロジェクト `kotokoto-biyori` の課金有効状態を確認し、Terraformでbootstrap・foundation・appを適用した。初期確認後、ユーザーの「自分だけ使えるじゃなくていい」という方針変更に合わせ、ログインなしで開ける公開Cloud Runに変更した。既存の記録の引き継ぎは残っている。
 
 Terraformのbootstrap・foundation・app構成、Cloud Run用の配信サーバー、Dockerfile、Cloud Buildのビルド手順を実装した。適用結果と今後の更新操作は[Terraformの運用手順](../infra/terraform/README.md)を参照する。
 
-## 現状
+## 現在の構成（2026年10月21日・実装と過去の適用記録に基づく）
+
+- 公開先は https://kotokoto-biyori-oidgpmqhiq-an.a.run.app 。画面配信は公開のまま、個人APIと実AIはFirebase AuthenticationのGoogleログインを必須とする（`ACCOUNT_MODE=required`）。Cloud RunのIAPは使わない。
+- 記録・プロフィール・会話はUID別の名前付きFirestore `kotokoto-wellness` に保存する。端末内の旧記録は初回ログイン後に本人が取り込みか新規開始を選び、旧Sitesの別オリジンからは自動移行しない。
+- Terraformはbootstrap・foundation・auth・data・appの5構成。Lunaとの会話・クエスト・日報、Googleログイン、クラウド保存は実装済み。Google OAuthの戻り先も設定済みで、実ブラウザのログイン確認は運用手順に記録している。
+- 旧Sitesと `.openai/hosting.json` のIDは保持する。この文書の確認だけで新たなGCP適用や移行を実行したことにはしない。
+
+以下は初回移設時の記録と構成案。現在の認証・保存方式は上記および[ログインとクラウド保存の設計](account-and-cloud-storage-design.md)、[運用手順](../infra/terraform/README.md)を参照する。
+
+## 初回移設時点の記録（2026年10月18日）
 
 | 項目 | 確認した内容 |
 | --- | --- |
@@ -21,7 +30,7 @@ Terraformのbootstrap・foundation・app構成、Cloud Run用の配信サーバ�
 | デプロイ先 | 専用プロジェクト `kotokoto-biyori`、東京 `asia-northeast1` |
 | Cloud Run | https://kotokoto-biyori-oidgpmqhiq-an.a.run.app 、ログインなしで公開 |
 | 配信の確認 | Cloud Build成功。認証・Cookieなしで画面と静的16ファイルの内容一致、ブラウザで部屋の表示を確認 |
-| Googleログイン | 現在は使用しない。IAPと専用閲覧者の権限を削除済み |
+| Googleログイン | 初回公開時は未使用。IAPと専用閲覧者の権限を削除した。その後Firebase認証を導入 |
 
 現在のgcloud設定が参照するプロジェクトを、このアプリのデプロイ先として自動採用しない。以後の操作では選択したプロジェクトIDを明示し、他アプリの設定を切り替えない。
 
@@ -43,9 +52,9 @@ Cloud Runでは、HTTPサーバーを環境変数 `PORT` のポートで `0.0.0.
 
 Cloud BuildがDockerfileからコンテナを作り、Artifact Registryに保存する。完成したイメージのダイジェストをTerraformに渡して、Cloud Runのリビジョンを更新する。ローカルのDockerエンジンをデプロイの必須条件にしない。[コンテナのデプロイ](https://docs.cloud.google.com/run/docs/deploying)
 
-現在は `allow_public_access = true` とし、Invoker IAMチェックを無効にして公開する。IAPと専用閲覧者の設定は空にし、OAuth設定は使わない。公開・IAM・IAPの切り替えはTerraformで管理する。[Cloud Runの公開設定](https://docs.cloud.google.com/run/docs/authenticating/public)
+初回公開時は `allow_public_access = true` とし、Invoker IAMチェックを無効にした。IAPと専用閲覧者の設定は空にし、当時はOAuthを使用しなかった。現在もCloud Run配信は公開だが、アプリのGoogleログインはFirebaseとOAuthを使う。公開・IAM・IAPの切り替えはTerraformで管理する。[Cloud Runの公開設定](https://docs.cloud.google.com/run/docs/authenticating/public)
 
-## Terraformの管理範囲
+## 初期計画でのTerraformの管理範囲
 
 Cloud Runの実行構成と、どのアプリの版を動かすかをTerraformで管理する。通常の更新では `gcloud run deploy --source` やコンソールで同じ設定を並行して変更せず、次回のTerraform適用で古い設定に戻る状態を避ける。
 
@@ -104,6 +113,6 @@ Cloud Runの実行費用に加え、ビルド、コンテナの保管、通信�
 
 ## 現在の残作業
 
-公開設定は適用済みで、認証情報なしのHTTP配信とブラウザ表示を確認した。Terraformの公開・非公開・IAP設定のモックテスト11件が成功し、適用後のapp planも差分なし。個人アカウント向けOAuthクライアントは作成していない。初期設定中に作成したGoogle Auth Platformの同意画面は残っているが、現在の公開方式では使わない。
+Googleログイン、UID別クラウド保存、Lunaの会話APIと利用制限は実装済み。公開の画面配信と、認証が必要な個人API・実AIを区別して運用する。初期の「OAuthを使わない」という記録は、現在のアプリ認証を表さない。
 
-今後は実際のスマホでの確認、既存JSON記録の読み込み、記録の引き継ぎ、予算通知を進める。LunaのサーバーAPIを追加する段階では、公開サービス上でのユーザー識別・利用制限・保存方法を設計する。
+今後は実機での継続確認、旧Sitesの別オリジンからの記録移行、予算通知などを確認する。退会workerと削除Job・Schedulerは未実装のため無効のままにする。各利用者の移行状況は推測せず、本人の確認を伴う取り込みで扱う。
