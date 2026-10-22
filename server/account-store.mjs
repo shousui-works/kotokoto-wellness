@@ -1,3 +1,4 @@
+import {normalizeCollection} from '../dist/collection-model.mjs';
 import {emptyMemory,normalizeMemory,MAX_MEMORY_MESSAGES} from './owner-memory.mjs';
 import {randomUUID} from 'node:crypto';
 import {emptyAccount,problem,dayKey} from './account-model.mjs';
@@ -13,17 +14,17 @@ export class FirestoreAccountStore {
     const user=this.user(uid),meta=(await tx.get(user)).data();
     if(!meta?.initialized)return {...emptyAccount(),revision:meta?.revision??0,chatLease:meta?.chatLease??null};
     const dataset=user.collection('datasets').doc(meta.datasetId);
-    const [days,activities,messages,profile,companion,memory]=await Promise.all([
+    const [days,activities,messages,profile,companion,memory,collection]=await Promise.all([
       tx.get(dataset.collection('legacyDays').limit(MAX_RECORDS+1)),tx.get(dataset.collection('activities').limit(MAX_RECORDS+1)),
       tx.get(dataset.collection('threads').doc(`main-${meta.historyEpoch??'0'}`).collection('messages').orderBy('sequence').limitToLast(60)),
-      tx.get(dataset.collection('settings').doc('profile')),tx.get(dataset.collection('companion').doc('state')),tx.get(dataset.collection('memory').doc('owner')),
+      tx.get(dataset.collection('settings').doc('profile')),tx.get(dataset.collection('companion').doc('state')),tx.get(dataset.collection('memory').doc('owner')),tx.get(user.collection('collection').doc('state')),
     ]);
     if(days.size>MAX_RECORDS||activities.size>MAX_RECORDS)throw problem(413,'account_too_large','記録が多いため、読み込み方法の更新が必要です。記録はクラウドに残っています。');
     const saved=companion.data();
     return {revision:meta.revision,initialized:true,datasetId:meta.datasetId,chatLease:meta.chatLease??null,historyEpoch:meta.historyEpoch??"0",messageCounter:meta.messageCounter??0,
       legacy:{...saved.legacy,days:Object.fromEntries(days.docs.map(d=>[d.data().date,d.data().value]))},
       progress:{...saved.progress,activities:activities.docs.map(d=>d.data()),processed:saved.progress.legacyProcessed??[]},
-      memory:normalizeMemory(memory.data()),profile:profile.data().profile,chatEnabled:profile.data().chatEnabled!==false,
+      collection:normalizeCollection(collection.data()),memory:normalizeMemory(memory.data()),profile:profile.data().profile,chatEnabled:profile.data().chatEnabled!==false,
       conversation:{version:1,messages:messages.docs.map(d=>{const {sequence,text,...rest}=d.data();return {...rest,content:text};})}};
   }
   async loadMemoryWindow(tx,uid,state){
@@ -40,6 +41,7 @@ export class FirestoreAccountStore {
     tx.set(user,{revision:after.revision,initialized:after.initialized,datasetId:after.datasetId,chatLease:after.chatLease??null,historyEpoch:after.historyEpoch??"0",messageCounter:after.messageCounter??0});
     if(!after.initialized)return;
     const write=(ref,value)=>tx.set(ref,clean(value));
+    if(!equal(before.collection,after.collection))write(user.collection('collection').doc('state'),normalizeCollection(after.collection));
     if(!equal(before.memory,after.memory))write(dataset.collection('memory').doc('owner'),normalizeMemory(after.memory));
     const {days,...legacy}=after.legacy,{activities,processed,...progress}=after.progress;
     if(!equal({...before.legacy,days:{}},{...after.legacy,days:{}})||!equal({...before.progress,activities:[],processed:[]},{...after.progress,activities:[],processed:[]})||!before.initialized)write(dataset.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:before.progress.processed}});
@@ -71,6 +73,23 @@ export class FirestoreAccountStore {
       if(result.usage){const expireAt=new Date(now+30*86400000);tx.set(globalRef,{...result.usage.global,expireAt});tx.set(quotaRef,{...result.usage.user,expireAt});}
       return result.value;
     });
+  }
+  async gacha(uid,id,run){
+    return this.db.runTransaction(async tx=>{
+      const state=await this.load(tx,uid),ref=this.user(uid).collection('plushTransactions').doc(id);
+      const opRef=this.user(uid).collection('operations').doc(id);
+      const [old,feature,op]=await Promise.all([tx.get(ref),tx.get(this.db.collection('features').doc('plushGacha')),tx.get(opRef)]);
+      if(!old.exists&&op.exists)throw problem(409,'request_conflict','同じ要求IDに別の操作があります。');
+      const result=await run(state,old.data()??null,feature.data()?.enabled!==false);
+      if(result.state)this.writeState(tx,uid,state,result.state);
+      if(result.transaction){tx.set(ref,clean(result.transaction));tx.set(opRef,{id,fingerprint:result.transaction.fingerprint??'',status:'complete',at:Date.parse(result.transaction.at)});}return result.value;
+    });
+  }
+  async plushHistory(uid,cursor=null){
+    const collection=this.user(uid).collection('plushTransactions');let query=collection.orderBy('at','desc').limit(21);
+    if(cursor){const doc=await collection.doc(cursor).get();if(!doc.exists)throw problem(400,'invalid_cursor','履歴を最初から読み直してね。');query=query.startAfter(doc);}
+    const result=await query.get(),docs=result.docs.slice(0,20);
+    return {rows:docs.map(d=>{const {fingerprint,...row}=d.data();return row;}),nextCursor:result.size>20?docs.at(-1).id:null};
   }
   async import(uid,id,state,hash){
     const user=this.user(uid),datasetId=`import-${id}`,target=user.collection('datasets').doc(datasetId),manifest=user.collection('imports').doc(id),worker=randomUUID(),until=Date.now()+120000;
@@ -113,7 +132,7 @@ export class FirestoreAccountStore {
 
 // Deterministic in-memory repository for tests only; never selected by production config.
 export class MemoryAccountStore {
-  constructor(){this.accounts=new Map();this.transcripts=new Map();this.ops=new Map();this.usages=new Map();this.tail=Promise.resolve();}
+  constructor(){this.accounts=new Map();this.transcripts=new Map();this.ops=new Map();this.usages=new Map();this.tail=Promise.resolve();this.plushTransactions=new Map();this.gachaEnabled=true;}
   readIfChanged(uid,revision){return this.read(uid).then(state=>state.revision===revision?null:state);}
   read(uid){return Promise.resolve(structuredClone(this.accounts.get(uid)??emptyAccount()));}
   atomic(uid,id,run,{quota=false,now=Date.now(),memoryWindow=false}={}){
@@ -127,5 +146,10 @@ export class MemoryAccountStore {
     this.tail=work.catch(()=>{});return work;
   }
   async import(uid,id,state,hash){const result=await this.atomic(uid,id,(current,old)=>{if(old&&old.hash!==hash)throw problem(409,'request_conflict','ID conflict');if(current.initialized){if(old?.hash===hash)return {value:current};throw problem(409,'cloud_exists','Cloud exists');}state={...state,datasetId:`import-${id}`,revision:1};return {state,operation:{hash},value:state};});if(!this.transcripts.has(uid))this.transcripts.set(uid,state.conversation.messages.map((m,sequence)=>({...m,sequence})));return result;}
+  async gacha(uid,id,run){
+    const work=this.tail.then(async()=>{const state=await this.read(uid),key=uid+'/'+id;if(!this.plushTransactions.has(key)&&this.ops.has(key))throw problem(409,'request_conflict','同じ要求IDに別の操作があります。');const result=await run(state,structuredClone(this.plushTransactions.get(key)??null),this.gachaEnabled);
+      if(result.state)this.accounts.set(uid,structuredClone(result.state));if(result.transaction){this.plushTransactions.set(key,structuredClone(result.transaction));this.ops.set(key,{id,fingerprint:result.transaction.fingerprint??'',status:'complete',at:Date.parse(result.transaction.at)});}return result.value;});this.tail=work.catch(()=>{});return work;
+  }
+  async plushHistory(uid,cursor=null){const rows=[...this.plushTransactions].filter(([key])=>key.startsWith(uid+'/')).map(([,row])=>row).sort((a,b)=>b.at.localeCompare(a.at)||b.requestId.localeCompare(a.requestId));const start=cursor?rows.findIndex(r=>r.requestId===cursor)+1:0;if(cursor&&!start)throw problem(400,'invalid_cursor','Invalid cursor');const selected=rows.slice(start,start+20);return {rows:selected.map(({fingerprint,...row})=>row),nextCursor:rows.length>start+20?selected.at(-1).requestId:null};}
   async clearHistoryBodies(uid){for(const [key,value]of this.ops)if(key.startsWith(uid+'/'))this.ops.set(key,{fingerprint:value.fingerprint,status:value.status,bodyCleared:true});}
 }
