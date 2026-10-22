@@ -35,3 +35,10 @@ test('uniform selection covers every catalog entry and content includes real sou
 
 test('draw cannot reuse an earlier normal command ID',async()=>{const f=await fixture(),id=randomUUID();assert.equal((await f.request('/api/commands',{requestId:id,revision:0,command:{type:'mood',mood:'good'}})).status,200);assert.equal((await f.request('/api/commands',{requestId:id,revision:1,command:{type:'plush_draw'}})).status,409);assert.equal((await f.store.read('alice')).collection.spent,0);});
 
+test('corrupt collection containers and inherited shelf items are rejected before spending',()=>{
+ for(const patch of [{owned:[]},{owned:'invalid'},{shelf:[]},{shelf:'invalid'},{owned:{pomeranian:null}},{shelf:{[SHELF_SLOTS[0]]:'toString'}},{shelf:{[SHELF_SLOTS[0]]:['pomeranian']}}]){
+  const state=draw(funded()).state;Object.assign(state.collection,patch);const before=structuredClone(state);
+  assert.throws(()=>normalizeCollection(state.collection));assert.throws(()=>draw(state));assert.deepEqual(state,before);
+ }
+ const state=draw(funded()).state;assert.deepEqual(normalizeCollection(JSON.parse(JSON.stringify(state.collection))),state.collection);
+});
