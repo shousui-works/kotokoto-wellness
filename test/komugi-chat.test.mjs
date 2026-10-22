@@ -169,6 +169,17 @@ test('extreme restriction is excluded regardless of activity classification',()=
   }
 });
 
+test('restriction in candidate title or detail is excluded without discarding a separate action',()=>{
+  const input=validateChatRequest(payload('断食した。洗濯した'));
+  const clean={operation:'create',targetId:null,kind:'housework',date:'2026-10-18',title:'洗濯',evidence:'洗濯した',minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+  for(const field of ['title','detail']){
+    const bad={...clean,kind:'challenge',[field]:'断食した'};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[bad,clean]})}]}]};
+    const actions=extractReport(output,input).actions;
+    assert.equal(actions.length,1);assert.equal(actions[0].kind,'housework');
+  }
+});
+
 test('unreported measurements are withheld but Luna calorie estimates are accepted separately with a basis',()=>{
   const a={operation:'create',targetId:null,kind:'walk',date:'2026-10-18',title:'散歩',evidence:'歩いた',minutes:20,kcal:100,weightKg:60,detail:null,additional:false};
   const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'歩いてきたんだね。',actions:[a]})}]}]};
