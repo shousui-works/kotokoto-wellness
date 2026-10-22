@@ -6,8 +6,8 @@ import {createAccountAPI} from '../server/account-api.mjs';
 import {MemoryAccountStore} from '../server/account-store.mjs';
 import {emptyState} from '../dist/model.mjs';
 const config={projectId:'example-project',authDomain:'app.example.com',appId:'test',apiKey:'public'};
-function fixture({actions=[]}={}){const store=new MemoryAccountStore();let calls=0,clock=Date.parse('2026-10-19T03:00:00Z'),resolve,lastInput;
- const generate=async input=>{calls++;lastInput=input;if(resolve)await resolve.promise;return {status:200,body:{requestId:input.requestId,reply:'会いに来てくれてうれしいよ。',actions}};};
+function fixture({actions=[],firstFailure=null}={}){const store=new MemoryAccountStore();let calls=0,clock=Date.parse('2026-10-19T03:00:00Z'),resolve,lastInput;
+ const generate=async input=>{calls++;lastInput=input;if(resolve)await resolve.promise;if(calls===1&&firstFailure)return firstFailure;return {status:200,body:{requestId:input.requestId,reply:'会いに来てくれてうれしいよ。',actions}};};
  const api=createAccountAPI({store,config,verify:async token=>{if(!['alice','bob'].includes(token))throw Error();return {uid:token};},generate,now:()=>clock});
  async function request(path,method='GET',data,token='alice',origin='https://app.example.com'){
   const req=Readable.from(data?[Buffer.from(JSON.stringify(data))]:[]);req.method=method;req.url=path;req.headers={host:'app.example.com',origin,...(token?{authorization:`Bearer ${token}`}:{})};let status,headers,body;
@@ -58,3 +58,28 @@ test('first setup stores both names; later changes keep records and the server s
  assert.equal((await f.request('/api/commands','POST',{requestId:randomUUID(),revision:4,command:{type:'profile',nickname:'',petName:'ぽん',namesConfigured:true}})).status,400);
 });
 test('explicit migration retains the two names chosen at onboarding',async()=>{const f=fixture();const r=await f.request('/api/import','POST',{requestId:randomUUID(),data:{legacy:emptyState(),profile:{nickname:'そら',petName:'もち',namesConfigured:true}}});assert.equal(r.status,200);assert.equal(r.body.state.profile.petName,'もち');assert.equal(r.body.state.profile.namesConfigured,true);});
+
+test('a finalized provider failure allows an explicit new attempt while retries of its request ID remain idempotent',async()=>{
+ for(const status of [502,504]){
+  const f=fixture({firstFailure:{status,body:{error:{code:'upstream_unavailable',message:'もう一度送ってね。'}}}});await f.initialize();
+  const input={requestId:randomUUID(),text:'こんにちは'};
+  const failed=await f.request('/api/chat','POST',input);assert.equal(failed.status,status);assert.equal(failed.body.error.retryable,true);
+  assert.equal((await f.request('/api/chat','POST',input)).status,status);assert.equal(f.calls,1);
+  const again=await f.request('/api/chat','POST',{...input,requestId:randomUUID()});assert.equal(again.status,200);assert.equal(f.calls,2);assert.equal(again.body.state.conversation.messages.length,2);
+ }
+});
+
+test('manual records and corrections use the JST day even while the server is on the previous UTC day',async t=>{
+ const previousTZ=process.env.TZ;process.env.TZ='UTC';
+ t.after(()=>{if(previousTZ===undefined)delete process.env.TZ;else process.env.TZ=previousTZ;});
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-18T15:01:00Z')});
+ const f=fixture();f.advance(-12*3600000+60000);await f.initialize();
+ const weight=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:1,command:{type:'weight',value:60}});
+ assert.equal(weight.status,200);assert.equal(weight.body.state.progress.activities[0].date,'2026-10-19');
+ const habit=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:2,command:{type:'habit',habit:'stretch'}});
+ assert.equal(habit.status,200);
+ const corrected=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:3,command:{type:'correct_activity',id:weight.body.state.progress.activities[0].id,changes:{weightKg:61}}});
+ assert.equal(corrected.status,200);assert.equal(corrected.body.state.progress.activities[0].weightKg,61);
+ const future=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:4,command:{type:'correct_activity',id:weight.body.state.progress.activities[0].id,changes:{date:'2026-10-20'}}});
+ assert.equal(future.status,400);
+});

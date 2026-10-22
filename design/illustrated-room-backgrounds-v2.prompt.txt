@@ -16,5 +16,12 @@ Invariants: same room, same furnishings, same wide open floor, same portrait ori
 
 ## Landscape
 
-undefined
+Reconstructed editing instructions: the original landscape prompt was not preserved. These instructions document the intended treatment for reproducing the existing landscape v2 background.
+
+Use case: style-transfer.
+Asset: landscape 16:9 full-screen background for the same cozy Japanese pet-raising game. Input image 1 is the EDIT TARGET: dist/assets/room-landscape-v1.jpg. Output asset: dist/assets/room-landscape-v2.jpg.
+Apply the same hand-painted, gently stylized 2D treatment as the portrait: rounded and simplified furniture, soft warm-brown contour lines, broad pastel color areas with subtle brush texture, and softly painted cel-like shadows. Remove photographic material detail, lens effects, and realistic reflections.
+Preserve the input's room architecture, furniture positions, and pulled-back landscape framing. Keep the 16:9 composition, the same room layout, the pale rug in the middle-distance, and a spacious walkable floor across the lower part of the frame. Leave the foreground clear for the separately rendered Pomeranian.
+Use warm ivory, pale honey oak, muted sage, and creamy beige, with broad soft golden patches of afternoon sunshine. Keep the top and bottom calm for overlaid controls and the floor readable for a cream-colored dog.
+Invariants: same room and furnishings, landscape orientation, opaque full-bleed background. NO dog, animal, person, pet bed, face on furniture, text, label, watermark, logo, border, UI, button or icon.
 
