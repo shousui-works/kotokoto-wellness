@@ -1,22 +1,9 @@
 steps:
   - name: node:24-bookworm-slim
-    entrypoint: node
+    entrypoint: bash
     args:
-      - --test
-      - test/companion-chat.test.mjs
-      - test/companion-lines.test.mjs
-      - test/companion-motion.test.mjs
-      - test/companion-affection.test.mjs
-      - test/server.test.mjs
-      - test/komugi-chat.test.mjs
-      - test/komugi-conversation.test.mjs
-      - test/progress.test.mjs
-      - test/admin-auth.test.mjs
-      - test/admin-usage.test.mjs
-      - test/plush-gacha.test.mjs
-      - test/account-api.test.mjs
-      - test/owner-memory.test.mjs
-      - test/account-client.test.mjs
+      - -c
+      - node --test test/*.test.mjs
   - name: gcr.io/cloud-builders/docker
     args:
       - build

@@ -55,3 +55,47 @@ test('Firestore user aggregates are atomic with global aggregates and cannot dou
  const store=new FirestoreUsageStore(db);await store.record(entry,{...meta,uid:'alice'});await store.record(entry,{...meta,uid:'bob'});
  assert.equal(docs.size,3);const u=[...docs].find(([k])=>k.startsWith('aiUsageUserDays/'))[1];assert.equal(u.uid,'alice');assert.equal(u.calls,1);assert.equal(u.byPurpose.chat.calls,1);
 });
+
+test('a stalled accounting store cannot indefinitely hold a completed paid response',async()=>{
+ let deadline;
+ try{
+  const outcome=await Promise.race([
+   captureCacheUsage('chat',{id:'response-stalled',usage:{}},1,()=>new Promise(()=>{}),{timeoutMs:10}).then(()=>'returned'),
+   new Promise(resolve=>{deadline=setTimeout(()=>resolve('stalled'),100);})
+  ]);
+  assert.equal(outcome,'returned');
+ }finally{clearTimeout(deadline);}
+});
+
+test('unpriced attributed usage never becomes a zero or understated cost average',async()=>{
+ const store=new MemoryUsageStore(),now=Date.parse('2026-10-19T01:00:00Z');
+ await store.record(entry,{...meta,uid:'unknown',serviceTier:'unknown'});
+ let d=await store.dashboard(7,now);assert.equal(d.userSummary.perUser.costNanos,null);assert.equal(d.userSummary.perCall.costNanos,null);
+ await store.record(entry,{...meta,responseId:'known',uid:'known'});
+ d=await store.dashboard(7,now);assert.equal(d.userSummary.activeUsers,2);assert.equal(d.userSummary.perUser.calls,1);assert.equal(d.userSummary.perCall.inputTokens,10000);assert.equal(d.userSummary.attributed.costNanos,1190000);assert.equal(d.userSummary.perUser.costNanos,null);assert.equal(d.userSummary.perCall.costNanos,null);
+});
+test('admin renders unknown cost averages as unavailable, including per-user rows',async()=>{
+ const {readFile}=await import('node:fs/promises'),{default:vm}=await import('node:vm');
+ const source=await readFile(new URL('../dist/admin.mjs',import.meta.url),'utf8');
+ const store=new MemoryUsageStore();await store.record(entry,{...meta,uid:'unknown',serviceTier:'unknown'});await store.record(entry,{...meta,responseId:'known',uid:'known'});
+ await store.record(entry,{...meta,responseId:'mixed-unknown',uid:'mixed',serviceTier:'unknown'});await store.record(entry,{...meta,responseId:'mixed-known',uid:'mixed'});
+ const data=await store.dashboard(7,Date.parse('2026-10-19T01:00:00Z')),nodes=new Map(),tables={};
+ assert.equal(data.userSummary.perUser.costNanos,null);assert.equal(data.userSummary.perCall.costNanos,null);
+ const context={data,$:id=>{if(!nodes.has(id))nodes.set(id,{style:{}});return nodes.get(id);},number:String,money:n=>'$'+(n/1e9).toFixed(6),percent:()=>'',rows:(id,values)=>tables[id]=values,chart(){},Intl,Date};
+ vm.runInNewContext(source.slice(source.indexOf('function render(){'),source.indexOf('async function load(){'))+'render();',context);
+ assert.equal(nodes.get('average-cost').textContent,'—');assert.equal(nodes.get('call-cost').textContent,'—');
+ assert.equal(tables['user-rows'].find(r=>r[0]==='unknown').at(-2),'—');assert.equal(tables['user-rows'].find(r=>r[0]==='unknown').at(-1),'—');assert.equal(tables['user-rows'].find(r=>r[0]==='known').at(-1),'$0.001190');
+ const mixed=tables['user-rows'].find(r=>r[0]==='mixed');assert.equal(mixed[2],'2');assert.equal(mixed[3],'20000');assert.equal(mixed[4],'2000');assert.equal(mixed.at(-2),'≈ $0.001190');assert.equal(mixed.at(-1),'—');
+});
+
+test('dashboard uses one read-only snapshot while usage changes between queries',async()=>{
+ let calls=1,transactions=0;const reads=[];
+ const snapshot=(name,count)=>({size:1,docs:[{data:()=>({date:'2026-10-19',calls:count,...(name==='aiUsageUserDays'?{uid:'alice'}:{})})}]});
+ const db={collection(name){const q={name,where(){return q;},orderBy(){return q;},limit(n){assert.equal(n,10001);return q;},async get(){const result=snapshot(name,calls);calls++;return result;}};return q;},async runTransaction(fn,options){assert.deepEqual(options,{readOnly:true});transactions++;const captured=calls;return fn({get:async q=>{reads.push(q.name);const result=snapshot(q.name,captured);calls++;return result;}});}};
+ const d=await new FirestoreUsageStore(db).dashboard(7,Date.parse('2026-10-19T01:00:00Z'));
+ assert.equal(d.total.calls,d.userSummary.attributed.calls);assert.equal(d.userSummary.unattributedCalls,0);assert.equal(transactions,1);assert.deepEqual(reads,['aiUsageDays','aiUsageUserDays']);
+});
+test('consistent dashboard reads retain the user-day result limit',async()=>{
+ const db={collection(name){const q={name,where(){return q;},orderBy(){return q;},limit(n){assert.equal(n,10001);return q;}};return q;},async runTransaction(fn,options){assert.deepEqual(options,{readOnly:true});return fn({get:async q=>({size:q.name==='aiUsageUserDays'?10001:0,docs:[]})});}};
+ await assert.rejects(new FirestoreUsageStore(db).dashboard(7),e=>e.status===413&&e.code==='usage_range_too_large');
+});

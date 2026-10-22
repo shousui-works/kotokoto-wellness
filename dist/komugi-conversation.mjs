@@ -88,6 +88,16 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   voicePanels.observe(form,{attributes:true,attributeFilter:['hidden']});
   document.querySelectorAll('dialog').forEach(dialog=>voicePanels.observe(dialog,{attributes:true,attributeFilter:['open']}));
 
+  let namedStatus=null;
+  function petStatus(kind){
+    const name=getPetName();
+    const text=kind==='login'?`右上のメニューからログインして、${name}と話そう。`:kind==='connecting'?`${name}につないでいます…`:`${name}が考え中…`;
+    namedStatus={kind,text};return text;
+  }
+  function refreshPetName(){
+    if(namedStatus&&status.textContent===namedStatus.text)status.textContent=petStatus(namedStatus.kind);
+  }
+
   function storageWarning(text = '') {
     warning.textContent = text || (!saved.writable ? '保存済みのおはなしを読み込めませんでした。元のデータは上書きせず、今回のおはなしは画面を閉じるまで表示します。' : '');
     warning.hidden = !warning.textContent;
@@ -152,13 +162,13 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     if (!response.ok) throw new Error('おはなしにつながりませんでした。少し待って、もう一度開いてね。');
     const data = await response.json().catch(() => { throw new Error('おはなしにつながりませんでした。少し待って、もう一度開いてね。'); });
     available = data.available === true;
-    if (!available) throw new Error(data.loginRequired?`右上のメニューからログインして、${getPetName()}と話そう。`:data.setupRequired?'アカウントで使う記録を選んでね。':'おはなしの準備中です。もう少し待ってね。');
+    if (!available) throw new Error(data.loginRequired?petStatus('login'):data.setupRequired?'アカウントで使う記録を選んでね。':'おはなしの準備中です。もう少し待ってね。');
   }
 
   async function open() {
     if (busy) return;
     saved = loadConversation(storage); storageWarning(); render();
-    status.textContent = `${getPetName()}につないでいます…`;
+    status.textContent = petStatus('connecting');
     try { sessionPromise = session(); await sessionPromise; status.textContent = ''; }
     catch (error) { available = false; sessionPromise = null; status.textContent = error.message; }
     render();
@@ -192,7 +202,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
       pending = {text, at: Date.now(), body: {requestId: crypto.randomUUID(), messages: requestMessages(saved.data, text), context: getContext()}};
     }
     pendingStore?.write(pending);
-    setExpanded(false);busy = true; status.textContent = `${getPetName()}が考え中…`; render();
+    setExpanded(false);busy = true; status.textContent = petStatus('thinking'); render();
     try {
       const arrival=Promise.resolve(onSend()).catch(()=>{});
       await sessionPromise;
@@ -230,7 +240,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     catch { status.textContent = '履歴を消せませんでした。ブラウザの設定をご確認ください。'; }
   });
   storageWarning(); render();
-  return {open,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
+  return {open,refreshPetName,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
     const target=$('conversation-target');target.replaceChildren();target.hidden=!label;
     if(label){target.append(document.createTextNode(label+'のつづき'));const cancel=document.createElement('button');cancel.type='button';cancel.textContent='×';cancel.setAttribute('aria-label','補足する対象を解除');cancel.addEventListener('click',()=>{target.hidden=true;onClearTarget();});target.append(cancel);}
     input.focus();
