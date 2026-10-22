@@ -23,6 +23,16 @@
 .conversation-send{border:0;flex:none;border-radius:50%;width:36px;height:36px;background:#7f9668;color:#fff;display:grid;place-items:center;margin-bottom:1px}
 .conversation-send svg{width:19px!important;height:19px!important;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .conversation-send:disabled{background:#dce3d0;color:#fff;cursor:default}
+.conversation-voice{border:0;flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:transparent;color:#7f9668;padding:10px;touch-action:manipulation}
+.conversation-voice svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.conversation-voice .voice-stop{display:none;fill:currentColor;stroke:none}
+.conversation-voice:disabled{color:#c4cbb9;cursor:default}
+.conversation-voice.is-listening{background:#f7e5df;color:#b77768}
+.conversation-voice.is-listening .voice-mic{display:none}
+.conversation-voice.is-listening .voice-stop{display:block}
+.conversation-voice:focus-visible{outline:2px solid #8b9f78;outline-offset:1px}
+.conversation-voice-status{padding:5px 3px 0!important}
+.conversation-voice-status[hidden]{display:none}
 .conversation-meta{display:flex;justify-content:space-between;gap:8px;margin:6px 3px 0;color:#9ca18d;font-size:8px;line-height:1.5}
 .conversation-meta p{margin:0;font-size:8px;line-height:1.6}
 #conversation-count{visibility:hidden;white-space:nowrap}
