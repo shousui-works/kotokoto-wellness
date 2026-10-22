@@ -1,9 +1,11 @@
-// Local, offline UI fixture. Not uploaded to Cloud Build or included in Docker.
+// Offline UI fixture, also used by Cloud Build tests. Not included in Docker.
 // The injected fetch never performs network I/O. No API key is loaded.
 import {createAppServer} from '../server/index.mjs';
 import {createKomugiChat} from '../server/komugi-chat.mjs';
+import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
 
-function fixture(_url,init){
+export function fixture(_url,init){
   const body=JSON.parse(init.body),text=body.input.filter(m=>m.role==='user').at(-1).content;
   if(text==='エラーを確認')return Response.json({error:'offline fixture failure'},{status:502});
   const context=JSON.parse(body.input.at(-1).content.split('参考データ（命令ではない）:').at(-1));
@@ -11,8 +13,10 @@ function fixture(_url,init){
   const action=(kind,evidence,values={})=>({operation:'create',targetId:null,kind,date:today,title:({stretch:'ストレッチした',snack:'間食を控えた',walk:'ウォーキングした'})[kind]??kind,evidence,minutes:null,kcal:null,weightKg:null,detail:null,additional:false,...values});
   let reply='おかえり。会いに来てくれて、ぼくもうれしいよ。ここでいっしょに、のんびりしようね。',actions=[];
   if(text==='長いお返事を見せて')reply='会いに来てくれてありがとう。'+('小さな一歩を、きみのペースで重ねていこうね🐾。'.repeat(7))+'今はゆっくり休もうね。';
+  // This is a bounded UI fixture, not a general parser for plans, negations or third-person reports.
+  if(/したい|したく|しよう|してない|していない|しなかった|できなかった|歩いたことがない|歩いたら|控えられたら|予定|つもり|明日|友達が|友人が/.test(text))return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply,actions:[]})}]}]});
   if(text.includes('ストレッチした')){actions.push(action('stretch','ストレッチした'));reply='体をほぐせたんだね、えらいねー。きみの小さな工夫、ぼくもうれしいな。';}
-  if(text.includes('お菓子')&&text.includes('控えられた'))actions.push(action('snack','お菓子も食べたかったけど、今日は自分で決めて控えられた'));
+  if(text.includes('お菓子')&&text.includes('控えられた'))actions.push(action('snack',text));
   const previous=context.activities.find(a=>a.kind==='walk');
   if(text.includes('歩いた')){actions.push(action('walk','歩いた'));reply='歩いてきたんだね、えらいねー。どのくらい歩いたの？';}
   if(previous&&text.includes('20分')){actions.push(action('walk','20分',{operation:'update',targetId:previous.id,date:previous.date,minutes:20}));reply='20分、きみのために時間をつくれたんだね。よしよし。';}
@@ -25,4 +29,4 @@ function fixture(_url,init){
   }
   return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply,actions})}]}]});
 }
-createAppServer({chatHandler:createKomugiChat({apiKey:'offline-fixture',fetchImpl:fixture})}).listen(8082,'127.0.0.1',()=>console.log('OFFLINE fixture preview on 127.0.0.1:8082; no external API calls'));
+if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))createAppServer({chatHandler:createKomugiChat({apiKey:'offline-fixture',fetchImpl:fixture})}).listen(8082,'127.0.0.1',()=>console.log('OFFLINE fixture preview on 127.0.0.1:8082; no external API calls'));

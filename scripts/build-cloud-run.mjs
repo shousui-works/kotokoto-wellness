@@ -32,6 +32,7 @@ export function buildPlan({project, region = 'asia-northeast1', app = 'kotokoto-
       '--gcs-source-staging-dir', `gs://${project}-${app}-builds/source`,
       '--substitutions', `_IMAGE_URI=${image},_RELEASE_TAG=${release}`,
       '--format=json',
+      '--suppress-logs',
       '--quiet',
     ],
   };

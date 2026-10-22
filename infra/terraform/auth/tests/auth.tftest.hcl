@@ -36,6 +36,25 @@ run "reject_domain_with_scheme" {
   variables { auth_domain = "https://example.com" }
   expect_failures = [var.auth_domain]
 }
+run "preserve_explicit_existing_localhost" {
+  command = plan
+  variables {
+    manage_auth_config             = true
+    existing_auth_config_confirmed = true
+    authorized_domains             = ["example-app.a.run.app", "localhost"]
+  }
+  assert {
+    condition     = contains(google_identity_platform_config.app[0].authorized_domains, "localhost")
+    error_message = "明示された既存のlocalhostを保持してください。"
+  }
+}
+run "reject_url_in_authorized_domains" {
+  command = plan
+  variables {
+    authorized_domains = ["http://localhost:8080"]
+  }
+  expect_failures = [var.authorized_domains]
+}
 run "reject_missing_app_domain" {
   command = plan
   variables {

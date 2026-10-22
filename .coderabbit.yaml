@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Keep the existing organization settings; override only this repository's review scope.
+inheritance: true
+reviews:
+  path_filters:
+    # dist/ contains hand-written application source, not generated build output.
+    # Exact default-ignore overrides do not restrict reviews of docs, tests, or server code.
+    - "**/dist/**"
+    # The app icon is hand-written SVG source; bitmap assets stay excluded by default.
+    - "**/*.svg"
+  path_instructions:
+    - path: "dist/**"
+      instructions: >-
+        このリポジトリのdist/はビルド生成物ではなく、直接編集・配信するアプリ本体です。
+        JavaScriptモジュール、HTML、CSS、手書きSVGもレビューしてください。
+        このPRのベースと先端の差分に基づいて、保存データの互換性、画面サイズ、
+        自動行動の中断、非表示時と動きを減らす設定での停止を確認してください。
