@@ -1,7 +1,9 @@
 // Timestamps are report times, never a claim about when a meal/activity occurred.
 export const CONVERSATION_TIME_ZONE='Asia/Tokyo';
 export function conversationTimestamp(at){
- if(typeof at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(at)||!Number.isFinite(Date.parse(at)))return null;
+ if(typeof at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(at)||!Number.isFinite(Date.parse(at)))return null;
+ const date=at.slice(0,10);
+ if(new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)return null;
  return new Date(Date.parse(at)+9*60*60*1000).toISOString().slice(0,23)+'+09:00';
 }
 export function timedMessage({role,content,at}){

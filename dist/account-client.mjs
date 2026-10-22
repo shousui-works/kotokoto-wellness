@@ -29,14 +29,15 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
   const original=local.getItem(ownerKey)?{getItem:key=>local.getItem('kotokoto-guest-v2:'+key),setItem:(key,v)=>local.setItem('kotokoto-guest-v2:'+key,v),removeItem:key=>local.removeItem('kotokoto-guest-v2:'+key)}:local;
   if(user){try{pending=JSON.parse(local.getItem(pendingKey(user.uid))??'null');}catch{pending=null;}}
   function notify(){render();for(const listener of listeners)listener();}
-  function install(next){if(!user)return;state=next;map=snapshotStorage(next);try{local.setItem(cacheKey(user.uid),JSON.stringify(next));}catch{}offline=false;locked=false;lastSync=new Date();notify();}
+  function install(next){if(!user||state&&next.revision<state.revision)return;state=next;map=snapshotStorage(next);try{local.setItem(cacheKey(user.uid),JSON.stringify(next));}catch{}offline=false;locked=false;lastSync=new Date();notify();}
   async function request(path,init={}){
     if(!user||locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     const identity=user.uid,identityUser=user,stamp=generation;
     const send=async refresh=>fetchImpl(path,{...init,headers:{...init.headers,Authorization:`Bearer ${await identityUser.getIdToken(refresh)}`},cache:'no-store',signal:AbortSignal.timeout(path==='/api/chat'?55000:30000)});
     let response=await send(false);if(response.status===401)response=await send(true);
-    if(generation!==stamp||user?.uid!==identity)throw Error('アカウントが変わったため、前の操作は表示していません。');
     const data=await response.json();
+    if(generation!==stamp||user?.uid!==identity)throw Error('アカウントが変わったため、前の操作は表示していません。');
+    if(locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     if(response.status===401){locked=true;state=null;map.clear();local.removeItem(cacheKey(identity));notify();}
     if(!response.ok){const error=Object.assign(new Error(data.error?.message??'保存できませんでした。入力は残しています。'),{status:response.status,code:data.error?.code,retryable:data.error?.retryable===true});throw error;}
     if(data.state)install(data.state);if(path==='/api/chat'&&user)local.removeItem('kotokoto-cloud-draft:'+user.uid);return data;
@@ -50,7 +51,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     if(pending&&JSON.stringify(pending.command)!==JSON.stringify(command))throw Error('未確認の保存があります。「アカウント」から確認してね。');
     if(!pending){pending={requestId:crypto.randomUUID(),revision:revision??state.revision,command};local.setItem(pendingKey(user.uid),JSON.stringify(pending));}
     notice='';busy=true;render();try{const result=await request('/api/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pending)});clearPending();return result;}
-    catch(error){if(error.status&&error.status<500){clearPending();await sync(true);}throw error;}finally{busy=false;notify();}
+    catch(error){if(error.status&&error.status<500&&error.status!==401){clearPending();await sync(true);}throw error;}finally{busy=false;notify();}
   }
   const storage={getItem:key=>{if(!user)return original.getItem(key);if(key===KEYS.voice){let voice={version:1};try{voice=JSON.parse(local.getItem('kotokoto-cloud-voice:'+user.uid)??'{"version":1}');}catch{}return JSON.stringify({...voice,enabled:state?.chatEnabled!==false});}return map.get(key)??null;},
     setItem(key,value){if(!user)return original.setItem(key,value);if(key===KEYS.voice){map.set(key,value);local.setItem('kotokoto-cloud-voice:'+user.uid,value);return;}throw Error('クラウドへの保存が完了していません。');},
@@ -86,7 +87,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     $('account-empty').addEventListener('click',async()=>{try{await mutate({type:'initialize',profile:namesDraft});location.reload();}catch(error){notice=error.message;render();}});
     $('account-import').addEventListener('click',async()=>{if(busy||!user)return;
       const idKey='kotokoto-import-request:'+user.uid;let id=local.getItem(idKey);if(!id){id=crypto.randomUUID();local.setItem(idKey,id);}
-      busy=true;render();try{await request('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:id,data:{...localImport(original),profile:namesDraft}})});local.setItem(ownerKey,user.uid);local.removeItem(idKey);location.reload();}catch(error){notice=error.message;render();}finally{busy=false;render();}
+      busy=true;render();try{await request('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:id,data:{...localImport(original),profile:namesDraft}})});local.setItem(ownerKey,user.uid);local.removeItem(idKey);location.reload();}catch(error){if(error.code==='request_conflict')local.removeItem(idKey);notice=error.message;render();}finally{busy=false;render();}
     });
     $('account-retry').addEventListener('click',async()=>{try{if(pending)await mutate(pending.command);else{locked=false;await sync();}}catch(error){notice=error.message;render();}});
     $('account-export').addEventListener('click',async()=>{try{const data=await request('/api/export'),blob=new Blob([JSON.stringify(data.state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='こつこつ日和-クラウド.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){notice=error.message;render();}});

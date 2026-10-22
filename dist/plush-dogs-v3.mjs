@@ -95,7 +95,7 @@ export const hundredDogAdditions=[
  [
   "deerhound",
   "ディアハウンド",
-  "SCOTTISH DEERHOUND",
+  "DEERHOUND",
   "大型",
   "粗毛",
   "イギリス",
@@ -329,7 +329,7 @@ export const hundredDogAdditions=[
  [
   "irish-setter",
   "アイリッシュ・セター",
-  "IRISH RED SETTER",
+  "IRISH SETTER",
   "大型",
   "長毛・赤褐色",
   "アイルランド",
@@ -433,7 +433,7 @@ export const hundredDogAdditions=[
  [
   "romagna-water-dog",
   "ロマーニャ・ウォーター・ドッグ",
-  "LAGOTTO ROMAGNOLO",
+  "ROMAGNA WATER DOG",
   "中型",
   "密な巻き毛・茶白",
   "イタリア",
