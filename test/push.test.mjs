@@ -117,3 +117,13 @@ test('missed windows are skipped; frequency changes cannot duplicate same-period
  f.setNow(row.nextAt);await f.push.dispatch();assert.equal(f.sent.length,1);const delivered=await f.store.get('alice',id);
  await f.push.handle('alice','PUT',{subscription:sub,frequency:1});assert.deepEqual((await f.store.get('alice',id)).sentPeriods,delivered.sentPeriods);
 });
+
+test('logout cannot race an in-flight notification registration',async()=>{
+ const f=settingsFixture(),original=f.options.account.fetch;let release,started;
+ const pending=new Promise(resolve=>release=resolve),entered=new Promise(resolve=>started=resolve);
+ f.options.account.fetch=async(path,init)=>{if(init.method==='PUT'){started();await pending;}return original(path,init);};
+ const ui=createPushSettings(f.options);await ui.ready;
+ const enabling=f.click('push-enable');await entered;
+ try{await assert.rejects(f.logout(),/通知の設定中/);}finally{release();await enabling;}
+ await f.logout();assert.equal(f.state.stored,false);assert.equal(f.state.subscribed,false);
+});

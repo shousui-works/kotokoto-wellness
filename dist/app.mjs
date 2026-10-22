@@ -1,4 +1,4 @@
-import {createPushSettings} from './push-settings.mjs?v=random-1';
+import {createPushSettings} from './push-settings.mjs?v=random-2';
 import {createShelfPosition} from './shelf-position.mjs?v=1';
 import {createPlushUI} from './plush-ui.mjs?v=daily-life-1';
 import {createAccountClient} from './account-client.mjs?v=push-1';

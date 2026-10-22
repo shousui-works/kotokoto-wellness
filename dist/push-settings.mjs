@@ -43,7 +43,7 @@ export function createPushSettings({account,root=document,nav=navigator,win=wind
   save.addEventListener('click',()=>run(async()=>{if(!subscription)throw Error('通知をオンにしてね。');await api('/api/push/subscription','PUT',{subscription:subscription.toJSON(),frequency:Number(frequency.value)});status.textContent='1日'+frequency.value+'回くらい、気まぐれに声をかけるね。';}));
   test.addEventListener('click',()=>run(async()=>{await api('/api/push/test','POST',{id:await endpointId(subscription.endpoint)});status.textContent='テスト通知を送ったよ。端末の通知を見てね。';}));
   $('settings-open')?.addEventListener('click',()=>refresh());
-  account.beforeLogout?.(async()=>{if(support==='supported'){registration??=await nav.serviceWorker.getRegistration('/');await stop({logout:true});}});
+  account.beforeLogout?.(async()=>{if(busy)throw Error('通知の設定中です。完了してからログアウトしてね。');busy=true;render();try{if(support==='supported'){registration??=await nav.serviceWorker.getRegistration('/');await stop({logout:true});}}finally{busy=false;render();}});
   account.subscribe?.(()=>{const uid=account.user?.uid??null;if(uid!==loadedUID){loadedUID=uid;enabled=false;publicKey=null;render();}});
   loadedUID=account.user?.uid??null;const ready=refresh();return {refresh,ready};
 }
