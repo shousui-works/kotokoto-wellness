@@ -38,7 +38,7 @@ export function createVoiceInput({input,Recognition=globalThis.SpeechRecognition
     }
     const value=input.value,start=input.selectionStart??value.length,end=input.selectionEnd??start;
     let rec;try{rec=new Recognition();}catch{emit('idle','音声入力を始められませんでした。キーボードのマイクから入力してね。');return;}
-    const s={rec,prefix:value.slice(0,start),suffix:value.slice(end),hasText:false,hasFinal:false,hasInterim:false,stopping:false};session=s;
+    const s={rec,original:value,start,end,prefix:value.slice(0,start),suffix:value.slice(end),hasText:false,hasFinal:false,hasInterim:false,stopping:false};session=s;
     rec.lang='ja-JP';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
     rec.onstart=()=>{if(session!==s||s.stopping)return;clearTimers(s);emit('listening','聞いているよ… 話し終わると送るよ');s.timer=schedule(stop,30000);};
     rec.onresult=event=>{
@@ -48,7 +48,9 @@ export function createVoiceInput({input,Recognition=globalThis.SpeechRecognition
         const result=event.results[i],text=result[0]?.transcript??'';transcript+=text;
         if(text.trim()){if(result.isFinal)s.hasFinal=true;else s.hasInterim=true;}
       }
-      if(!transcript.trim())return;
+      if(!transcript.trim()){
+        input.value=s.original;input.setSelectionRange?.(s.start,s.end);s.hasText=false;onInput();return;
+      }
       const max=input.maxLength>0?input.maxLength:600;
       const spoken=limitText(transcript,Math.max(0,max-s.prefix.length-s.suffix.length));
       input.value=s.prefix+spoken+s.suffix;input.setSelectionRange?.(s.prefix.length+spoken.length,s.prefix.length+spoken.length);s.hasText=Boolean(spoken);onInput();

@@ -39,7 +39,7 @@ test('daily life rewards are small, once per category per date, and never add ex
   const a=apply(progress,legacy,entries.map(([kind,evidence])=>action(kind,{evidence,title:evidence})),text);
   assert.equal(a.delta,9);assert.equal(dayReport(a.progress,today).kcal,0);assert.equal(dayReport(a.progress,today).exercise,0);
   assert.deepEqual(a.receipts.map(r=>r.delta).sort(),[1,1,1,2,2,2]);
-  const b=apply(a.progress,legacy,[action('housework',{evidence:'掃除もした',additional:true})],'掃除もした');assert.equal(b.delta,0);
+  const b=apply(a.progress,legacy,[action('housework',{evidence:'掃除もした',additional:true})],'掃除もした');assert.equal(b.delta,0);assert.equal(b.progress.activities.filter(x=>x.kind==='housework').length,2);
   const c=apply(b.progress,legacy,[action('challenge',{evidence:'掃除もした'})],'掃除もした');assert.equal(c.delta,0);assert.equal(c.progress.activities.filter(x=>x.kind==='challenge').length,1);
   const d=apply(c.progress,legacy,[action('housework',{date:'2026-10-17',evidence:'昨日も洗濯した'})],'昨日も洗濯した');assert.equal(d.delta,1);
   const retry=applyInterpretation(d.progress,{requestId:d.progress.processed.at(-1),actions:[],text:'昨日も洗濯した'},legacy);assert.equal(retry.delta,0);assert.equal(retry.replayed,true);
@@ -73,7 +73,7 @@ test('missing inputs stay pending, then one activity receives the Luna estimate 
   assert.equal(result.delta,0);assert.match(result.reply,/どのくらいの時間/);
   const id=result.progress.activities[0].id;
   result=apply(result.progress,legacy,[action('walk',{operation:'update',targetId:id,minutes:20,evidence:'20分'})],'20分');
-  assert.equal(result.progress.activities.length,1);assert.match(result.reply,/体重/);
+  assert.equal(result.progress.activities.length,1);assert.match(result.reply,/体重/);assert.doesNotMatch(result.reply,/計算|推定|記録|保存/);
   result=apply(result.progress,legacy,[action('walk',{operation:'update',targetId:id,weightKg:60,estimatedKcal:80,estimateBasis:'体重60kg・20分の通常の歩行を前提とした目安',evidence:'60kg'})],'60kg');
   assert.equal(result.progress.activities.length,1);
   assert.equal(dayReport(result.progress,today).kcal,80);
@@ -91,6 +91,7 @@ test('the app does not invent calories even with enough inputs; unknown informat
   assert.equal(dayReport(a.progress,today).kcal,0);
   assert.deepEqual(a.progress.activities[0].needs,['kcal']);
   assert.doesNotMatch(a.reply,/体重/);
+  assert.doesNotMatch(a.reply,/計算|推定|記録|保存|ぼくが考える/);
   const b=apply(a.progress,legacy,[action('walk')]);
   const id=b.progress.activities.at(-1).id;
   const c=apply(b.progress,legacy,[action('walk',{operation:'update',targetId:id,evidence:'わからない'})],'わからない');
@@ -237,4 +238,21 @@ test('unknown consumption and an explicit zero are distinct without inventing ca
  const {legacy,progress}=start();assert.equal(calorieSummary(progress).exerciseCount,0);
  const unknown=apply(progress,legacy,[action('exercise')]);assert.equal(calorieSummary(unknown.progress).pending,1);assert.equal(calorieSummary(unknown.progress).recorded,0);
  const zero=apply(progress,legacy,[action('exercise',{kcal:0})]);assert.equal(calorieSummary(zero.progress).recorded,1);assert.equal(calorieSummary(zero.progress).pending,0);
+});
+
+test('legacy meal categories require confirmation before a manual eating-habit reward',()=>{
+  const {legacy,progress}=start();
+  for(const evidence of ['ゆっくり食べた','自炊した']){
+    const old=apply(progress,legacy,[action('meal_care',{evidence})],evidence).progress;
+    delete old.activities[0].pointVersion;
+    const marked=recordManual(old,{id:'meal',kind:'eating_habit',date:today,today,title:'食事をゆっくり楽しんだ'},legacy,at);
+    assert.equal(marked.delta,0);assert.equal(progressTotal(marked.progress),10);
+    const pending=marked.progress.activities.at(-1);
+    assert.equal(pending.hold,'duplicate');assert.deepEqual(pending.needs,['duplicate']);
+    const repeated=apply(marked.progress,legacy,[action('eating_habit',{operation:'repeat',targetId:pending.id,evidence:'同じ分だよ'})],'同じ分だよ');
+    assert.equal(repeated.delta,0);assert.equal(progressTotal(repeated.progress),10);
+    const separate=apply(marked.progress,legacy,[action('eating_habit',{operation:'update',targetId:pending.id,additional:true,evidence:'追加だよ'})],'追加だよ');
+    assert.equal(separate.delta,1);assert.equal(progressTotal(separate.progress),11);
+    assert.equal(separate.progress.activities[0].pointVersion,1);
+  }
 });

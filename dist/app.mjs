@@ -7,14 +7,14 @@ const storage=account.storage;
 import {createRoomMotion} from './companion-motion.mjs?v=stroke-pet-1';
 import {bindCompanionPetting} from './companion-petting.mjs?v=1';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
-import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=idle-1';
+import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=idle-4';
 import {createKomugiConversation} from './komugi-conversation.mjs?v=voice-auto-send-1';
 import {createProgressUI} from './progress-ui.mjs?v=daily-life-1';
 import {createRoomViewport} from './room-viewport.mjs?v=name-intro-1';
 import {PROFILE_STORAGE,loadProfile,saveProfile,addressCompanionLine,createPetNameLabels} from './profile.mjs?v=names-2';
 import {createNameIntro} from './name-intro.mjs?v=name-intro-1';
-import {createIdleSpeech} from './companion-lines.mjs?v=idle-1';
-import {createCompanionAffection} from './companion-affection.mjs?v=hearts-1';
+import {createIdleSpeech} from './companion-lines.mjs?v=idle-2';
+import {createCompanionAffection} from './companion-affection.mjs?v=hearts-3';
 import {createCompanionFaces} from './companion-face.mjs?v=face-1';
 const updatePetLabels=createPetNameLabels();
 let profile={version:1,nickname:'',petName:'こむぎ'};
@@ -22,7 +22,7 @@ const petName=()=>profile.petName||'こむぎ';
 const petText=text=>text.replaceAll('こむぎ',()=>petName());
 function readProfile(){try{profile=loadProfile(storage);}catch{profile={version:1,nickname:''};$('nickname-status').textContent='保存した名前を読み込めませんでした。元のデータは上書きしません。';}return profile;}
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals as baseTotals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor as baseAffectionFor,companionFeeling as baseCompanionFeeling,petCompanion} from './model.mjs?v=report-1';
-let plushUI,roomMotion,roomFaces,roomAffection,companionChat,conversation,progress,nameIntro,activeNamePrompt=false,activeConversation=null,activeListening=false,activeChat=null,activePraise=null,praiseTimer;
+let plushUI,roomMotion,roomFaces,roomAffection,companionChat,conversation,progress,nameIntro,activeNamePrompt=false,activeConversation=null,activeListening=false,activeChat=null,activePraise=null,praiseTimer,speechConversation=null,speechPage=-1;
 const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let state=emptyState(),loadFailed=false;try{const raw=storage.getItem(STORAGE);if(raw!==null){const parsed=JSON.parse(raw);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);}}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='保存済みのきろくを読み込めませんでした。元のデータは上書きしません。ブラウザの設定をご確認ください。';}let currentTab='room',lastDate=dateKey(),toastTimer;const today=()=>state.days[dateKey()]||{habits:[]};const dayForEdit=()=>state.days[dateKey()]??={habits:[]};
 const totals=s=>{const t=baseTotals(s),xp=progress?.companion.xp??t.xp;return {...t,xp,level:Math.floor(xp/40)+1,progress:xp%40};};
 const affectionFor=s=>baseAffectionFor(s,progress?.companion);
@@ -74,7 +74,9 @@ function renderCompanionSpeech(feeling=companionFeeling(state)){
     bubble.title=hint.textContent;bubble.removeAttribute('aria-haspopup');bubble.removeAttribute('aria-controls');bubble.removeAttribute('aria-expanded');
   }else{bubble.title=petName()+'のようすを見る';bubble.setAttribute('aria-haspopup','dialog');bubble.setAttribute('aria-controls','room-sheet');bubble.setAttribute('aria-expanded',String(currentTab==='companion'));}
   if(activeNamePrompt&&!activeConversation){bubble.title='呼ばれたい名前を教える';bubble.removeAttribute('aria-haspopup');bubble.removeAttribute('aria-expanded');bubble.setAttribute('aria-controls','name-intro-form');}
-  if(changed){if(speech&&!activeListening)roomAffection?.speak(affectionFor(state).score);if(activeConversation||activeNamePrompt)roomFaces?.speak(message);bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
+  const pageChanged=activeConversation&&(activeConversation!==speechConversation||activeConversation.index!==speechPage);
+  speechConversation=activeConversation;speechPage=activeConversation?.index??-1;
+  if(changed||pageChanged){if(speech&&!activeListening)roomAffection?.speak(affectionFor(state).score);if(activeConversation||activeNamePrompt)roomFaces?.speak(message);bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
 }
 function showCompanionPraise(text){
   companionChat.interrupt();clearTimeout(praiseTimer);
@@ -121,7 +123,7 @@ function previewReaction(id){
 }
 function renderMemory(){const memory=account.state?.memory;$('memory-details').hidden=!account.user||!account.state?.initialized;$('owner-memory').textContent=memory?.summary||'まだ記憶はありません。';$('memory-through').textContent=memory?.throughDate?memory.throughDate+'までのおはなしを覚えています。':'日付が変わった後の最初の会話で、前日までのおはなしをまとめます。';}
 $('memory-reset').addEventListener('click',async()=>{if(!confirm('会話から覚えたことをリセットしますか？ 過去のおはなしから自動で覚え直すことはありません。行動の記録は残ります。'))return;if(await cloudSave({type:'reset_memory'}))toast('覚えていたことをリセットしたよ。');});
-function render(){plushUI?.render();renderMemory();updatePetLabels(petName());const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));progress?.render();roomMotion?.refresh();}
+function render(){conversation?.refreshPetName();plushUI?.render();renderMemory();updatePetLabels(petName());const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));progress?.render();roomMotion?.refresh();}
 const PANEL_TITLES={plush:['LITTLE FRIENDS','ぬいぐるみ'],today:['LITTLE THINGS COUNT','今日のえらい'],decorate:['MAKE A LITTLE HOME','おへやのもようがえ'],records:['YOUR OWN RHYTHM','わたしのきろく'],companion:['MY LITTLE PARTNER','こむぎのようす']};
 function syncPanelButtons(){document.querySelectorAll('[data-tab]').forEach(button=>button.setAttribute('aria-expanded',String($('room-sheet').open&&button.dataset.tab===currentTab)));}
 function switchTab(tab,updateHash=true){
@@ -157,7 +159,7 @@ roomTools.addEventListener('keydown',event=>{if(event.key==='Escape'){roomTools.
 companionChat=createCompanionChat({storage,getState:()=>state,canSpeak:()=>!activeNamePrompt&&!activeConversation&&!conversation?.isInteracting&&!roomTools.open&&!document.hidden&&!document.querySelector('dialog[open]'),onMessage:message=>{activeChat=message;renderCompanionSpeech();}});
 $('companion-chat-toggle').checked=companionChat.enabled;
 $('companion-chat-toggle').addEventListener('change',async event=>{if(account.enabled&&account.user){if(!await cloudSave({type:'chat_setting',enabled:event.target.checked})){event.target.checked=account.state?.chatEnabled!==false;return;}}companionChat.setEnabled(event.target.checked);});
-const chatDialogObserver=new MutationObserver(()=>companionChat.refresh());
+const chatDialogObserver=new MutationObserver(()=>{if(document.querySelector('dialog[open]'))roomAffection?.clear();companionChat.refresh();});
 document.querySelectorAll('dialog').forEach(dialog=>chatDialogObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
 const liveDog=$('scene-home').querySelector('[data-companion]');
 liveDog.removeAttribute('aria-hidden');
@@ -217,7 +219,7 @@ $('nickname-form').addEventListener('submit',async event=>{
   catch(error){$('nickname-status').textContent=['QuotaExceededError','SecurityError'].includes(error.name)?'このブラウザに名前を保存できませんでした。':error.message;}
 });
 readProfile();
-window.addEventListener('storage',event=>{if(event.key===PROFILE_STORAGE||event.key===null){readProfile();if(profile.nickname)nameIntro?.refresh();else nameIntro?.show();renderCompanionSpeech();}});
+window.addEventListener('storage',event=>{if(event.key===PROFILE_STORAGE||event.key===null){readProfile();conversation?.refreshPetName();if(profile.nickname)nameIntro?.refresh();else nameIntro?.show();renderCompanionSpeech();}});
 $('export-data').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({...state,profile:readProfile(),progress:progress?.exportData()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`こつこつ日和-${dateKey()}.json`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('きろくのバックアップを保存したよ。');});
 function refreshDate(){if(lastDate!==dateKey()){lastDate=dateKey();render();}else{renderCompanionFeeling();}companionChat.refresh();}window.addEventListener('focus',refreshDate);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDate();else companionChat.refresh();});setInterval(refreshDate,30000);
 window.addEventListener('storage',event=>{if(event.key===CHAT_STORAGE||event.key===null){companionChat.sync();$('companion-chat-toggle').checked=companionChat.enabled;}});
@@ -227,7 +229,7 @@ createShelfPosition({shelf:$('plush-shelf'),scene:$('scene-home'),backdrop:$('sc
 progress=createProgressUI({storage,account,getState:()=>state,onChange:()=>render(),onContinue:activity=>{switchTab('room');conversation?.focus(activity.title);},onError:message=>toast(message)});
 conversation=createKomugiConversation({root:$('talk'),storage,fetchImpl:account.fetch,cloud:account.enabled&&!!account.user,getPetName:petName,pendingStore:account.pendingConversation,onClearHistory:()=>account.clearHistory?.(),getContext:()=>({date:dateKey(),hour:new Date().getHours(),stage:growthForXP(totals(state).xp).stage.id,nickname:readProfile().nickname,petName:petName(),...progress.context()}),onReply:showConversationReply,onSend:approachForConversation,onFailure:clearConversationSpeech,onResult:(result,text,context)=>account.enabled&&account.user?({reply:result.reply,receipts:result.receipts??[]}):progress.handleReport(result,text,context),onInteraction:active=>{if(active)companionChat.interrupt();else companionChat.refresh();},onClearTarget:()=>progress.clearTarget()});
 new ResizeObserver(()=>roomMotion.refresh()).observe($('room-console'));
-nameIntro=createNameIntro({form:$('name-intro-form'),chatForm:$('conversation-form'),input:$('name-intro-value'),later:$('name-intro-later'),status:$('name-intro-status'),getNickname:()=>readProfile().nickname,saveNickname:name=>account.enabled&&account.user?account.command({type:'profile',nickname:name}).then(()=>{profile=readProfile();}):(()=>{profile=saveProfile(storage,name);})(),onPrompt:()=>{activeNamePrompt=true;companionChat.interrupt();roomMotion.approachConversation();renderCompanionSpeech();},onComplete:name=>{activeNamePrompt=false;Promise.resolve(approachForConversation()).then(()=>showConversationReply(`${name}って呼ぶね。教えてくれてうれしいな。これからよろしくね！`));},onCancel:()=>{activeNamePrompt=false;roomMotion.setSpeaking(false);renderCompanionSpeech();companionChat.refresh();}});
+nameIntro=createNameIntro({form:$('name-intro-form'),chatForm:$('conversation-form'),input:$('name-intro-value'),later:$('name-intro-later'),status:$('name-intro-status'),getNickname:()=>readProfile().nickname,saveNickname:name=>account.enabled&&account.user?account.command({type:'profile',nickname:name}).then(()=>{profile=readProfile();}):(()=>{profile=saveProfile(storage,name);})(),onPrompt:()=>{activeNamePrompt=true;companionChat.interrupt();roomMotion.approachConversation();renderCompanionSpeech();},onComplete:name=>{activeNamePrompt=false;Promise.resolve(approachForConversation()).then(()=>showConversationReply(`${name}って呼ぶね。教えてくれてうれしいな。これからよろしくね！`));},onCancel:()=>{activeNamePrompt=false;roomMotion.setSpeaking(false);roomAffection?.clear();renderCompanionSpeech();companionChat.refresh();}});
 createRoomViewport({input:$('conversation-input'),extraInputs:[$('name-intro-value')],onChange:({height})=>{
   if(height<=600&&activeConversation&&Array.from(activeConversation.text).length>60){
     const {pages,index}=activeConversation;

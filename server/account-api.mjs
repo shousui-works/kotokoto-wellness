@@ -145,6 +145,8 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
             state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
             outcome={status:200,body:{requestId:raw.requestId,reply:applied.reply,receipts:applied.receipts,actions:[],...packet(state)}};
           }
+          // Only a finalized failure permits a new user-initiated attempt; unknown storage outcomes keep the old ID.
+          if(outcome.status>=500&&outcome.body.error)outcome={...outcome,body:{...outcome.body,error:{...outcome.body.error,retryable:true}}};
           const {state:ignored,...storedResult}=outcome.body;
           return {state,appendMessages,usage,operation:{...op,status:'complete',httpStatus:outcome.status,result:storedResult},value:outcome};
         },{quota:true,now:now()});send(res,result.status,result.body);return true;
