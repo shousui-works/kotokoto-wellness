@@ -56,3 +56,14 @@ test('startup, listening, and stop timeouts are bounded and clear all timers',()
 test('destroying capture detaches callbacks and retains recognized text',()=>{
   const f=fixture();f.voice.start();const rec=f.instances[0];rec.onstart();rec.onresult(f.result('こんにちは'));f.voice.destroy();assert.equal(rec.onresult,null);assert.equal(f.input.value,'こんにちは');assert.equal(f.timers.size,0);assert.equal(f.voice.notice,'');
 });
+test('withdrawn interim results restore the original draft and selected text',()=>{
+  const f=fixture({input:{value:'今日は散歩したよ。',selectionStart:3,selectionEnd:7}});
+  f.voice.start();const rec=f.instances[0];rec.onstart();rec.onresult(f.result('洗濯した'));
+  assert.equal(f.input.value,'今日は洗濯したよ。');
+  rec.onresult(f.result());
+  assert.equal(f.input.value,'今日は散歩したよ。');
+  assert.equal(f.input.selectionStart,3);assert.equal(f.input.selectionEnd,7);
+  rec.onresult(f.result('片付けた'));assert.equal(f.input.value,'今日は片付けたよ。');
+  rec.onresult(f.result('   '));assert.equal(f.input.value,'今日は散歩したよ。');
+  rec.onend();assert.match(f.voice.notice,/聞き取れなかった/);
+});
