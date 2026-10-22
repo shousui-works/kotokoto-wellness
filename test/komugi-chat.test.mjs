@@ -160,6 +160,14 @@ test('plans, negations, others and extreme restriction do not become achievement
   }
 });
 
+test('eating habit candidates retain the existing extreme restriction filter',()=>{
+  for(const text of ['食事を抜くように食べ方を工夫した','何も食べずに過ごした','断食した']){
+    const input=validateChatRequest(payload(text)),a={operation:'create',targetId:null,kind:'eating_habit',date:'2026-10-18',title:'報告',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'きみのペースで大丈夫。',actions:[a]})}]}]};
+    assert.deepEqual(extractReport(output,input).actions,[]);
+  }
+});
+
 test('unreported measurements are withheld but Luna calorie estimates are accepted separately with a basis',()=>{
   const a={operation:'create',targetId:null,kind:'walk',date:'2026-10-18',title:'散歩',evidence:'歩いた',minutes:20,kcal:100,weightKg:60,detail:null,additional:false};
   const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'歩いてきたんだね。',actions:[a]})}]}]};
