@@ -180,6 +180,15 @@ test('restriction in candidate title or detail is excluded without discarding a 
   }
 });
 
+test('meal skipping is excluded while explicitly not skipping is retained',()=>{
+  for(const [text,count] of [['朝食を抜いた',0],['昼食を抜いた',0],['夕食を抜いた',0],['食事を抜かずに朝食を食べた',1],['朝食を抜かないで食べた',1],['昼食を抜かなかった',1],['朝食を抜かずに食べたが夕食を抜いた',0]]){
+    const input=validateChatRequest(payload(text));
+    const a={operation:'create',targetId:null,kind:'eating_habit',date:'2026-10-18',title:'食べ方',evidence:text,minutes:null,kcal:null,weightKg:null,detail:null,additional:false};
+    const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions:[a]})}]}]};
+    assert.equal(extractReport(output,input).actions.length,count,text);
+  }
+});
+
 test('unreported measurements are withheld but Luna calorie estimates are accepted separately with a basis',()=>{
   const a={operation:'create',targetId:null,kind:'walk',date:'2026-10-18',title:'散歩',evidence:'歩いた',minutes:20,kcal:100,weightKg:60,detail:null,additional:false};
   const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'歩いてきたんだね。',actions:[a]})}]}]};
