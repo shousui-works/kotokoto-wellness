@@ -8,8 +8,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
-COPY --chown=node:node server/ ./server/
-COPY --chown=node:node dist/ ./dist/
+COPY server/ ./server/
+COPY dist/ ./dist/
 
 USER node
 EXPOSE 8080

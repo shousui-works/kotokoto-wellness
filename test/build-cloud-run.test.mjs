@@ -9,6 +9,8 @@ test('build explicitly targets the project, dedicated identity and staging bucke
   assert.ok(plan.args.includes('projects/example-project/serviceAccounts/kotokoto-biyori-build@example-project.iam.gserviceaccount.com'));
   assert.ok(plan.args.includes('gs://example-project-kotokoto-biyori-builds/source'));
   assert.equal(plan.args.includes('deploy'), false);
+  assert.ok(plan.args.includes('--format=json'));
+  assert.ok(plan.args.includes('--suppress-logs'));
 });
 
 test('requires a project and rejects unexpected CLI input before calling gcloud', () => {
