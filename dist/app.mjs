@@ -7,7 +7,7 @@ import {createRoomMotion} from './companion-motion.mjs?v=stroke-pet-1';
 import {bindCompanionPetting} from './companion-petting.mjs?v=1';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
 import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=idle-4';
-import {createKomugiConversation} from './komugi-conversation.mjs?v=send-key-1';
+import {createKomugiConversation} from './komugi-conversation.mjs?v=pet-status-name-1';
 import {createProgressUI} from './progress-ui.mjs?v=daily-life-1';
 import {createRoomViewport} from './room-viewport.mjs?v=name-intro-1';
 import {PROFILE_STORAGE,loadProfile,saveProfile,addressCompanionLine,createPetNameLabels} from './profile.mjs?v=names-2';
@@ -122,7 +122,7 @@ function previewReaction(id){
 }
 function renderMemory(){const memory=account.state?.memory;$('memory-details').hidden=!account.user||!account.state?.initialized;$('owner-memory').textContent=memory?.summary||'まだ記憶はありません。';$('memory-through').textContent=memory?.throughDate?memory.throughDate+'までのおはなしを覚えています。':'日付が変わった後の最初の会話で、前日までのおはなしをまとめます。';}
 $('memory-reset').addEventListener('click',async()=>{if(!confirm('会話から覚えたことをリセットしますか？ 過去のおはなしから自動で覚え直すことはありません。行動の記録は残ります。'))return;if(await cloudSave({type:'reset_memory'}))toast('覚えていたことをリセットしたよ。');});
-function render(){plushUI?.render();renderMemory();updatePetLabels(petName());const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));progress?.render();roomMotion?.refresh();}
+function render(){conversation?.refreshPetName();plushUI?.render();renderMemory();updatePetLabels(petName());const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));progress?.render();roomMotion?.refresh();}
 const PANEL_TITLES={plush:['LITTLE FRIENDS','ぬいぐるみ'],today:['LITTLE THINGS COUNT','今日のえらい'],decorate:['MAKE A LITTLE HOME','おへやのもようがえ'],records:['YOUR OWN RHYTHM','わたしのきろく'],companion:['MY LITTLE PARTNER','こむぎのようす']};
 function syncPanelButtons(){document.querySelectorAll('[data-tab]').forEach(button=>button.setAttribute('aria-expanded',String($('room-sheet').open&&button.dataset.tab===currentTab)));}
 function switchTab(tab,updateHash=true){
@@ -218,7 +218,7 @@ $('nickname-form').addEventListener('submit',async event=>{
   catch(error){$('nickname-status').textContent=['QuotaExceededError','SecurityError'].includes(error.name)?'このブラウザに名前を保存できませんでした。':error.message;}
 });
 readProfile();
-window.addEventListener('storage',event=>{if(event.key===PROFILE_STORAGE||event.key===null){readProfile();if(profile.nickname)nameIntro?.refresh();else nameIntro?.show();renderCompanionSpeech();}});
+window.addEventListener('storage',event=>{if(event.key===PROFILE_STORAGE||event.key===null){readProfile();conversation?.refreshPetName();if(profile.nickname)nameIntro?.refresh();else nameIntro?.show();renderCompanionSpeech();}});
 $('export-data').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({...state,profile:readProfile(),progress:progress?.exportData()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`こつこつ日和-${dateKey()}.json`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('きろくのバックアップを保存したよ。');});
 function refreshDate(){if(lastDate!==dateKey()){lastDate=dateKey();render();}else{renderCompanionFeeling();}companionChat.refresh();}window.addEventListener('focus',refreshDate);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDate();else companionChat.refresh();});setInterval(refreshDate,30000);
 window.addEventListener('storage',event=>{if(event.key===CHAT_STORAGE||event.key===null){companionChat.sync();$('companion-chat-toggle').checked=companionChat.enabled;}});
