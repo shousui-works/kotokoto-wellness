@@ -41,8 +41,8 @@ test('daily life conversation and mood recording share server-side once-daily bo
  const kinds=[['housework','洗濯した'],['eating_habit','小皿に分けた'],['mood_log','気分を日記に書いた'],['challenge','後回しの連絡を返した']];
  const f=fixture({actions:kinds.map(([kind,evidence])=>({operation:'create',targetId:null,kind,date:'2026-10-19',title:evidence,evidence,minutes:null,kcal:null,weightKg:null,detail:null,additional:false,estimatedKcal:null,estimateBasis:null}))});await f.initialize();
  const input={requestId:randomUUID(),text:kinds.map(([,s])=>s).join('。'),points:999};
- const one=await f.request('/api/chat','POST',input);assert.equal(one.status,200);assert.equal(one.body.receipts.reduce((n,r)=>n+r.delta,0),5);
- assert.ok(one.body.state.progress.activities.every(a=>a.pointVersion===2));
+ const one=await f.request('/api/chat','POST',input);assert.equal(one.status,200);assert.equal(one.body.receipts.reduce((n,r)=>n+r.delta,0),25);
+ assert.ok(one.body.state.progress.activities.every(a=>a.pointVersion===3));
  const again=await f.request('/api/chat','POST',input);assert.equal(f.calls,1);assert.equal(again.body.state.progress.activities.length,4);
  const mood=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:one.body.state.revision,command:{type:'mood',mood:'good'}});assert.equal(mood.status,200);assert.equal(mood.body.state.progress.activities.filter(a=>a.kind==='mood_log').length,1);
  assert.equal(mood.body.state.legacy.days['2026-10-19'].mood,'good');
