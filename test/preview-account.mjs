@@ -30,4 +30,4 @@ const server=createAppServer({accountHandler:async(req,res,path)=>{
  if(path==='/fixture-sdk.mjs'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(sdk);return true;}
  if(path==='/account-client.mjs'){let text=await readFile(new URL('../dist/account-client.mjs',import.meta.url),'utf8');text=text.replaceAll('https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js','/fixture-sdk.mjs').replaceAll('https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js','/fixture-sdk.mjs');res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'});res.end(text);return true;}
  return api(req,res,path);
-}});const port=Number(process.env.PORT??8083);server.listen(port,'127.0.0.1',()=>console.log('Offline account fixture on 127.0.0.1:'+port));
+}});const port=Number(process.env.PORT??8083);server.listen(port,'127.0.0.1',()=>console.log('Offline account fixture on 127.0.0.1:'+server.address().port));

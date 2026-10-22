@@ -2,9 +2,10 @@
 import {readFile} from 'node:fs/promises';import {randomUUID} from 'node:crypto';import {createAppServer} from '../server/index.mjs';import {MemoryAccountStore} from '../server/account-store.mjs';import {emptyAccount} from '../server/account-model.mjs';import {createAccountAPI} from '../server/account-api.mjs';import {dateKey,recentDays} from '../dist/model.mjs';import {recordManual,applyInterpretation} from '../dist/progress.mjs';import {applyPlush} from '../server/plush-gacha.mjs';import {PLUSH_CATALOG,SHELF_SLOTS} from '../dist/plush-catalog.mjs';
 const store=new MemoryAccountStore();let state={...emptyAccount(),initialized:true,datasetId:'fixture',revision:1,profile:{version:1,nickname:'そら',petName:'こむぎ',namesConfigured:true}};
 for(const month of ['07','08','09'])for(let i=1;i<=30;i++)for(const kind of ['rest','stretch'])state.progress=recordManual(state.progress,{id:`2026-${month}-${String(i).padStart(2,'0')}:${kind}`,kind,date:`2026-${month}-${String(i).padStart(2,'0')}`,title:'架空のテスト記録'},state.legacy,'2026-10-19T00:00:00Z').progress;
-for(const item of PLUSH_CATALOG.slice(0,30))state=applyPlush(state,{type:'plush_draw'},{id:randomUUID(),candidate:item.id}).state;
+// Leave the last breed unowned so the exchange flow can be previewed.
+for(const item of PLUSH_CATALOG.slice(0,30)){state=applyPlush(state,{type:'plush_draw'},{id:randomUUID(),candidate:item.id}).state;state=applyPlush(state,{type:'plush_seen',id:state.collection.lastResult.requestId}).state;}
 // The remaining ownership is synthetic fixture data; no real points or account are involved.
-for(const item of PLUSH_CATALOG.slice(30))state.collection.owned[item.id]={count:1,firstAt:'2026-10-20T00:00:00Z'};
+for(const item of PLUSH_CATALOG.slice(30,-1))state.collection.owned[item.id]={count:1,firstAt:'2026-10-20T00:00:00Z'};
 for(let i=0;i<SHELF_SLOTS.length;i++)state=applyPlush(state,{type:'plush_display',slot:SHELF_SLOTS[i],item:PLUSH_CATALOG[i+30].id}).state;
 state.collection.buttons=5;state.collection.seenResult=state.collection.lastResult.requestId;if(process.argv.includes('--calories')){
  for(const [i,date] of recentDays(14).entries()){

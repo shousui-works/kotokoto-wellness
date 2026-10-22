@@ -5,6 +5,8 @@ import {mkdtemp, mkdir, rm, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createAppServer} from '../server/index.mjs';
+import {spawnSync} from 'node:child_process';
+import {createFirebaseRuntime} from '../server/firebase-runtime.mjs';
 
 let server, directory, port;
 
@@ -89,4 +91,46 @@ test('blocks traversal, hidden files, malformed URLs and symlinks outside dist',
   for (const path of ['/bad%00file', '/bad%zz', '/%5cprivate.txt']) {
     assert.equal((await request(path)).status, 400, path);
   }
+});
+
+
+test('handler failures return a generic error or close a partial response, without terminating the server',()=>{
+ const script=`
+  import assert from 'node:assert/strict';
+  import {createAppServer} from ${JSON.stringify(new URL('../server/index.mjs',import.meta.url).href)};
+  const logs=[];console.error=(...args)=>logs.push(args.join(' '));
+  for(const which of ['accountHandler','chatHandler'])for(const mode of ['throw','reject','partial']){
+   const handler=(req,res,path)=>{
+    if(path!=='/failure')return false;
+    if(mode==='partial'){res.writeHead(200);res.write('partial');return Promise.reject(Error('private synthetic content'));}
+    if(mode==='reject')return Promise.reject(Error('private synthetic content'));
+    throw Error('private synthetic content');
+   };
+   const server=createAppServer({[which]:handler});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+   const url='http://127.0.0.1:'+server.address().port;
+   try{
+    if(mode==='partial')await assert.rejects(async()=>{const response=await fetch(url+'/failure');await response.text();});
+    else{const response=await fetch(url+'/failure');assert.equal(response.status,500);assert.equal(await response.text(),'Internal server error\\n');}
+    assert.equal((await fetch(url+'/healthz')).status,200);
+   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+  }
+  assert.equal(logs.length,6);assert.ok(logs.every(line=>!line.includes('private synthetic content')));
+ `;
+ const child=spawnSync(process.execPath,['--input-type=module','-e',script],{encoding:'utf8',timeout:15000});
+ assert.equal(child.status,0,child.stderr||child.error?.message);
+});
+
+test('default startup and legacy mode cannot spend AI usage without authentication',async t=>{
+ const originalKey=process.env.OPENAI_API_KEY,originalFetch=globalThis.fetch;let calls=0;
+ process.env.OPENAI_API_KEY='synthetic-never-send';globalThis.fetch=async()=>{calls++;throw Error('External requests are forbidden in this test');};
+ t.after(()=>{globalThis.fetch=originalFetch;if(originalKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=originalKey;});
+ for(const accountHandler of [null,await createFirebaseRuntime({ACCOUNT_MODE:'legacy'})]){
+  const app=createAppServer({accountHandler});await new Promise(resolve=>app.listen(0,'127.0.0.1',resolve));
+  try{
+   const url='http://127.0.0.1:'+app.address().port;
+   const session=await originalFetch(url+'/api/chat/session');assert.equal(session.status,404);assert.equal(session.headers.get('set-cookie'),null);
+   const response=await originalFetch(url+'/api/chat',{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({text:'synthetic'})});assert.ok(response.status>=400);assert.equal(calls,0);
+   assert.equal((await originalFetch(url+'/healthz')).status,200);
+  }finally{app.closeAllConnections();await new Promise(resolve=>app.close(resolve));}
+ }
 });
