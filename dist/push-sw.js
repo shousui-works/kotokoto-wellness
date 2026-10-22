@@ -13,6 +13,6 @@ self.addEventListener('notificationclick',event=>{
     const url=new URL('/#room',self.location.origin).href;
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     const existing=windows.find(client=>new URL(client.url).origin===self.location.origin);
-    if(existing){await existing.navigate(url);await existing.focus();}else await self.clients.openWindow(url);
+    if(existing){try{await existing.navigate(url);}catch{await self.clients.openWindow(url);return;}await existing.focus();}else await self.clients.openWindow(url);
   })());
 });

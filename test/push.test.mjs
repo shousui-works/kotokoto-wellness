@@ -127,3 +127,27 @@ test('logout cannot race an in-flight notification registration',async()=>{
  try{await assert.rejects(f.logout(),/通知の設定中/);}finally{release();await enabling;}
  await f.logout();assert.equal(f.state.stored,false);assert.equal(f.state.subscribed,false);
 });
+
+test('notification click opens room when an existing client cannot navigate',async()=>{
+ const handlers={},opened=[];let focused=false,done;
+ const self={location:{origin:'https://app.test'},addEventListener:(type,fn)=>handlers[type]=fn,clients:{matchAll:async()=>[{url:'https://app.test/',navigate:async()=>{throw TypeError('uncontrolled');},focus:async()=>{focused=true;}}],openWindow:async url=>opened.push(url)}};
+ vm.runInNewContext(await readFile(new URL('../dist/push-sw.js',import.meta.url),'utf8'),{self,URL});
+ handlers.notificationclick({notification:{close(){}},waitUntil:p=>done=p});await done;
+ assert.deepEqual(opened,['https://app.test/#room']);assert.equal(focused,false);
+});
+test('dispatch continues after one claim fails',async()=>{
+ const f=fixture();await f.push.handle('alice','PUT',{subscription:sub,frequency:2});
+ const id=subscriptionId(sub.endpoint),at=(await f.store.get('alice',id)).nextAt;let listed=false;
+ const store={due:async()=>{if(listed)return [];listed=true;return [{id:'broken'},{id}];},claim:async(key,time)=>{if(key==='broken')throw Error('transaction failed');return f.store.claim(key,time);},petName:uid=>f.store.petName(uid)};
+ const push=createPushService({store,publicKey:'key',now:()=>at,send:async()=>{}});
+ assert.deepEqual(await push.dispatch(),{sent:1,failed:1,expired:0,removed:0});
+});
+test('delivery diagnostics contain only a bounded numeric HTTP status',async t=>{
+ const f=fixture();await f.push.handle('alice','PUT',{subscription:sub,frequency:2});const id=subscriptionId(sub.endpoint),logs=[];
+ t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
+ for(const statusCode of [403,'private endpoint']){
+ const push=createPushService({store:f.store,publicKey:'key',now:()=>now+logs.length*61000,send:async()=>{throw {statusCode,body:'private body',endpoint:sub.endpoint};}});
+ await assert.rejects(push.handle('alice','POST',{id}),e=>e.status===503);
+ }
+ assert.deepEqual(logs,[{event:'push_send_failed',status:403},{event:'push_send_failed',status:null}]);
+});
