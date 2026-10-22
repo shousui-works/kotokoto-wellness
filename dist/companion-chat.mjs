@@ -1,4 +1,4 @@
-import {conversationPeriod,pickVaried} from './companion-lines.mjs?v=idle-1';
+import {conversationPeriod,pickVaried} from './companion-lines.mjs?v=idle-2';
 export {conversationPeriod};
 import {dateKey} from './model.mjs?v=praise-1';
 
@@ -125,7 +125,9 @@ export function createCompanionChat({getState,canSpeak,onMessage,storage,random=
     const stamp=clock.now(),shared=readMemory(storage,stamp);
     if(shared.nextTalkAt>stamp){nextAt=Math.max(nextAt,shared.nextTalkAt);refresh();return;}
     if(stamp<nextAt){refresh();return;}
-    memory={...memory,...shared,recentIds:[...(memory.recentIds??[]),...(shared.recentIds??[])].filter((x,i,a)=>a.lastIndexOf(x)===i).slice(-8)};
+    const [older,newer]=(memory.lastSpokenAt??0)>(shared.lastSpokenAt??0)?[shared,memory]:[memory,shared];
+    // Settings are updated by setEnabled/sync; this read only merges speech history.
+    memory={...memory,lastId:newer.lastId,lastPeriodKey:newer.lastPeriodKey,lastSpokenAt:newer.lastSpokenAt,recentIds:[...(older.recentIds??[]),...(newer.recentIds??[])].filter((x,i,a)=>a.lastIndexOf(x)===i).slice(-8)};
     const line=companionChatLine(getState(),new Date(stamp),memory,random);
     nextAt=stamp+CHAT_TIMING.minGap+Math.floor(random()*(CHAT_TIMING.maxGap-CHAT_TIMING.minGap));
     memory={...memory,lastId:line.id,recentIds:[...(memory.recentIds??[]),line.id].slice(-8),lastPeriodKey:line.periodKey,lastSpokenAt:stamp,nextTalkAt:nextAt};

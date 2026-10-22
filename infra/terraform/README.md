@@ -121,7 +121,9 @@ terraform -chdir=infra/terraform/app apply release.tfplan
 terraform -chdir=infra/terraform/app output -raw service_url
 ```
 
-2回目以降は、ビルドとappのplan・applyで更新する。Cloud Runのイメージ、環境設定、トラフィックを別の `gcloud run deploy` やコンソール操作で並行管理しない。切り戻す場合も、以前のダイジェストを指定して同じ手順を使う。
+2回目以降は、ビルドとappのplan・applyで更新する。Cloud Runのイメージ、環境設定、トラフィックを別の `gcloud run deploy` やコンソール操作で並行管理しない。切り戻す場合も、認証を維持する互換版のダイジェストを指定して同じ手順を使う。
+
+認証導入後は、認証導入前の無認証イメージへ単純に切り戻さない。旧コードは `ACCOUNT_MODE=required` を設定しても認証要件を実装していない場合がある。切り戻し先は、現在の認証と保存形式に対応する前版、または個人APIと実AIを停止した版に限定する。planでイメージ以外の認証設定が弱まらないことを確認し、適用後は未認証の個人API・会話APIが401になることと、本人の認証済みアクセスを確認する。
 
 ## ログインなしで公開する
 
@@ -262,7 +264,13 @@ terraform import google_firebaserules_release.app projects/PROJECT_ID/releases/c
 # 既定DBのRules releaseの場合は末尾を /releases/cloud.firestore にする。
 ```
 
-既存RulesのruleSetは取得したソースを別途退避し、全拒否化は専用DBの変更として確認する。dataのRuleSetは新しいソースとして作り、releaseは既存があればimportして更新する。IDPプロバイダーやOAuthクライアント秘密値をimportしない。
+既存RulesのruleSetは取得したソースを別途退避する。既存releaseをimportする場合は、参照先を含めて差分を確認する。新しいRulesetへの参照変更は通常の更新では扱わず、置換が出るplanを適用しない。IDPプロバイダーやOAuthクライアント秘密値をimportしない。
+
+### Firestore Rulesの更新制約
+
+固定provider 8.7.0では、`firestore.rules` の内容変更でRulesetの置換が発生し、Releaseの `ruleset_name` の変更も置換になる。Releaseの `prevent_destroy = true` はこの置換を拒否する。`deletion_policy = "PREVENT"` も設定しており、片方だけを外して通常更新できる前提にはしない。
+
+現在の全拒否Rulesと削除保護を維持し、通常のリリース手順では `firestore.rules` の更新を実行しない。Rulesを変更する必要が生じた場合は、専用DBと対象release、変更内容、providerの更新方式、失敗時の復旧と保護の復元を含む別の管理手順を先に設計する。DB自体の削除保護は解除しない。
 
 初期設定は `account_mode = "legacy"`、`account_config = null`、`account_backend_ready = false`、`enable_account_maintenance = false`。この組み合わせでは既存サービスへ認証環境変数やJobを追加しない。requiredへの切替時にはAPIの本人確認をアプリ側で実装し、旧無認証版へ戻すロールバックを避ける。
 
