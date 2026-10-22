@@ -18,7 +18,7 @@ export function createCompanionAffection(dogs){
  const preference=matchMedia('(prefers-reduced-motion: reduce)');
  const companions=[...dogs].map(dog=>{
   const layer=document.createElement('span');layer.className='companion-hearts';layer.setAttribute('aria-hidden','true');dog.append(layer);
-  const burst=createAffectionBurst({canShow:()=>!document.hidden&&!document.querySelector('dialog[open]')&&(dog.dataset.motionPaused!=='true'||preference.matches),reduced:()=>preference.matches,
+  const burst=createAffectionBurst({canShow:()=>!document.hidden&&!document.querySelector('dialog[open]')&&dog.dataset.motionInactive!=='true'&&dog.dataset.motionManuallyPaused!=='true'&&(dog.dataset.motionPaused!=='true'||preference.matches),reduced:()=>preference.matches,
    erase(){layer.replaceChildren();delete dog.dataset.affectionBurst;},
    emit(plan){dog.dataset.affectionBurst=String(plan.level);layer.classList.toggle('is-still',!plan.animated);
     for(const heart of plan.hearts){const node=document.createElement('span');node.className='companion-heart';node.textContent=heart.filled?'♥':'♡';
@@ -26,7 +26,7 @@ export function createCompanionAffection(dogs){
      layer.append(node);
     }
    }});
-  const observer=new MutationObserver(()=>{if(dog.dataset.motionPaused==='true')burst.clear();});observer.observe(dog,{attributes:true,attributeFilter:['data-motion-paused']});
+  const observer=new MutationObserver(()=>{if(dog.dataset.motionInactive==='true'||dog.dataset.motionPaused==='true'||dog.dataset.motionManuallyPaused==='true')burst.clear();});observer.observe(dog,{attributes:true,attributeFilter:['data-motion-inactive','data-motion-paused','data-motion-manually-paused']});
   return {burst,layer,observer,dog};
  });
  const clear=()=>companions.forEach(c=>c.burst.clear());
