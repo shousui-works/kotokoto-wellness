@@ -34,8 +34,14 @@ async function generate(input){
  const actions=entries.map(([evidence,[kind]])=>({operation:'create',targetId:null,kind,date:input.context.date,title:evidence,evidence,minutes:null,kcal:null,estimatedKcal:null,estimateBasis:null,weightKg:null,detail:null,additional:false}));
  return {status:200,body:{reply:entries[0]?.[1][1]??'会いに来てくれて、うれしいな。きみの一歩に花まる！',actions}};
 }
-const api=createAccountAPI({store:new MemoryAccountStore(),config:{projectId:'fixture',authDomain:'localhost',apiKey:'fixture',appId:'fixture'},verify:async t=>{if(t!=='fixture-token')throw Error();return {uid:'fixture-alice'};},generate});
+let pushEnabled=false,pushFrequency=2;
+const fakePush=process.env.PUSH_FIXTURE?{publicKey:'fixture-public-key',async handle(uid,method,input){if(method==='PUT'){pushEnabled=true;pushFrequency=input.frequency;}if(method==='DELETE')pushEnabled=false;return method==='POST'?{sent:true}:{enabled:pushEnabled,frequency:pushFrequency};}}:null;
+const api=createAccountAPI({push:fakePush,store:new MemoryAccountStore(),config:{projectId:'fixture',authDomain:'localhost',apiKey:'fixture',appId:'fixture'},verify:async t=>{if(t!=='fixture-token')throw Error();return {uid:'fixture-alice'};},generate});
 const server=createAppServer({accountHandler:async(req,res,path)=>{
+ if(process.env.PUSH_FIXTURE&&path==='/fixture-push.mjs'){
+ const source=`let sub=null;const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/fixture',toJSON:()=>({endpoint:subscription.endpoint,keys:{p256dh:'fixture',auth:'fixture'}}),unsubscribe:async()=>{sub=null;return true;}};const reg={pushManager:{getSubscription:async()=>sub,subscribe:async()=>sub=subscription}};export const fixturePush={support:'supported',permission:()=> 'granted',nav:{serviceWorker:{register:async()=>reg,ready:Promise.resolve(reg),getRegistration:async()=>reg}},win:{Notification:{requestPermission:async()=> 'granted'}}};`;
+ res.writeHead(200,{'Content-Type':'text/javascript'});res.end(source);return true;}
+ if(process.env.PUSH_FIXTURE&&path==='/app.mjs'){let source=await readFile(new URL('../dist/app.mjs',import.meta.url),'utf8');source="import {fixturePush} from '/fixture-push.mjs';\n"+source.replace('createPushSettings({account});','createPushSettings({...fixturePush,account});');res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'});res.end(source);return true;}
  if(path==='/fixture-voice.mjs'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(voiceSDK);return true;}
  if(process.env.VOICE_FIXTURE&&['/','/index.html'].includes(path)){let html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');html=html.replace('</head>','<script src="/fixture-voice.mjs"></script></head>');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(html);return true;}
  if(path==='/fixture-sdk.mjs'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(sdk);return true;}

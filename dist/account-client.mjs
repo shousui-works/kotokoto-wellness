@@ -25,6 +25,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
   let user=auth.currentUser,state=null,map=new Map(),offline=false,locked=false,busy=false,generation=0,pending=null,notice='',validImport=true,lastSync=null,namesDraft=null;
   try{if(user)namesDraft=JSON.parse(local.getItem('kotokoto-names-draft:'+user.uid)??'null');}catch{}
   if(namesDraft){try{namesDraft=normalizeNames(namesDraft.nickname,namesDraft.petName);}catch{namesDraft=null;}}
+  let logoutHook=null;
   const listeners=new Set(),$=id=>document.getElementById(id);
   const original=local.getItem(ownerKey)?{getItem:key=>local.getItem('kotokoto-guest-v2:'+key),setItem:(key,v)=>local.setItem('kotokoto-guest-v2:'+key,v),removeItem:key=>local.removeItem('kotokoto-guest-v2:'+key)}:local;
   if(user){try{pending=JSON.parse(local.getItem(pendingKey(user.uid))??'null');}catch{pending=null;}}
@@ -83,7 +84,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
 
     $('account-open').hidden=false;$('account-open').addEventListener('click',()=>{preview();render();$('account-dialog').showModal();});
     $('account-login').addEventListener('click',()=>login());
-    $('account-logout').addEventListener('click',async()=>{if(busy)return;$('conversation-input').value='';if(user){local.removeItem(cacheKey(user.uid));local.removeItem(pendingKey(user.uid));local.removeItem('kotokoto-cloud-draft:'+user.uid);local.removeItem('kotokoto-cloud-chat-pending:'+user.uid);local.removeItem('kotokoto-cloud-voice:'+user.uid);local.removeItem('kotokoto-names-draft:'+user.uid);}await signOut(auth);});
+    $('account-logout').addEventListener('click',async()=>{if(busy)return;try{await logoutHook?.();}catch(error){notice=error.message;render();return;}$('conversation-input').value='';if(user){local.removeItem(cacheKey(user.uid));local.removeItem(pendingKey(user.uid));local.removeItem('kotokoto-cloud-draft:'+user.uid);local.removeItem('kotokoto-cloud-chat-pending:'+user.uid);local.removeItem('kotokoto-cloud-voice:'+user.uid);local.removeItem('kotokoto-names-draft:'+user.uid);}await signOut(auth);});
     $('account-empty').addEventListener('click',async()=>{try{await mutate({type:'initialize',profile:namesDraft});location.reload();}catch(error){notice=error.message;render();}});
     $('account-import').addEventListener('click',async()=>{if(busy||!user)return;
       const idKey='kotokoto-import-request:'+user.uid;let id=local.getItem(idKey);if(!id){id=crypto.randomUUID();local.setItem(idKey,id);}
@@ -101,7 +102,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
   let initialUID=user?.uid??null;onAuthStateChanged(auth,next=>{if((next?.uid??null)===initialUID)return;generation++;if(initialUID){local.removeItem(cacheKey(initialUID));local.removeItem(pendingKey(initialUID));local.removeItem('kotokoto-cloud-draft:'+initialUID);local.removeItem('kotokoto-cloud-chat-pending:'+initialUID);}user=next;state=null;map.clear();location.reload();});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync();});window.addEventListener('focus',()=>sync());window.addEventListener('online',()=>sync());schedule(()=>{if(!document.hidden)sync();},30000);
   if(!user||(!offline&&(!state?.initialized||namesMissing()))){preview();$('account-dialog').showModal();}
-  return {enabled:true,storage,get user(){return user;},get state(){return state;},get needsSetup(){return !user||!state?.initialized||namesMissing();},get writable(){return !!user&&!!state?.initialized&&!offline&&!locked;},subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},command:mutate,install,pendingConversation:{read(){try{return user?JSON.parse(local.getItem('kotokoto-cloud-chat-pending:'+user.uid)??'null'):null;}catch{return null;}},write(value){if(!user)return;if(value)local.setItem('kotokoto-cloud-chat-pending:'+user.uid,JSON.stringify(value));else local.removeItem('kotokoto-cloud-chat-pending:'+user.uid);}},
+  return {enabled:true,storage,beforeLogout(fn){logoutHook=fn;},get user(){return user;},get state(){return state;},get needsSetup(){return !user||!state?.initialized||namesMissing();},get writable(){return !!user&&!!state?.initialized&&!offline&&!locked;},subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},command:mutate,install,pendingConversation:{read(){try{return user?JSON.parse(local.getItem('kotokoto-cloud-chat-pending:'+user.uid)??'null'):null;}catch{return null;}},write(value){if(!user)return;if(value)local.setItem('kotokoto-cloud-chat-pending:'+user.uid,JSON.stringify(value));else local.removeItem('kotokoto-cloud-chat-pending:'+user.uid);}},
     async fetch(path,init={}){
       if(path==='/api/chat/session'&&(!user||!state?.initialized||offline||locked))return Response.json({available:false,loginRequired:!user,setupRequired:!!user&&!state?.initialized});
       if(!path.startsWith('/api/'))return fetchImpl(path,init);

@@ -1,6 +1,7 @@
+import {createPushSettings} from './push-settings.mjs?v=random-3';
 import {createShelfPosition} from './shelf-position.mjs?v=1';
 import {createPlushUI} from './plush-ui.mjs?v=daily-life-1';
-import {createAccountClient} from './account-client.mjs?v=daily-life-1';
+import {createAccountClient} from './account-client.mjs?v=push-1';
 const account=await createAccountClient();
 const storage=account.storage;
 import {createRoomMotion} from './companion-motion.mjs?v=stroke-pet-1';
@@ -245,3 +246,5 @@ if(!account.needsSetup)nameIntro.show();
 // Discover access through the authenticated server; hiding a link is not authorization.
 async function discoverAdmin(){const link=$('admin-open');if(!link)return;link.hidden=true;if(!account.user)return;try{const r=await account.fetch('/api/admin/session');const data=await r.json();link.hidden=!(r.ok&&data.admin===true);}catch{}}
 void discoverAdmin();
+
+createPushSettings({account});

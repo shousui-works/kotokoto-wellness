@@ -46,12 +46,12 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler" {
 }
 resource "google_project_service_identity" "scheduler" {
   provider = google-beta
-  count    = var.enable_account_maintenance ? 1 : 0
+  count    = (var.enable_account_maintenance || var.enable_push_schedule) ? 1 : 0
   project  = var.project_id
   service  = "cloudscheduler.googleapis.com"
 }
 resource "google_project_iam_member" "scheduler_agent" {
-  count   = var.enable_account_maintenance ? 1 : 0
+  count   = (var.enable_account_maintenance || var.enable_push_schedule) ? 1 : 0
   project = var.project_id
   role    = "roles/cloudscheduler.serviceAgent"
   member  = "serviceAccount:${google_project_service_identity.scheduler[0].email}"

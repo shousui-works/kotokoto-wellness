@@ -311,3 +311,7 @@ Firestoreのmemory.summary索引除外は5分52秒で作成完了。dataは1件�
 2026-10-19 キャッシュ最適化版を公開。Cloud Build `d48999d8-3aa0-403c-99b5-c56e6726c8cf`、イメージ `sha256:489e864668375990c234c67dfcef98e22b3e14a25990b5c136c8d35324ca0681`。確認済みplanを適用しCloud Runイメージ1件のみ更新。Node106件/モック35件、公開応答/認証必須/静的8ファイルの一致に成功。架空の非健康会話を同じ生成コードから実APIへ送り、2回目の入力3470中3409トークン再利用を確認。最終の差分なしplanは自動承認審査タイムアウトのため未確認（適用と公開確認は成功）。
 
 2026-10-19 こむぎの実務的な発言を抑える口調修正を公開。計算・保存の説明を促していた指示を削除し、喜びと具体的な褒め言葉を優先。推定値/根拠の構造化と不足情報の自然な質問は維持。PR #2へafd85ecで反映し、後続PR #3へ通常merge済み。Node103件とCloud Build内テスト成功。Cloud Build 624ae3bc-0a7d-403b-9b39-9e9e5870f6fc / sha256:bd1c1cb369a7f24fc67c9a9deaefcc0725961893bdbe1efc62dfdf842190b7d0 をTerraformでイメージ1件のみ適用。公開応答・認証ヘルパー・未認証API401・静的8ファイル一致、適用後app plan差分なしを確認。実ユーザーの健康情報をAPIテスト送信していない。
+
+## Web Push
+
+通知の初期値は無効です。foundationの`enable_push_infrastructure`で空のSecret Manager保管先、appの`push_secret_version`（固定バージョン番号）と`enable_push_schedule`でアプリの鍵参照と通知Job/Schedulerを有効にします。秘密値はtfvars/stateへ渡しません。準備・設定・配信と運用上の制約は [Web Push設計](../../docs/web-push.md) を参照してください。
