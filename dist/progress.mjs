@@ -171,6 +171,8 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       if(DAILY_LIFE_KINDS.includes(a.kind)&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&DAILY_LIFE_KINDS.includes(x.kind)&&x.evidence===a.evidence)){
         receipts.push({label:'同じ行動として確認',delta:0,status:'duplicate'});continue;
       }
+      // Legacy meal_care also covered eating habits. Different wording cannot establish a separate action.
+      if(a.kind==='eating_habit'&&!a.additional&&progress.activities.some(x=>!x.deleted&&!x.hold&&x.date===a.date&&x.kind==='meal_care'&&x.pointVersion===1))a.operation='clarify';
       const exact=same.find(x=>x.evidence===a.evidence||(a.minutes!==null&&a.minutes===x.minutes&&a.kcal===x.kcal&&a.weightKg===x.weightKg));
       if(exact&&!a.additional){receipts.push({label:'同じ行動を確認',delta:0,status:'duplicate'});continue;}
       if(!EXERCISE_KINDS.includes(a.kind)&&same.length&&!a.additional){receipts.push({label:'今日の分は記録済み',delta:0,status:'duplicate'});continue;}
