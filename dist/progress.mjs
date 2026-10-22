@@ -221,7 +221,7 @@ export function correctActivity(original,id,changes,legacy,at=new Date().toISOSt
 
 export function activityContext(progress,today,selectedId=null) {
   return progress.activities.filter(a=>!a.deleted).sort((a,b)=>(b.id===selectedId)-(a.id===selectedId)||Number(b.needs.length>0)-Number(a.needs.length>0)||b.updatedAt.localeCompare(a.updatedAt)).slice(0,18)
-    .map(a=>({id:a.id,kind:a.kind,date:a.date,title:a.title,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,estimatedKcal:a.estimate?.kcal??null,estimateBasis:a.estimate?.basis??null,detail:a.detail,needs:a.needs,selected:a.id===selectedId}));
+    .map(a=>({id:a.id,kind:a.kind,date:a.date,reportedAt:a.at,updatedAt:a.updatedAt,title:a.title,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,estimatedKcal:a.estimate?.kcal??null,estimateBasis:a.estimate?.basis??null,detail:a.detail,needs:a.needs,selected:a.id===selectedId}));
 }
 
 export function progressContext(legacy,progress,today=dateKey(),selectedId=null){

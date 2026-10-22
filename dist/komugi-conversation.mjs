@@ -51,7 +51,7 @@ export function appendExchange(data, text, reply, at = new Date().toISOString(),
 }
 
 export function requestMessages(data, text) {
-  const messages = [...data.messages.slice(-16).map(({role, content}) => ({role, content})), {role: 'user', content: text}];
+  const messages = [...data.messages.slice(-16).map(({role, content, at}) => ({role, content, at})), {role: 'user', content: text}];
   while (messages.length > 1 && messages.reduce((sum, message) => sum + message.content.length, 0) > 5000) messages.splice(0, 2);
   return messages;
 }
