@@ -10,3 +10,9 @@ test('invalid calendar dates remain unknown instead of rolling into another mont
  assert.equal(conversationTimestamp('2024-02-29T23:00:00-07:00'),'2024-03-01T15:00:00.000+09:00');
  assert.equal(conversationTimestamp('2000-02-29T00:00:00+09:00'),'2000-02-29T00:00:00.000+09:00');
 });
+
+test('imported minute-precision times retain their explicit timezone',()=>{
+ assert.equal(conversationTimestamp('2026-03-01T12:34+09:00'),'2026-03-01T12:34:00.000+09:00');
+ assert.equal(conversationTimestamp('2026-03-01T23:34Z'),'2026-03-02T08:34:00.000+09:00');
+ for(const at of ['2026-03-01','2026-03-01T12:34','2026-03-01T12:34:56','2026-02-30T12:34+09:00'])assert.equal(conversationTimestamp(at),null,at);
+});
