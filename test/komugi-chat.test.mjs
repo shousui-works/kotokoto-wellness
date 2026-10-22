@@ -223,3 +223,26 @@ test('model sees JST report times separately from actual meal time and preserves
  assert.equal(timedMessage({role:'user',content:'前の話'}).content,'[発言日時: 不明]\n前の話');
  assert.match(timedMessage({role:'user',content:'日付境界',at:'2026-10-18T15:00:00Z'}).content,/2026-10-19T00:00:00.000\+09:00/);
 });
+
+test('date hints are scoped to the reported action, including explicit unknown dates and corrections',()=>{
+ const today='2026-10-18';
+ const action=(evidence,date=today,kind='walk')=>({operation:'create',targetId:null,kind,date,title:'行動',evidence,minutes:null,kcal:null,weightKg:null,detail:null,additional:false});
+ const report=(text,actions,activities=[])=>extractReport({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'聞かせてくれてありがとう。',actions})}]}]},validateChatRequest({...payload(text),context:{date:today,activities}}));
+ for(const [text,evidence,expected]of[
+  ['昨日は疲れて休んだけど、今日は20分歩いた','20分歩いた',today],
+  ['昨日は休んだ。20分歩いた','20分歩いた',today],
+  ['いつも覚えてるよ。20分歩いた','20分歩いた',today],
+  ['いつも覚えてないことが多いけど今日は歩いた','歩いた',today],
+  ['いつも覚えてないから20分歩いた','20分歩いた',today],
+  ['昨日20分歩いた','20分歩いた','2026-10-17'],
+  ['一昨日、20分歩いた','20分歩いた','2026-10-16'],
+  ['きのう20分歩いた','20分歩いた','2026-10-17'],
+  ['おととい歩いた','歩いた','2026-10-16'],
+  ['いつ歩いたかわからない','いつ歩いたかわからない',null],
+  ['いつ歩いたか覚えていない','いつ歩いたか覚えていない',null],
+ ])assert.equal(report(text,[action(evidence)]).actions[0].date,expected,text);
+ const mixed=report('昨日走った。今日は歩いた',[action('昨日走った',today,'run'),action('今日は歩いた',today)]);assert.deepEqual(mixed.actions.map(a=>a.date),['2026-10-17',today]);
+ const existing={id:'old',kind:'walk',date:today,title:'歩いた',minutes:null,kcal:null,weightKg:null,detail:null,needs:[]};
+ assert.equal(report('昨日だった',[{...action('昨日だった'),operation:'update',targetId:'old'}],[existing]).actions[0].date,'2026-10-17');
+ assert.equal(report('明日歩いた',[action('歩いた','2026-10-19')]),null);
+});
