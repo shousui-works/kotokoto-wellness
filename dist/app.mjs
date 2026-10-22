@@ -1,5 +1,5 @@
 import {createShelfPosition} from './shelf-position.mjs?v=1';
-import {createPlushUI} from './plush-ui.mjs?v=dogs-2';
+import {createPlushUI} from './plush-ui.mjs?v=dogs-3';
 import {createAccountClient} from './account-client.mjs?v=plush-1';
 const account=await createAccountClient();
 const storage=account.storage;

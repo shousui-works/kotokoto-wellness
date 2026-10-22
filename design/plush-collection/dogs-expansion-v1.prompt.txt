@@ -1,0 +1,10 @@
+2026-10-19 / built-in image_gen / stylized-concept
+Reference: collection-concept-v1.png (style only).
+Four separate generations, transparent_background=true. Added to the active ten-dog catalog after creation; delivery copies resized to 384px with alpha preserved.
+
+Common prompt: Create ONE standalone dog collectible plush toy for the same collection as the reference. Match handmade velour/felt and soft plush fibers, tiny glossy black bead eyes, small embroidered smiling mouth, warm gentle lighting and charming rounded stuffed proportions. Seated full body, slight three-quarter front view, paws level. Truly transparent background. Isolated single toy centered with clear margin around ears, paws and tail. No base, pedestal, floor, flowers, text, labels, accessories or other animals. Breed identifiable at an 80px shelf size. Stuffed toy, not a living dog. High quality RGBA asset.
+
+Golden Retriever: golden honey coat, floppy ears, broad gentle muzzle, slightly longer fluffy ear/tail hair, tail visible beside body.
+Dalmatian: pure white fabric covered in distinct irregular black spots, black floppy ears, white muzzle with black nose, slim tail visible beside body.
+Papillon: very large upright butterfly-shaped ears with long silky fringes, white coat with chestnut/sable brown patches on ears and around eyes separated by a clean white central blaze, fine little pointed muzzle, white fluffy chest, delicate small paws, feathered tail curved beside body. Entire ear fringe and tail visible.
+Samoyed: snowy pure white double-coat plush, broad fluffy ruff, small upright triangular ears, black nose, recognizable happy Samoyed smile with gently upturned corners, sturdy paws and fluffy curled tail beside body. Keep a broad spitz muzzle so distinct from a tiny Pomeranian.
