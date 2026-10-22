@@ -157,7 +157,7 @@ export function extractReport(result, input) {
     if(/(?:いつ(?!も)|日付|日にち).*(?:わから|分から|覚えて(?:い)?ない)/.test(datedEvidence))a.date=null;
   }
   return {reply:data.reply.trim(),actions:actions.filter(a=>!/(?:しようかな|したい|してない|しなかった|できなかった|友達が|友人が)/.test(a.evidence)
-    &&(!['snack','meal_care','eating_habit','care','walk','run','strength','exercise'].includes(a.kind)||!/(?:食事を?抜|何も食べ|断食|絶食|食べず|償い|埋め合わせ)/.test(a.evidence)))};
+    &&!/(?:食事を?抜|何も食べ|断食|絶食|食べず|償い|埋め合わせ)/.test(a.evidence))};
 }
 
 export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchImpl=globalThis.fetch,timeoutMs=30000,onUsage}={}){
