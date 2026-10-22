@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import {Readable} from 'node:stream';
 import {createPushService,FirestorePushStore,validateSubscription,dailyPlan,nextRandomDelivery,PERIODS,periodEnd,japanDay,notification,subscriptionId} from '../server/push.mjs';
 import {createAccountAPI} from '../server/account-api.mjs';
+import {createPushRuntime} from '../server/push-runtime.mjs';
 import {createPushSettings,pushSupport} from '../dist/push-settings.mjs';
 const now=Date.parse('2026-10-20T20:00:00+09:00');
 const ec=createECDH('prime256v1');ec.generateKeys();
@@ -160,4 +161,18 @@ test('logout cancels a slow settings refresh without waiting or applying stale r
  try{await f.logout();}finally{release();await ui.ready;}
  assert.equal(f.elements.get('push-enable').disabled,true);
  assert.equal(f.state.stored,false);
+});
+
+test('invalid VAPID configuration never exposes input in errors',()=>{
+ for(const value of ['PRIVATE-KEY-SENTINEL-invalid-json','null','{}','{"publicKey":"public"}']){
+  assert.throws(()=>createPushRuntime(database(),{WEB_PUSH_VAPID:value,WEB_PUSH_SUBJECT:'mailto:test@example.com'}),error=>{
+   assert.equal(error.message,'Invalid push configuration');
+   assert.equal(error.cause,undefined);
+   assert.ok(!error.stack.includes('PRIVATE-KEY-SENTINEL'));
+   return true;
+  });
+ }
+ assert.throws(()=>createPushRuntime(database(),{WEB_PUSH_VAPID:'{"publicKey":"public","privateKey":"private"}'}),/Invalid push configuration/);
+ assert.doesNotThrow(()=>createPushRuntime(database(),{}));
+ assert.doesNotThrow(()=>createPushRuntime(database(),{WEB_PUSH_VAPID:'{"publicKey":"public","privateKey":"private"}',WEB_PUSH_SUBJECT:'mailto:test@example.com'}));
 });
