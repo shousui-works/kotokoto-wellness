@@ -159,7 +159,7 @@ export function extractReport(result, input) {
   return {reply:data.reply.trim(),actions:actions.filter(a=>{
     const text=[a.title,a.evidence,a.detail??''].join('\n');
     const compensation=/(?:償い|埋め合わせ)/.test(text)
-      && (/(?:食事|朝食|昼食|夕食|食べ|カロリー|運動|走|歩|筋トレ|ストレッチ)/.test(text)
+      && (/(?:食事|朝食|昼食|夕食|間食|おやつ|食べ|カロリー|運動|走|歩|筋トレ|ストレッチ)/.test(text)
         || ['walk','run','strength','stretch','exercise'].includes(a.kind));
     return !/(?:しようかな|したい|してない|しなかった|できなかった|友達が|友人が)/.test(a.evidence)
       && !/(?:(?:食事|朝食|昼食|夕食)を?抜(?!か(?:ず|ない|なかった))|何も食べ|断食|絶食|食べず)/.test(text)
