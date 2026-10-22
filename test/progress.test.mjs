@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {emptyState,recordHabit,affectionFor} from '../dist/model.mjs';
-import {emptyProgress,normalizeProgress,applyInterpretation,dayReport,progressTotal,exercisePoints,recordManual,progressCompanion,validDate,correctActivity,measurementRecords,weightReference,progressContext} from '../dist/progress.mjs';
+import {emptyProgress,normalizeProgress,applyInterpretation,dayReport,progressTotal,exercisePoints,recordManual,progressCompanion,validDate,correctActivity,measurementRecords,weightReference,progressContext,calorieSummary} from '../dist/progress.mjs';
 
 const today='2026-10-18',at='2026-10-18T12:00:00.000Z';
 function action(kind,extra={}){return {operation:'create',targetId:null,kind,date:today,title:'できたこと',evidence:'やった',minutes:null,kcal:null,weightKg:null,detail:null,additional:false,...extra};}
@@ -180,4 +180,27 @@ test('a tiny stretch still earns its first bonus and a saved weight need not be 
   assert.equal(dayReport(a.progress,today).total,15);
   assert.equal(a.progress.activities.find(x=>x.kind==='weight').needs.length,0);
   assert.ok(progressCompanion(a.progress,legacy).xp>=15);
+});
+
+
+test('calorie records separate reported and estimated values and keep unestimated exercise pending',()=>{
+ const {legacy,progress}=start();
+ const r=apply(progress,legacy,[action('walk',{kcal:100,estimatedKcal:999,estimateBasis:'使わない推定'}),action('run',{estimatedKcal:120.4,estimateBasis:'架空の目安'}),action('stretch'),action('snack')]);
+ assert.deepEqual(calorieSummary(r.progress,today),{kcal:220.4,reported:100,estimated:120.4,recorded:2,pending:1,estimatedCount:1,exerciseCount:3});
+ assert.equal(calorieSummary(r.progress,today).kcal,dayReport(r.progress,today).kcal);
+ assert.deepEqual(calorieSummary(normalizeProgress(JSON.parse(JSON.stringify(r.progress)))),calorieSummary(r.progress));
+ const retry=apply(r.progress,legacy,[], 'やった',{requestId:r.progress.processed.at(-1)});assert.equal(calorieSummary(retry.progress).kcal,220.4);
+});
+test('calorie history follows corrections and excludes held duplicates, deleted and undated exercise',()=>{
+ const {legacy,progress}=start();const r=apply(progress,legacy,[action('walk',{minutes:10,kcal:80})]);
+ const duplicate=apply(r.progress,legacy,[action('walk',{minutes:20,estimatedKcal:100,estimateBasis:'仮',evidence:'別の日か不明の散歩'})],'別の日か不明の散歩');
+ assert.equal(duplicate.progress.activities.at(-1).hold,'duplicate');assert.equal(calorieSummary(duplicate.progress).kcal,80);
+ const corrected=correctActivity(duplicate.progress,r.progress.activities[0].id,{date:'2026-10-17',kcal:65},legacy,at);
+ assert.equal(calorieSummary(corrected,today).kcal,0);assert.equal(calorieSummary(corrected,'2026-10-17').kcal,65);assert.equal(calorieSummary(corrected).kcal,65);
+ const removed=structuredClone(corrected);removed.activities[0].deleted=true;assert.equal(calorieSummary(removed).kcal,0);removed.activities[0].deleted=false;removed.activities[0].date=null;assert.equal(calorieSummary(removed).kcal,0);
+});
+test('unknown consumption and an explicit zero are distinct without inventing calories',()=>{
+ const {legacy,progress}=start();assert.equal(calorieSummary(progress).exerciseCount,0);
+ const unknown=apply(progress,legacy,[action('exercise')]);assert.equal(calorieSummary(unknown.progress).pending,1);assert.equal(calorieSummary(unknown.progress).recorded,0);
+ const zero=apply(progress,legacy,[action('exercise',{kcal:0})]);assert.equal(calorieSummary(zero.progress).recorded,1);assert.equal(calorieSummary(zero.progress).pending,0);
 });

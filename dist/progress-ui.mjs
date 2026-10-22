@@ -1,12 +1,20 @@
 import {dateKey,recentDays} from './model.mjs';
-import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor} from './progress.mjs?v=records-5';
+import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor,calorieSummary} from './progress.mjs?v=calories-1';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;};
 const amount=n=>new Intl.NumberFormat('ja-JP',{maximumFractionDigits:1}).format(n);
+const calorieValue=(s,empty='0')=>s.recorded?amount(s.kcal):s.pending?'—':empty;
+const calorieNote=s=>{
+  const parts=[];
+  if(s.recorded-s.estimatedCount)parts.push(`記録値 ${amount(s.reported)}kcal`);
+  if(s.estimatedCount)parts.push(`推定 ${amount(s.estimated)}kcal`);
+  if(s.pending)parts.push(`消費カロリー未推定 ${s.pending}件`);
+  return parts.join(' · ')||'運動の記録はまだありません。';
+};
 
 export function createProgressUI({getState,onChange,onContinue,onError,storage=globalThis.localStorage,account=null}) {
   const $=id=>document.getElementById(id);
-  let data,unavailable=false,selectedDate=dateKey(),selectedActivity=null;
+  let data,unavailable=false,selectedDate=dateKey(),selectedActivity=null,chartMode='points';
   function read(){
     if(account?.user)return structuredClone(account.state?.progress??emptyProgress(getState()));
     try{
@@ -63,6 +71,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     if(activity.minutes!==null)details.push(activity.minutes<1?Math.round(activity.minutes*60)+'秒':amount(activity.minutes)+'分');
     if(activity.kcal!==null)details.push('本人の報告 '+amount(activity.kcal)+'kcal');
     else if(activity.estimate)details.push((activity.estimate.source==='luna'?'Lunaの推定 ':'推定 ')+amount(activity.estimate.kcal)+'kcal');
+    if(['walk','run','strength','stretch','exercise'].includes(activity.kind)&&activity.kcal===null&&!activity.estimate&&!activity.hold)details.push('消費カロリーは未推定');
     if(activity.kind==='weight'&&activity.weightKg!==null)details.push(amount(activity.weightKg)+'kg');
     if(activity.detail)details.push(activity.detail);
     if(activity.estimate?.basis)details.push(activity.estimate.basis);
@@ -77,6 +86,8 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
   }
   function render(){
     const today=dateKey(),report=dayReport(data,today);
+    const calories=calorieSummary(data,today);
+    $('daily-calories').textContent=calorieValue(calories);$('daily-calorie-note').textContent=calorieNote(calories);$('daily-total-calories').textContent=calorieValue(calorieSummary(data));
     $('daily-points').textContent=report.total;$('daily-total-points').textContent=progressTotal(data);
     $('dock-count').textContent=report.total;
     $('daily-exercise-breakdown').textContent=`運動 ${report.exercise} ＋ クエスト ${report.bonus}`;
@@ -90,23 +101,31 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     $('progress-storage-warning').hidden=!unavailable;
     $('report-date').value=selectedDate;$('report-date').max=today;
     const chosen=dayReport(data,selectedDate);
+    const chosenCalories=calorieSummary(data,selectedDate);
+    $('report-calories').textContent=calorieValue(chosenCalories,chosen.recorded?'0':'—');$('report-calorie-note').textContent=calorieNote(chosenCalories);
     $('report-score').textContent=chosen.recorded?chosen.total:'—';
-    $('report-breakdown').textContent=chosen.recorded?`運動 ${chosen.exercise} ＋ クエスト ${chosen.bonus} · 運動の合計 ${amount(chosen.kcal)}kcal`:'この日の記録はまだありません。';
+    $('report-breakdown').textContent=chosen.recorded?`運動 ${chosen.exercise} ＋ クエスト ${chosen.bonus}`:'この日の記録はまだありません。';
     $('report-praise').textContent=chosen.praise||'小さなことから、きみのペースで。';
     $('report-quests').replaceChildren(...chosen.quests.filter(q=>q.done).map(q=>el('span','report-quest',q.label+' ＋'+q.bonus)));
     $('report-activities').replaceChildren(...chosen.activities.map(activityNode));
     if(!chosen.activities.length)$('report-activities').append(el('p','subtle','こむぎに話したことが、ここに残っていきます。'));
-    const dates=recentDays(14),reports=dates.map(d=>dayReport(data,d)),max=Math.max(10,...reports.map(r=>r.total));
+    const dates=recentDays(14),reports=dates.map(date=>({...dayReport(data,date),calories:calorieSummary(data,date)})),isCalories=chartMode==='calories';
+    const max=Math.max(10,...reports.map(r=>isCalories?r.calories.kcal:r.total));
+    $('chart-points').setAttribute('aria-pressed',String(!isCalories));$('chart-calories').setAttribute('aria-pressed',String(isCalories));
+    $('points-chart').setAttribute('aria-label',isCalories?'最近14日間の消費カロリー（kcal）':'最近14日間のえらいポイント');
+    $('progress-chart-legend').replaceChildren(el('span',null,isCalories?'● 記録値':'● 運動'),el('span',null,isCalories?'● 推定':'● クエスト'),el('span',null,' 棒を押すと、その日へ'));
     $('points-chart').replaceChildren(...reports.map(r=>{
       const button=el('button','points-day'+(r.date===selectedDate?' is-selected':'')),bar=el('span','points-bar');button.type='button';button.dataset.date=r.date;
-      button.setAttribute('aria-label',r.date+'、'+(r.recorded?r.total+'ポイント':'記録なし'));
+      button.setAttribute('aria-label',r.date+'、'+(isCalories?calorieNote(r.calories)+(r.calories.recorded?'、合計'+amount(r.calories.kcal)+'kcal':''):r.recorded?r.total+'ポイント':'記録なし'));
       const exercise=el('span','points-exercise'),bonus=el('span','points-bonus');
-      exercise.style.height=(r.exercise/max*94)+'px';bonus.style.height=(r.bonus/max*94)+'px';bar.append(bonus,exercise);
-      button.append(el('small','points-value',r.recorded?String(r.total):'—'),bar,el('span','points-date',r.date.slice(5).replace('-','/')));
+      exercise.style.height=((isCalories?r.calories.reported:r.exercise)/max*94)+'px';bonus.style.height=((isCalories?r.calories.estimated:r.bonus)/max*94)+'px';bar.append(bonus,exercise);
+      const value=isCalories?calorieValue(r.calories,'—'):r.recorded?String(r.total):'—';
+      button.append(el('small','points-value',value),bar,el('span','points-date',r.date.slice(5).replace('-','/')));
       button.addEventListener('click',()=>{selectedDate=r.date;render();});return button;
     }));
     $('points-chart').scrollLeft=Math.max(0,reports.findIndex(r=>r.date===selectedDate)*23-$('points-chart').clientWidth/2);
   }
+  for(const [id,mode] of [['chart-points','points'],['chart-calories','calories']])$(id).addEventListener('click',()=>{chartMode=mode;render();});
   $('report-date').addEventListener('change',event=>{if(event.target.value&&event.target.value<=dateKey()){selectedDate=event.target.value;render();}});
   $('activity-edit-form').addEventListener('submit',async event=>{
     event.preventDefault();const id=event.currentTarget.dataset.id;
