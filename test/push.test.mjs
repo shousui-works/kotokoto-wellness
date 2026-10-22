@@ -151,3 +151,13 @@ test('delivery diagnostics contain only a bounded numeric HTTP status',async t=>
  }
  assert.deepEqual(logs,[{event:'push_send_failed',status:403},{event:'push_send_failed',status:null}]);
 });
+
+test('logout cancels a slow settings refresh without waiting or applying stale results',async()=>{
+ const f=settingsFixture(),original=f.options.account.fetch;let release;
+ const pending=new Promise(resolve=>release=resolve);
+ f.options.account.fetch=async(path,init)=>{if(path==='/api/push/config')await pending;return original(path,init);};
+ const ui=createPushSettings(f.options);
+ try{await f.logout();}finally{release();await ui.ready;}
+ assert.equal(f.elements.get('push-enable').disabled,true);
+ assert.equal(f.state.stored,false);
+});
