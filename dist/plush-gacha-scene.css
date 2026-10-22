@@ -30,3 +30,5 @@
 @media(max-width:360px){.gacha-machine{left:52%;scale:.9;transform-origin:50% 100%}.gacha-dog{width:175px;height:175px;left:3%}.gacha-capsule{left:calc(52% + 31px)}}
 @media(max-height:540px){.gacha-header{padding-top:10px}.gacha-scene{height:260px}.gacha-machine{scale:.79;transform-origin:50% 100%;bottom:15px}.gacha-dog{width:160px;height:160px;bottom:0}.gacha-capsule{width:66px;height:66px;bottom:0}.gacha-reward img{width:155px;height:155px}.gacha-reward h3{font-size:14px;margin-top:3px}.gacha-result-note{font-size:11px}.gacha-status{min-height:1.8em;margin:0}.gacha-footer{min-height:49px;padding-bottom:8px}}
 @media(prefers-reduced-motion:reduce){.gacha-dialog *{animation:none!important;transition:none!important}}
+
+.gacha-dialog[data-hidden=true] *{animation-play-state:paused!important}
