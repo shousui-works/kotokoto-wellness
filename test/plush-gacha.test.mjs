@@ -75,3 +75,19 @@ test('corrupt collection containers and inherited shelf items are rejected befor
  }
  const state=draw(funded()).state;assert.deepEqual(normalizeCollection(JSON.parse(JSON.stringify(state.collection))),state.collection);
 });
+
+
+test('moving a dog into a retired animal slot stores the animal without moving it to another slot',()=>{
+ for(const retired of ['calico','rabbit']){
+  const state=draw(funded(),'shiba').state;
+  state.collection.owned[retired]={count:1,firstAt:'2026-10-19T00:00:00Z'};
+  state.collection.shelf={[SHELF_SLOTS[0]]:'shiba',[SHELF_SLOTS[1]]:retired};
+  const before=structuredClone(state);
+  const next=applyCommand(state,{type:'plush_display',slot:SHELF_SLOTS[1],item:'shiba'});
+  assert.deepEqual(next.collection.shelf,{[SHELF_SLOTS[1]]:'shiba'});
+  assert.deepEqual(next.collection,{...before.collection,shelf:{[SHELF_SLOTS[1]]:'shiba'}});
+  assert.deepEqual(next.progress,before.progress);
+  assert.deepEqual(state,before);
+  assert.deepEqual(normalizeCollection(next.collection),next.collection);
+ }
+});
