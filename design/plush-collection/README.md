@@ -1,8 +1,10 @@
 # ぬいぐるみ素材
 
+PR #8に含むのは承認見本と素材方針のみ。以下の個別PNGと棚のCSSは後続のPR #10で追加するため、このPRのカタログの画像パスはまだ表示に使用しない。以下は制作記録として保持する。
+
 承認見本：collection-concept-v1.png。内蔵のimage_genで各8体を別々に生成。見本はスタイル/造形の参考に使用し、背景と文字や台座を除いた、透過の独立素材として新規生成した。
 
-実素材は dist/assets/plush/ の8ファイル。生成原寸はCodex generated_imagesに保持し、配信用は長辺384pxへ縮小、RGBA透過を維持。8体合計約1.4MiB。図鑑と棚の表示で共用する。棚はplush.cssの木製レイヤーを既存キャビネットの前板へ重ねる。shelf-position.mjsが原画内の家具位置からcover拡大と切り抜きを計算し、既存の脚と床への接地を維持する。部屋背景や犬画像は変更しない。
+制作済みの実素材はPR #10の dist/assets/plush/ に収録する8ファイルで、PR #8には含まれない。生成原寸はCodex generated_imagesに保持し、配信用は長辺384pxへ縮小、RGBA透過を維持。8体合計約1.4MiB。図鑑と棚の表示で共用する。棚はplush.cssの木製レイヤーを既存キャビネットの前板へ重ねる。shelf-position.mjsが原画内の家具位置からcover拡大と切り抜きを計算し、既存の脚と床への接地を維持する。部屋背景や犬画像は変更しない。
 
 ## 生成指示
 
@@ -23,9 +25,9 @@
 
 ## 追加の犬4種（2026-10-19）
 
-内蔵image_genで既存の承認見本を参照し、golden-retriever-v1.png / dalmatian-v1.png / papillon-v1.png / samoyed-v1.png を dist/assets/plush/ に透過PNG原寸で保存。生成指示は dogs-expansion-v1.prompt.txt。素材作成のみで、ガチャの有効カタログ・確率・本番は変更していない。
+内蔵image_genで既存の承認見本を参照し、golden-retriever-v1.png / dalmatian-v1.png / papillon-v1.png / samoyed-v1.png を dist/assets/plush/ に透過PNG原寸で保存。生成指示は dogs-expansion-v1.prompt.txt。素材作成時点では、ガチャの有効カタログ・確率・本番は変更していない。
 
-追加4種を長辺384pxへ縮小し、既存6種と合わせた全10種のガチャ/交換/図鑑/棚で使用。透過RGBAを保持し、生成原寸はCodex generated_imagesに保存。JKCの各犬種紹介を確認した固定本文と原典リンクを追加。
+その後、追加4種を長辺384pxへ縮小し、既存6種と合わせた全10種のガチャ/交換/図鑑/棚で使用。透過RGBAを保持し、生成原寸はCodex generated_imagesに保存。JKCの各犬種紹介を確認した固定本文と原典リンクを追加。
 
 ## 追加20犬種（2026-10-20）
 

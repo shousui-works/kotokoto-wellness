@@ -14,7 +14,7 @@ export function applyPlush(original,command,{id,now=Date.now(),candidate,enabled
   if(command.item!==null){
    if(!c.owned[command.item])throw bad('そのぬいぐるみは、まだ持っていません。');
    const count=Object.values(shelf).filter(x=>x===command.item).length;
-   if(count>=c.owned[command.item].count){const origin=Object.keys(shelf).find(key=>shelf[key]===command.item),old=c.shelf[command.slot];if(old)shelf[origin]=old;else delete shelf[origin];}
+   if(count>=c.owned[command.item].count){const origin=Object.keys(shelf).find(key=>shelf[key]===command.item),old=c.shelf[command.slot];if(isActivePlush(old))shelf[origin]=old;else delete shelf[origin];}
    shelf[command.slot]=command.item;
   }
   c.shelf=shelf;state.revision++;return {state,transaction:null};
