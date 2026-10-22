@@ -141,10 +141,20 @@ export function extractReport(result, input) {
       const knownMinutes=a.minutes??old?.minutes,knownWeight=a.weightKg??old?.weightKg??input.context.weightKg,detail=a.detail??old?.detail;
       if(!['walk','run','strength','stretch','exercise'].includes(a.kind)||knownWeight===null||knownWeight===undefined||!(knownMinutes>0||detail)){a.estimatedKcal=null;a.estimateBasis=null;}
     }
-    const datedEvidence=(actions.length===1?rawText:a.evidence.normalize('NFKC'));
-    const offset=datedEvidence.includes('一昨日')||datedEvidence.includes('おととい')?2:datedEvidence.includes('昨日')||datedEvidence.includes('きのう')?1:null;
+    const evidence=a.evidence.normalize('NFKC').replace(/,/g,'');
+    let datedEvidence=evidence;
+    // Only borrow a date from the clause containing this action, never another action or sentence.
+    if(actions.length===1&&!/一昨日|おととい|昨日|きのう|今日|きょう/.test(evidence)){
+      const clauses=rawText.split(/[。！？!?、;\n]|けれど(?:も)?|だけど|けど|ですが/u).map(s=>s.trim()).filter(Boolean);
+      const matches=clauses.map((s,i)=>s.includes(evidence)?i:-1).filter(i=>i>=0);
+      if(matches.length===1){const i=matches[0],prefix=clauses[i-1]??'';
+        datedEvidence=(/^(?:一昨日|おととい|昨日|きのう|今日|きょう)(?:は|に)?$/.test(prefix)?prefix:'')+clauses[i];
+      }
+    }
+    const offsets=new Set([...datedEvidence.matchAll(/一昨日|おととい|昨日|きのう|今日|きょう/g)].map(m=>/一昨日|おととい/.test(m[0])?2:/昨日|きのう/.test(m[0])?1:0));
+    const offset=offsets.size===1?[...offsets][0]:null;
     if(offset!==null&&input.context.date){const d=new Date(input.context.date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-offset);a.date=d.toISOString().slice(0,10);}
-    if(/いつ.*(?:わから|覚えて)/.test(datedEvidence))a.date=null;
+    if(/(?:いつ(?!も)|日付|日にち).*(?:わから|分から|覚えて(?:い)?ない)/.test(datedEvidence))a.date=null;
   }
   return {reply:data.reply.trim(),actions:actions.filter(a=>!/(?:しようかな|したい|してない|しなかった|できなかった|友達が|友人が)/.test(a.evidence)
     &&(!['snack','meal_care','care','walk','run','strength','exercise'].includes(a.kind)||!/(?:食事を?抜|何も食べ|断食|絶食|食べず|償い|埋め合わせ)/.test(a.evidence)))};
