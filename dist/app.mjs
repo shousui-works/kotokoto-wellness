@@ -37,6 +37,7 @@ function renderShop(){const balance=totals(state).seeds;$('shop-items').innerHTM
 function renderWeights(){const weights=Object.entries(progress?.weights(state)??state.days).filter(([,day])=>Number.isFinite(day.weight)).sort(([a],[b])=>a.localeCompare(b));const latest=weights.at(-1);$('latest-weight').innerHTML=latest?`${latest[1].weight.toFixed(1)} <span>kg · ${formatDate(latest[0])}</span>`:'— <span>kg</span>';if(weights.length<2){$('weight-chart').innerHTML='<p>'+(weights.length?'はじめのきろくができました。<br>2日分たまると、変化が線で見られます。':'まだ、きろくはありません。<br>はじめたい日に、ひとつから。')+'</p>';return;}const values=weights.slice(-30);const W=400,H=150,left=45,right=17,top=18,bottom=30;const rawMin=Math.min(...values.map(([,d])=>d.weight)),rawMax=Math.max(...values.map(([,d])=>d.weight));const pad=Math.max((rawMax-rawMin)*.2,.5),min=rawMin-pad,max=rawMax+pad;const firstTime=new Date(values[0][0]+'T12:00:00').getTime(),lastTime=new Date(values.at(-1)[0]+'T12:00:00').getTime();const x=key=>left+(new Date(key+'T12:00:00').getTime()-firstTime)/(lastTime-firstTime)*(W-left-right),y=value=>top+(max-value)/(max-min)*(H-top-bottom);const points=values.map(([key,d])=>`${x(key)},${y(d.weight)}`).join(' ');const summary=values.map(([key,d])=>`${formatDate(key)} ${d.weight.toFixed(1)}kg`).join('、');$('weight-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="最近の体重の記録。${summary}"><line x1="${left}" y1="${top}" x2="${W-right}" y2="${top}" stroke="#e4e6dc"/><line x1="${left}" y1="${H-bottom}" x2="${W-right}" y2="${H-bottom}" stroke="#e4e6dc"/><text x="0" y="${top+4}" fill="#777b6c" font-size="12">${max.toFixed(1)}</text><text x="0" y="${H-bottom+4}" fill="#777b6c" font-size="12">${min.toFixed(1)}</text><polyline fill="none" stroke="#7f916c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${points}"/>${values.map(([key,d])=>`<circle cx="${x(key)}" cy="${y(d.weight)}" r="3" fill="#58714b"/>`).join('')}<text x="${left}" y="${H-5}" fill="#777b6c" font-size="12">${formatDate(values[0][0])}</text><text x="${W-right}" y="${H-5}" fill="#777b6c" font-size="12" text-anchor="end">${formatDate(values.at(-1)[0])}</text></svg><p class="privacy-note">${formatDate(values[0][0])}〜${formatDate(values.at(-1)[0])} · 最近${values.length}回のきろく</p>`;}
 function renderHistory(){const entries=Object.entries(state.days).filter(([,day])=>day.habits.length||day.mood||Number.isFinite(day.weight)).sort(([a],[b])=>b.localeCompare(a)).slice(0,14);if(!entries.length){$('history-list').innerHTML='<p class="empty-history">これから、あなたの<br>「できた」がならびます。<br>今日の小さな一歩から。</p>';return;}$('history-list').innerHTML=entries.map(([key,d])=>`<article class="history-entry"><div><span>${formatDate(key,{month:'long',day:'numeric',weekday:'short'})}</span><span>${d.habits.length}この「できた」</span></div><p>${d.habits.length?d.habits.map(id=>HABITS.find(h=>h.id===id).icon).join(' '):'ゆっくり、わたしのペースで。'}${d.mood?' · '+MOODS[d.mood]:''}${Number.isFinite(d.weight)?' · '+d.weight.toFixed(1)+' kg':''}</p></article>`).join('');}
 function renderGrowth(xp){
+  $('scene-home').querySelector('.dog-pet-touch')?.setAttribute('aria-label',petName()+'をなでる');
   const g=growthForXP(xp);
   document.querySelectorAll('[data-companion]').forEach(el=>{el.classList.remove(...GROWTH_STAGES.map(stage=>'dog--'+stage.id));el.classList.add('dog--'+g.stage.id);el.dataset.stage=g.stage.id;});
   $('stage-name').textContent=g.stage.name;$('room-stage-name').textContent=g.stage.name;
@@ -158,7 +159,34 @@ $('companion-chat-toggle').checked=companionChat.enabled;
 $('companion-chat-toggle').addEventListener('change',async event=>{if(account.enabled&&account.user){if(!await cloudSave({type:'chat_setting',enabled:event.target.checked})){event.target.checked=account.state?.chatEnabled!==false;return;}}companionChat.setEnabled(event.target.checked);});
 const chatDialogObserver=new MutationObserver(()=>{if(document.querySelector('dialog[open]'))roomAffection?.clear();companionChat.refresh();});
 document.querySelectorAll('dialog').forEach(dialog=>chatDialogObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
-$('pet-companion').addEventListener('click',async()=>{const wasLonely=companionFeeling(state).id==='lonely';if(account.enabled&&account.user){if(!await cloudSave({type:'pet'}))return;}else{petCompanion(state);persist();}render();greetDogs();showCompanionPraise(wasLonely?'おかえり。会いに来てくれて、うれしいな。':'きみの手、やさしいね。なでてくれて、ありがとう。');toast('こむぎが、うれしそうに寄ってきたよ。');});
+const liveDog=$('scene-home').querySelector('[data-companion]');
+liveDog.removeAttribute('aria-hidden');
+const petTouch=document.createElement('button');
+petTouch.type='button';petTouch.className='dog-pet-touch';
+liveDog.append(petTouch);
+function updatePetLabel(){petTouch.setAttribute('aria-label',petName()+'をなでる');}
+updatePetLabel();
+let petting=false;
+async function strokeCompanion(direct=false){
+  if(petting)return;
+  petting=true;
+  try{
+    const wasLonely=companionFeeling(state).id==='lonely';
+    if(account.enabled&&account.user){if(!await cloudSave({type:'pet'}))return;}
+    else{petCompanion(state);persist();}
+    render();updatePetLabel();
+    // A touch must not dismiss an unread reply or interrupt the pending answer.
+    if(direct&&(activeConversation||activeListening||activeNamePrompt)){
+      roomAffection?.speak(affectionFor(state).score);
+    }else{
+      greetDogs();
+      showCompanionPraise(wasLonely?'おかえり。会いに来てくれて、うれしいな。':'きみの手、やさしいね。なでてくれて、ありがとう。');
+    }
+    if(!direct)toast('こむぎが、うれしそうに寄ってきたよ。');
+  }finally{petting=false;}
+}
+petTouch.addEventListener('click',()=>strokeCompanion(true));
+$('pet-companion').addEventListener('click',()=>strokeCompanion());
 $('reaction-open').addEventListener('click',()=>{previewReaction('happy');$('reaction-dialog').showModal();});
 document.querySelector('.reaction-options').addEventListener('click',event=>{const button=event.target.closest('[data-reaction]');if(button)previewReaction(button.dataset.reaction);});
 
