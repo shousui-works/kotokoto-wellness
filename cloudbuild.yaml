@@ -3,7 +3,7 @@ steps:
     entrypoint: bash
     args:
       - -c
-      - node --test test/*.test.mjs
+      - npm ci --ignore-scripts --no-audit --no-fund && node --test test/*.test.mjs
   - name: gcr.io/cloud-builders/docker
     args:
       - build
