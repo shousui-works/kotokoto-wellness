@@ -290,7 +290,7 @@ test('version 1 and unversioned daily categories retain their pre-upgrade reward
   }
 });
 
- test('distinct dinner is recorded separately and clears an existing duplicate hold without another question',()=>{
+test('distinct dinner is recorded separately and clears an existing duplicate hold without another question',()=>{
   const {legacy,progress}=start();
   const lunch=apply(progress,legacy,[action('meal_log',{title:'昼ごはん',detail:'うどん',evidence:'昼ごはんはうどん'})],'昼ごはんはうどん');
   const dinner=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',targetId:lunch.progress.activities[0].id,title:'晩ごはん',detail:'焼きそば',evidence:'晩ごはんは焼きそば'})],'晩ごはんは焼きそば');
@@ -307,3 +307,31 @@ test('version 1 and unversioned daily categories retain their pre-upgrade reward
   assert.equal(fixed.progress.activities[0].title,'昼ごはん');
   assert.doesNotMatch(fixed.reply,/前に聞いた/);
  });
+
+test('unrelated dinner wording cannot release a meal duplicate and meal spellings remain distinct',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼ごはん',detail:'うどん',evidence:'昼ごはんはうどん'})],'昼ごはんはうどん');
+  const pending=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'うどん',detail:'うどん',evidence:'うどんを食べた'})],'晩ごはんはまだ。うどんを食べた');
+  assert.equal(pending.progress.activities.at(-1).hold,'duplicate');
+  for(const title of ['朝御飯','朝ごはん','朝食']){
+    const breakfast=apply(progress,legacy,[action('meal_log',{title,detail:'パン',evidence:title+'はパン'})],title+'はパン');
+    const result=apply(breakfast.progress,legacy,[action('meal_log',{title:'昼御飯',detail:'うどん',evidence:'昼御飯はうどん'})],'昼御飯はうどん');
+    assert.equal(result.progress.activities.length,2);
+    assert.equal(result.delta,0);
+  }
+});
+
+test('meal corrections and repeat confirmations keep their original semantics',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  const id=lunch.progress.activities[0].id;
+  const corrected=apply(lunch.progress,legacy,[action('meal_log',{operation:'update',targetId:id,title:'夕食',detail:'うどん',evidence:'夕食だった'})],'夕食だった');
+  assert.equal(corrected.progress.activities.length,1);
+  assert.equal(corrected.progress.activities[0].id,id);
+  assert.equal(corrected.progress.activities[0].title,'夕食');
+  const repeated=apply(lunch.progress,legacy,[action('meal_log',{operation:'repeat',targetId:id,evidence:'昼食の分だよ'})],'昼食の分だよ');
+  assert.equal(repeated.progress.activities.length,1);
+  assert.equal(repeated.delta,0);
+  const otherDay=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',date:'2026-10-17',title:'夕食',detail:'焼きそば',evidence:'夕食は焼きそば'})],'夕食は焼きそば');
+  assert.equal(otherDay.progress.activities.at(-1).hold,'duplicate');
+});
