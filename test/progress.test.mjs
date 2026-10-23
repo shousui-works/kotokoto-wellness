@@ -383,3 +383,12 @@ test('dinner aliases and short evidence retain the explicitly reported meal',()=
     assert.equal(result.progress.activities.at(-1).hold,'duplicate',text);
   }
  });
+
+test('negated meal labels in full evidence keep duplicate confirmation',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const text of ['晩ごはんはまだ、うどんを食べた','晩ごはんではなくうどんを食べた']){
+    const result=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'晩ごはん',detail:'うどん',evidence:text})],text);
+    assert.equal(result.progress.activities.at(-1).hold,'duplicate',text);
+  }
+});

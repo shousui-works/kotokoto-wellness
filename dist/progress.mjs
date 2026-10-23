@@ -162,7 +162,7 @@ function mealSlot(value) {
 
 function reportedMealSlot(a,text) {
   const explicit=mealSlot(a.evidence);
-  if(explicit)return explicit;
+  if(explicit)return /まだ|ない|なく|なかった|ません|じゃない/.test(a.evidence)?null:explicit;
   // Only use the sentence containing this action's quote, not unrelated topics.
   const sentences=text.split(/[。！？!?、,;；\n]/).filter(part=>part.includes(a.evidence));
   const label=mealSlot(a.title)??mealSlot(a.detail??'');
