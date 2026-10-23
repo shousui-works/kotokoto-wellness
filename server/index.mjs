@@ -3,7 +3,6 @@ import {readFile, realpath, stat} from 'node:fs/promises';
 import {realpathSync} from 'node:fs';
 import {extname, isAbsolute, relative, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createKomugiChat} from './komugi-chat.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../dist/', import.meta.url));
 const CONTENT_TYPES = {
@@ -31,7 +30,7 @@ function textResponse(req, res, status, text) {
   res.end(req.method === 'HEAD' ? undefined : text);
 }
 
-export function createAppServer({root = DEFAULT_ROOT, chatHandler = createKomugiChat(), accountHandler = null} = {}) {
+export function createAppServer({root = DEFAULT_ROOT, chatHandler = null, accountHandler = null} = {}) {
   const staticRoot = realpathSync(root);
 
   return createServer(async (req, res) => {
@@ -56,9 +55,15 @@ export function createAppServer({root = DEFAULT_ROOT, chatHandler = createKomugi
       return;
     }
 
-    if (accountHandler && await accountHandler(req, res, pathname)) return;
-
-    if (await chatHandler(req, res, pathname)) return;
+    try {
+      if (accountHandler && await accountHandler(req, res, pathname)) return;
+      if (chatHandler && await chatHandler(req, res, pathname)) return;
+    } catch {
+      console.error('{"event":"request_handler_failed"}');
+      if (res.headersSent) res.destroy();
+      else textResponse(req, res, 500, 'Internal server error\n');
+      return;
+    }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.setHeader('Allow', 'GET, HEAD');

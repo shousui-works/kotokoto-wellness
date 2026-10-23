@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import {Readable} from 'node:stream';
 import {createPushService,FirestorePushStore,validateSubscription,dailyPlan,nextRandomDelivery,PERIODS,periodEnd,japanDay,notification,subscriptionId} from '../server/push.mjs';
 import {createAccountAPI} from '../server/account-api.mjs';
+import {createPushRuntime} from '../server/push-runtime.mjs';
 import {createPushSettings,pushSupport} from '../dist/push-settings.mjs';
 const now=Date.parse('2026-10-20T20:00:00+09:00');
 const ec=createECDH('prime256v1');ec.generateKeys();
@@ -116,4 +117,62 @@ test('missed windows are skipped; frequency changes cannot duplicate same-period
  row=await f.store.get('alice',id);assert.ok(row.nextAt>periodEnd(now,'evening')||row.nextAt>now);
  f.setNow(row.nextAt);await f.push.dispatch();assert.equal(f.sent.length,1);const delivered=await f.store.get('alice',id);
  await f.push.handle('alice','PUT',{subscription:sub,frequency:1});assert.deepEqual((await f.store.get('alice',id)).sentPeriods,delivered.sentPeriods);
+});
+
+test('logout cannot race an in-flight notification registration',async()=>{
+ const f=settingsFixture(),original=f.options.account.fetch;let release,started;
+ const pending=new Promise(resolve=>release=resolve),entered=new Promise(resolve=>started=resolve);
+ f.options.account.fetch=async(path,init)=>{if(init.method==='PUT'){started();await pending;}return original(path,init);};
+ const ui=createPushSettings(f.options);await ui.ready;
+ const enabling=f.click('push-enable');await entered;
+ try{await assert.rejects(f.logout(),/通知の設定中/);}finally{release();await enabling;}
+ await f.logout();assert.equal(f.state.stored,false);assert.equal(f.state.subscribed,false);
+});
+
+test('notification click opens room when an existing client cannot navigate',async()=>{
+ const handlers={},opened=[];let focused=false,done;
+ const self={location:{origin:'https://app.test'},addEventListener:(type,fn)=>handlers[type]=fn,clients:{matchAll:async()=>[{url:'https://app.test/',navigate:async()=>{throw TypeError('uncontrolled');},focus:async()=>{focused=true;}}],openWindow:async url=>opened.push(url)}};
+ vm.runInNewContext(await readFile(new URL('../dist/push-sw.js',import.meta.url),'utf8'),{self,URL});
+ handlers.notificationclick({notification:{close(){}},waitUntil:p=>done=p});await done;
+ assert.deepEqual(opened,['https://app.test/#room']);assert.equal(focused,false);
+});
+test('dispatch continues after one claim fails',async()=>{
+ const f=fixture();await f.push.handle('alice','PUT',{subscription:sub,frequency:2});
+ const id=subscriptionId(sub.endpoint),at=(await f.store.get('alice',id)).nextAt;let listed=false;
+ const store={due:async()=>{if(listed)return [];listed=true;return [{id:'broken'},{id}];},claim:async(key,time)=>{if(key==='broken')throw Error('transaction failed');return f.store.claim(key,time);},petName:uid=>f.store.petName(uid)};
+ const push=createPushService({store,publicKey:'key',now:()=>at,send:async()=>{}});
+ assert.deepEqual(await push.dispatch(),{sent:1,failed:1,expired:0,removed:0});
+});
+test('delivery diagnostics contain only a bounded numeric HTTP status',async t=>{
+ const f=fixture();await f.push.handle('alice','PUT',{subscription:sub,frequency:2});const id=subscriptionId(sub.endpoint),logs=[];
+ t.mock.method(console,'error',line=>logs.push(JSON.parse(line)));
+ for(const statusCode of [403,'private endpoint']){
+ const push=createPushService({store:f.store,publicKey:'key',now:()=>now+logs.length*61000,send:async()=>{throw {statusCode,body:'private body',endpoint:sub.endpoint};}});
+ await assert.rejects(push.handle('alice','POST',{id}),e=>e.status===503);
+ }
+ assert.deepEqual(logs,[{event:'push_send_failed',status:403},{event:'push_send_failed',status:null}]);
+});
+
+test('logout cancels a slow settings refresh without waiting or applying stale results',async()=>{
+ const f=settingsFixture(),original=f.options.account.fetch;let release;
+ const pending=new Promise(resolve=>release=resolve);
+ f.options.account.fetch=async(path,init)=>{if(path==='/api/push/config')await pending;return original(path,init);};
+ const ui=createPushSettings(f.options);
+ try{await f.logout();}finally{release();await ui.ready;}
+ assert.equal(f.elements.get('push-enable').disabled,true);
+ assert.equal(f.state.stored,false);
+});
+
+test('invalid VAPID configuration never exposes input in errors',()=>{
+ for(const value of ['PRIVATE-KEY-SENTINEL-invalid-json','null','{}','{"publicKey":"public"}']){
+  assert.throws(()=>createPushRuntime(database(),{WEB_PUSH_VAPID:value,WEB_PUSH_SUBJECT:'mailto:test@example.com'}),error=>{
+   assert.equal(error.message,'Invalid push configuration');
+   assert.equal(error.cause,undefined);
+   assert.ok(!error.stack.includes('PRIVATE-KEY-SENTINEL'));
+   return true;
+  });
+ }
+ assert.throws(()=>createPushRuntime(database(),{WEB_PUSH_VAPID:'{"publicKey":"public","privateKey":"private"}'}),/Invalid push configuration/);
+ assert.doesNotThrow(()=>createPushRuntime(database(),{}));
+ assert.doesNotThrow(()=>createPushRuntime(database(),{WEB_PUSH_VAPID:'{"publicKey":"public","privateKey":"private"}',WEB_PUSH_SUBJECT:'mailto:test@example.com'}));
 });
