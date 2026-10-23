@@ -19,7 +19,7 @@ export const ACTIVITY_KINDS = ['walk','run','strength','stretch','exercise','sna
 export const EXERCISE_KINDS = ['walk','run','strength','stretch','exercise'];
 const DAILY_LIFE_KINDS=['snack','meal_care','eating_habit','rest','housework','mood_log','challenge','care'];
 const HISTORICAL_BONUSES={
-  1:{snack:10,meal_care:10,weight:5,meal_log:5,rest:10,care:5},
+  1:{snack:10,meal_care:10,weight:5,meal_log:5,rest:10,care:5,eating_habit:1,housework:1,mood_log:1,challenge:2},
   2:{snack:2,meal_care:2,eating_habit:1,weight:1,meal_log:1,rest:2,housework:1,mood_log:1,challenge:2,care:1},
 };
 const ID = /^[a-zA-Z0-9:_-]{1,100}$/;

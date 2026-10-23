@@ -273,3 +273,19 @@ test('legacy meal categories require confirmation before a manual eating-habit r
     assert.equal(separate.progress.activities[0].pointVersion,1);
   }
 });
+
+test('version 1 and unversioned daily categories retain their pre-upgrade rewards',()=>{
+  for(const version of [undefined,1,2,3]){
+    const {legacy,progress}=start();
+    const kinds=['eating_habit','housework','mood_log','challenge'];
+    const initial=apply(progress,legacy,kinds.map(kind=>action(kind,{evidence:kind})),kinds.join('。')).progress;
+    for(const row of initial.activities){if(version===undefined)delete row.pointVersion;else row.pointVersion=version;}
+    const saved=normalizeProgress(JSON.parse(JSON.stringify(initial)));
+    const expected=version===3?25:5;
+    assert.equal(progressTotal(saved),expected);
+    assert.deepEqual(dayReport(saved,today).quests.filter(q=>kinds.includes(q.id)).map(q=>q.bonus),version===3?[5,5,5,10]:[1,1,1,2]);
+    const corrected=correctActivity(saved,saved.activities[0].id,{date:'2026-10-17'},legacy,at);
+    assert.equal(progressTotal(corrected),expected);
+    assert.equal(dayReport(corrected,'2026-10-17').total,version===3?5:1);
+  }
+});
