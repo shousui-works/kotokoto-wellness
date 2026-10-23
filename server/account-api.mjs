@@ -1,3 +1,4 @@
+import {WELCOME_TEXT} from '../dist/welcome-conversation.mjs';
 import {emptyPreferences,preferenceContext,applyPreferences} from './interaction-preferences.mjs';
 import {applyPlush,drawCandidate} from './plush-gacha.mjs';
 import {emptyMemory,normalizeMemory,splitMemoryWindow,conversationInput,memoryDay} from './owner-memory.mjs';
@@ -105,21 +106,22 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
       }
       if(pathname==='/api/chat'&&req.method==='POST'){
         if(!apiAvailable)throw problem(503,'chat_unavailable','おはなしの準備中です。');
-        const raw=await body(req,40*1024),text=(raw.text??raw.messages?.at(-1)?.content??'').trim();
+        const raw=await body(req,40*1024),welcome=raw.mode==='welcome',text=welcome?WELCOME_TEXT:(raw.text??raw.messages?.at(-1)?.content??'').trim();
         if(!uuid(raw.requestId)||!text||text.length>600)throw problem(400,'invalid_chat','600文字以内で聞かせてね。');
-        const hash=fingerprint({requestId:raw.requestId,text,selectedId:raw.selectedId??raw.context?.activities?.find(a=>a.selected)?.id??null});let input,baseRevision,memoryPlan,turnTime;
+        const hash=fingerprint({requestId:raw.requestId,text,...(welcome?{welcome:true}:{}),selectedId:raw.selectedId??raw.context?.activities?.find(a=>a.selected)?.id??null});let input,baseRevision,memoryPlan,turnTime;
         const reserved=await store.atomic(uid,raw.requestId,(state,op,usage,rows)=>{
           const repeated=replay(op,hash,state);if(repeated)return {value:repeated};requireSetup(state);
           if(state.progress.processed.includes(raw.requestId))throw problem(409,'imported_request','取り込み済みの会話です。重ねて実行しません。');
           const time=now(),global=usage.global,personal=usage.user;turnTime=time;
+          if(welcome&&(state.chatEnabled===false||time-(state.welcomeAt??0)<30*60000))return {value:{status:200,body:{requestId:raw.requestId,skipped:true}}};
           const window=splitMemoryWindow(rows??[],dayKey(time));memoryPlan={previous:normalizeMemory(state.memory),rows:window.past,throughDate:window.past.length?memoryDay(window.past.at(-2).at):null,epoch:state.historyEpoch};
           const cost=memoryPlan.rows.length?2:1;global.leases=global.leases.filter(l=>l.until>time);personal.recent=personal.recent.filter(t=>t>time-60000);
           if(state.chatLease?.until>time)throw problem(409,'chat_busy','別の画面でこむぎが返事を考えています。少し待ってね。');
           if(global.count+cost>120||personal.count>=30||personal.recent.length>=6||global.leases.length>=2)throw problem(429,'rate_limited','少しひと息ついてから、また話しかけてね。');
           const today=dayKey(time),context={date:today,hour:Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:'Asia/Tokyo'}).format(new Date(time))),stage:growthForXP(progressCompanion(state.progress,state.legacy).xp).stage.id,nickname:state.profile.nickname,petName:state.profile.petName??'こむぎ',...progressContext(state.legacy,state.progress,today,raw.selectedId??raw.context?.activities?.find(a=>a.selected)?.id)};
-          input=validateChatRequest({requestId:raw.requestId,messages:[{role:'user',content:text}],context});if(!input)throw problem(400,'invalid_chat','内容を確認してね。');input.messages=conversationInput(window.current,text,new Date(time).toISOString());input.context.currentTime=new Date(time).toISOString();input.context.timeZone='Asia/Tokyo';input.context.interactionPreferences=preferenceContext(state.interactionPreferences,today);input.context.ownerMemory=memoryPlan.previous.summary;input.context.memoryThroughDate=memoryPlan.previous.throughDate;baseRevision=state.revision;
+          input=validateChatRequest({requestId:raw.requestId,messages:[{role:'user',content:text}],context});if(!input)throw problem(400,'invalid_chat','内容を確認してね。');input.messages=conversationInput(window.current,text,new Date(time).toISOString());input.context.currentTime=new Date(time).toISOString();input.context.timeZone='Asia/Tokyo';input.context.welcome=welcome;input.context.interactionPreferences=preferenceContext(state.interactionPreferences,today);input.context.ownerMemory=memoryPlan.previous.summary;input.context.memoryThroughDate=memoryPlan.previous.throughDate;baseRevision=state.revision;
           const until=time+90000;global.count+=cost;personal.count++;personal.recent.push(time);global.leases.push({key:`${uid}/${raw.requestId}`,until});
-          return {state:{...state,chatLease:{id:raw.requestId,until}},operation:{id:raw.requestId,fingerprint:hash,status:'pending',until,at:time},usage,value:null};
+          return {state:{...state,...(welcome?{welcomeAt:time}:{}),chatLease:{id:raw.requestId,until}},operation:{id:raw.requestId,fingerprint:hash,status:'pending',until,at:time},usage,value:null};
         },{quota:true,now:now(),memoryWindow:true});
         if(reserved){send(res,reserved.status,reserved.body);return true;}
         let generated;
@@ -142,8 +144,8 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
           let outcome=generated,appendMessages=false;
           if(!ownsLease||state.revision!==baseRevision)outcome=fail(409,'context_changed','別の端末で記録が変わりました。入力を残してあるので、もう一度聞かせてね。');
           if(outcome.status===200){
-            const applied=applyInterpretation(state.progress,{requestId:raw.requestId,actions:outcome.body.actions,text,reply:outcome.body.reply,today:dayKey(turnTime),at:new Date(turnTime).toISOString()},state.legacy);
-            state.interactionPreferences=applyPreferences(state.interactionPreferences,outcome.body.interactionUpdate,text,dayKey(turnTime));state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
+            const applied=welcome?{progress:state.progress,reply:outcome.body.reply,receipts:[]}:applyInterpretation(state.progress,{requestId:raw.requestId,actions:outcome.body.actions,text,reply:outcome.body.reply,today:dayKey(turnTime),at:new Date(turnTime).toISOString()},state.legacy);
+            state.interactionPreferences=applyPreferences(state.interactionPreferences,welcome?{asked:outcome.body.interactionUpdate?.asked===true}:outcome.body.interactionUpdate,text,dayKey(turnTime));state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
             outcome={status:200,body:{requestId:raw.requestId,reply:applied.reply,receipts:applied.receipts,actions:[],...packet(state)}};
           }
           // Only a finalized failure permits a new user-initiated attempt; unknown storage outcomes keep the old ID.
