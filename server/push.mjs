@@ -67,7 +67,7 @@ export function createPushService({store,send,publicKey,now=Date.now}){
   async function deliver(id,row,test=false){
     const name=await store.petName(row.uid);if(name===null){await store.remove(row.uid,id);return 'removed';}
     try{await send(row.subscription,JSON.stringify(notification(name,now(),test,row.nextPeriod)),{TTL:test?3600:Math.max(1,Math.min(3600,Math.ceil((periodEnd(row.nextAt,row.nextPeriod)-now())/1000)))});return 'sent';}
-    catch(error){if([404,410].includes(error.statusCode)){await store.remove(row.uid,id);return 'expired';}throw problem(503,'push_unavailable','今は通知を送れません。少し待ってから試してね。');}
+    catch(error){if([404,410].includes(error.statusCode)){await store.remove(row.uid,id);return 'expired';}console.error(JSON.stringify({event:'push_send_failed',status:Number.isInteger(error.statusCode)&&error.statusCode>=100&&error.statusCode<=599?error.statusCode:null}));throw problem(503,'push_unavailable','今は通知を送れません。少し待ってから試してね。');}
   }
   return {publicKey:available?publicKey:null,
     async handle(uid,method,input={}){
@@ -79,6 +79,6 @@ export function createPushService({store,send,publicKey,now=Date.now}){
       if(method==='POST'){const row=await store.claimTest(uid,id,now());const result=await deliver(id,row,true);if(result!=='sent')throw problem(410,'push_expired','端末の通知登録が切れています。オフにしてから、もう一度オンにしてね。');return {sent:true};}
       throw problem(405,'method_not_allowed','この操作には対応していません。');
     },
-    async dispatch(){if(!available)throw Error('Push not configured');const counts={sent:0,failed:0,expired:0,removed:0},deadline=Date.now()+240000;for(let page=0;page<5;page++){const rows=await store.due(now());if(!rows.length)break;for(const {id}of rows){if(Date.now()>deadline)return counts;const row=await store.claim(id,now());if(!row)continue;try{counts[await deliver(id,row)]++;}catch{counts.failed++;}}}return counts;},
+    async dispatch(){if(!available)throw Error('Push not configured');const counts={sent:0,failed:0,expired:0,removed:0},deadline=Date.now()+240000;for(let page=0;page<5;page++){const rows=await store.due(now());if(!rows.length)break;for(const {id}of rows){if(Date.now()>deadline)return counts;try{const row=await store.claim(id,now());if(!row)continue;counts[await deliver(id,row)]++;}catch{counts.failed++;}}}return counts;},
   };
 }
