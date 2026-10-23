@@ -289,3 +289,21 @@ test('version 1 and unversioned daily categories retain their pre-upgrade reward
     assert.equal(dayReport(corrected,'2026-10-17').total,version===3?5:1);
   }
 });
+
+ test('distinct dinner is recorded separately and clears an existing duplicate hold without another question',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼ごはん',detail:'うどん',evidence:'昼ごはんはうどん'})],'昼ごはんはうどん');
+  const dinner=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',targetId:lunch.progress.activities[0].id,title:'晩ごはん',detail:'焼きそば',evidence:'晩ごはんは焼きそば'})],'晩ごはんは焼きそば');
+  assert.equal(dinner.progress.activities.length,2);
+  assert.equal(dinner.progress.activities[1].hold,null);
+  assert.equal(dinner.delta,0);
+  assert.doesNotMatch(dinner.reply,/前に聞いた/);
+  const pending=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'焼きそば',detail:'焼きそば',evidence:'焼きそば'})],'焼きそば');
+  assert.equal(pending.progress.activities.at(-1).hold,'duplicate');
+  const id=pending.progress.activities.at(-1).id;
+  const fixed=apply(pending.progress,legacy,[action('meal_log',{operation:'update',targetId:id,title:'晩御飯',evidence:'晩御飯だもん'})],'ちがうよ？晩御飯だもん');
+  assert.equal(fixed.progress.activities.at(-1).hold,null);
+  assert.deepEqual(fixed.progress.activities.at(-1).needs,[]);
+  assert.equal(fixed.progress.activities[0].title,'昼ごはん');
+  assert.doesNotMatch(fixed.reply,/前に聞いた/);
+ });
