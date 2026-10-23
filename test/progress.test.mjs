@@ -289,3 +289,117 @@ test('version 1 and unversioned daily categories retain their pre-upgrade reward
     assert.equal(dayReport(corrected,'2026-10-17').total,version===3?5:1);
   }
 });
+
+test('distinct dinner is recorded separately and clears an existing duplicate hold without another question',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼ごはん',detail:'うどん',evidence:'昼ごはんはうどん'})],'昼ごはんはうどん');
+  const dinner=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',targetId:lunch.progress.activities[0].id,title:'晩ごはん',detail:'焼きそば',evidence:'晩ごはんは焼きそば'})],'晩ごはんは焼きそば');
+  assert.equal(dinner.progress.activities.length,2);
+  assert.equal(dinner.progress.activities[1].hold,null);
+  assert.equal(dinner.delta,0);
+  assert.doesNotMatch(dinner.reply,/前に聞いた/);
+  const pending=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'焼きそば',detail:'焼きそば',evidence:'焼きそば'})],'焼きそば');
+  assert.equal(pending.progress.activities.at(-1).hold,'duplicate');
+  const id=pending.progress.activities.at(-1).id;
+  const fixed=apply(pending.progress,legacy,[action('meal_log',{operation:'update',targetId:id,title:'晩御飯',evidence:'晩御飯だもん'})],'ちがうよ？晩御飯だもん');
+  assert.equal(fixed.progress.activities.at(-1).hold,null);
+  assert.deepEqual(fixed.progress.activities.at(-1).needs,[]);
+  assert.equal(fixed.progress.activities[0].title,'昼ごはん');
+  assert.doesNotMatch(fixed.reply,/前に聞いた/);
+ });
+
+test('unrelated dinner wording cannot release a meal duplicate and meal spellings remain distinct',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼ごはん',detail:'うどん',evidence:'昼ごはんはうどん'})],'昼ごはんはうどん');
+  const pending=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'うどん',detail:'うどん',evidence:'うどんを食べた'})],'晩ごはんはまだ。うどんを食べた');
+  assert.equal(pending.progress.activities.at(-1).hold,'duplicate');
+  for(const title of ['朝御飯','朝ごはん','朝食']){
+    const breakfast=apply(progress,legacy,[action('meal_log',{title,detail:'パン',evidence:title+'はパン'})],title+'はパン');
+    const result=apply(breakfast.progress,legacy,[action('meal_log',{title:'昼御飯',detail:'うどん',evidence:'昼御飯はうどん'})],'昼御飯はうどん');
+    assert.equal(result.progress.activities.length,2);
+    assert.equal(result.delta,0);
+  }
+});
+
+test('meal corrections and repeat confirmations keep their original semantics',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  const id=lunch.progress.activities[0].id;
+  const corrected=apply(lunch.progress,legacy,[action('meal_log',{operation:'update',targetId:id,title:'夕食',detail:'うどん',evidence:'夕食だった'})],'夕食だった');
+  assert.equal(corrected.progress.activities.length,1);
+  assert.equal(corrected.progress.activities[0].id,id);
+  assert.equal(corrected.progress.activities[0].title,'夕食');
+  const repeated=apply(lunch.progress,legacy,[action('meal_log',{operation:'repeat',targetId:id,evidence:'昼食の分だよ'})],'昼食の分だよ');
+  assert.equal(repeated.progress.activities.length,1);
+  assert.equal(repeated.delta,0);
+  const otherDay=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',date:'2026-10-17',title:'夕食',detail:'焼きそば',evidence:'夕食は焼きそば'})],'夕食は焼きそば');
+  assert.equal(otherDay.progress.activities.at(-1).hold,'duplicate');
+});
+
+test('meal shorthand and explicit saved title distinguish meals despite leftovers detail',()=>{
+  const {legacy,progress}=start();
+  for(const prior of [
+    {title:'昼ごはん',detail:'晩ごはんの残り',evidence:'昼ごはんは晩ごはんの残り'},
+    {title:'昼はうどん',detail:'うどん',evidence:'昼はうどん'},
+    {title:'食事',detail:'昼ごはん：うどん',evidence:'うどん'},
+    {title:'食事',detail:'昼ごはん：うどん',evidence:'晩ごはんの残りを食べた'},
+  ]){
+    const lunch=apply(progress,legacy,[action('meal_log',prior)],prior.evidence);
+    const dinner=apply(lunch.progress,legacy,[action('meal_log',{title:'夕食',detail:'焼きそば',evidence:'夜は焼きそば'})],'夜は焼きそば');
+    assert.equal(dinner.progress.activities.length,2);
+    assert.equal(dinner.progress.activities.at(-1).hold,null);
+    assert.equal(dinner.delta,0);
+  }
+});
+
+test('explicit additional meal resolves a duplicate even without a named meal slot',()=>{
+  const {legacy,progress}=start();
+  const first=apply(progress,legacy,[action('meal_log',{detail:'おにぎり',evidence:'おにぎりを食べた'})],'おにぎりを食べた');
+  const pending=apply(first.progress,legacy,[action('meal_log',{operation:'clarify',detail:'パン',evidence:'パンを食べた'})],'パンを食べた');
+  const resolved=apply(pending.progress,legacy,[action('meal_log',{operation:'update',targetId:pending.progress.activities.at(-1).id,additional:true,evidence:'追加で食べた'})],'追加で食べた');
+  assert.equal(resolved.progress.activities.length,2);
+  assert.equal(resolved.progress.activities.at(-1).hold,null);
+  assert.deepEqual(resolved.progress.activities.at(-1).needs,[]);
+  assert.equal(resolved.delta,0);
+});
+
+test('dinner aliases and short evidence retain the explicitly reported meal',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const [text,evidence,title] of [['夕飯はカレーを食べた','夕飯はカレーを食べた','夕飯'],['晩ごはんは焼きそばを食べた','焼きそばを食べた','晩ごはん']]){
+    const result=apply(lunch.progress,legacy,[action('meal_log',{title,detail:'食事内容',evidence})],text);
+    assert.equal(result.progress.activities.length,2);
+    assert.equal(result.delta,0);
+  }
+  const unrelated=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'晩ごはん',detail:'うどん',evidence:'うどんを食べた'})],'晩ごはんはまだ。うどんを食べた');
+  assert.equal(unrelated.progress.activities.at(-1).hold,'duplicate');
+});
+
+ test('negated dinner clauses cannot supply a short quote meal label',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const text of ['晩ごはんはまだ、うどんを食べた','晩ごはんはまだ,うどんを食べた','晩ごはんはまだだけどうどんを食べた','晩ごはんではなくうどんを食べた']){
+    const result=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'晩ごはん',detail:'うどん',evidence:'うどんを食べた'})],text);
+    assert.equal(result.progress.activities.at(-1).hold,'duplicate',text);
+  }
+ });
+
+test('negated meal labels in full evidence keep duplicate confirmation',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const text of ['晩ごはんはまだ、うどんを食べた','晩ごはんではなくうどんを食べた']){
+    const result=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'晩ごはん',detail:'うどん',evidence:text})],text);
+    assert.equal(result.progress.activities.at(-1).hold,'duplicate',text);
+  }
+});
+
+test('unrelated negative clauses do not erase an affirmative meal label',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const operation of ['create','clarify']){
+    const text='晩ごはんはカレーを食べた、野菜は食べなかった';
+    const result=apply(lunch.progress,legacy,[action('meal_log',{operation,title:'晩ごはん',detail:'カレー',evidence:text})],text);
+    assert.equal(result.progress.activities.length,2);
+    assert.equal(result.progress.activities.at(-1).hold,null);
+  }
+});

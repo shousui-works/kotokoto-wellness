@@ -154,6 +154,37 @@ export function withFollowup(reply,question) {
   return (statement||'聞かせてくれて、ありがとう。').slice(0,Math.max(0,599-question.length))+' '+question;
 }
 
+function mealSlot(value) {
+  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|飯|食|は)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|飯|食|は)/]]
+    .filter(([,pattern])=>pattern.test(value));
+  return slots.length===1?slots[0][0]:null;
+}
+
+function reportedMealSlot(a,text) {
+  const explicit=mealSlot(a.evidence);
+  if(explicit){
+    const mealClauses=a.evidence.split(/[。！？!?、,;；\n]/).filter(part=>mealSlot(part)===explicit);
+    return mealClauses.some(part=>/まだ|ない|なく|なかった|ません|じゃない/.test(part))?null:explicit;
+  }
+  // Only use the sentence containing this action's quote, not unrelated topics.
+  const sentences=text.split(/[。！？!?、,;；\n]/).filter(part=>part.includes(a.evidence));
+  const label=mealSlot(a.title)??mealSlot(a.detail??'');
+  if(sentences.length!==1||/まだ|ない|なく|なかった|ません|じゃない/.test(sentences[0]))return null;
+  return label&&mealSlot(sentences[0])===label?label:null;
+}
+
+function distinctMeal(progress,a,existing,text) {
+  if(a.kind!=='meal_log'||a.operation==='update'&&existing?.hold!=='duplicate')return false;
+  const slot=reportedMealSlot(a,text);
+  if(!slot)return false;
+  const others=progress.activities.filter(x=>!x.deleted&&(x.id!==existing?.id||a.operation==='clarify'&&!existing?.hold)&&x.kind==='meal_log'&&x.date===(a.date??existing?.date));
+  return others.length>0&&others.every(x=>{
+    // Prefer the meal label over descriptions such as yesterday's dinner leftovers.
+    const previous=mealSlot(x.title)??mealSlot(x.detail??'')??mealSlot(x.evidence);
+    return previous&&previous!==slot;
+  });
+}
+
 export function applyInterpretation(original,{requestId,actions,text,reply='',today=dateKey(),at=new Date().toISOString()},legacy) {
   if(!ID.test(requestId)||!Array.isArray(actions)||actions.length>8)throw Error('Invalid result');
   if(original.processed.includes(requestId))return {progress:original,receipts:[],delta:0,reply,replayed:true};
@@ -164,6 +195,12 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     if(!a||!text.includes(a.evidence)||a.date&&a.date>today)throw Error('Invalid candidate');
     let existing=a.targetId?progress.activities.find(x=>x.id===a.targetId&&!x.deleted):null;
     if(a.targetId&&!existing)throw Error('Unknown activity');
+    const separateMeal=distinctMeal(progress,a,existing,text);
+    if(separateMeal&&['create','clarify','update'].includes(a.operation)){
+      if(existing?.hold!=='duplicate'&&a.operation==='clarify')existing=null;
+      a.operation=existing?'update':'create';
+      a.additional=true;
+    }
     if(a.operation==='repeat'){
       if(existing?.hold==='duplicate'){existing.deleted=true;touched.push(existing);}
       receipts.push({label:'前に聞いた分として確認',delta:0,status:'duplicate'});continue;
@@ -183,7 +220,7 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       if(same.length&&EXERCISE_KINDS.includes(a.kind)&&!(a.additional&&/追加|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence)))a.operation='clarify';
     }
     let hold=a.operation==='clarify'?'duplicate':null;
-    if(existing?.hold==='duplicate'&&a.operation==='update'&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
+    if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
     if(existing){
       existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,deleted:existing.deleted}});
       const changes=Object.fromEntries(Object.entries(a).filter(([,value])=>value!==null));
