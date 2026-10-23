@@ -1,7 +1,7 @@
 import {createSpeechTimer} from './speech-timer.mjs';
 import {createPushSettings} from './push-settings.mjs?v=random-3';
 import {createShelfPosition} from './shelf-position.mjs?v=1';
-import {createPlushUI} from './plush-ui.mjs?v=menu-1';
+import {createPlushUI} from './plush-ui.mjs?v=text-odds-1';
 import {createAccountClient} from './account-client.mjs?v=welcome-1';
 const account=await createAccountClient();
 const storage=account.storage;
