@@ -155,14 +155,23 @@ export function withFollowup(reply,question) {
 }
 
 function mealSlot(value) {
-  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|食|は)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|食|は)/]]
+  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|飯|食|は)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|飯|食|は)/]]
     .filter(([,pattern])=>pattern.test(value));
   return slots.length===1?slots[0][0]:null;
 }
 
-function distinctMeal(progress,a,existing) {
+function reportedMealSlot(a,text) {
+  const explicit=mealSlot(a.evidence);
+  if(explicit)return explicit;
+  // Only use the sentence containing this action's quote, not unrelated topics.
+  const sentences=text.split(/[。！？!?\n]/).filter(part=>part.includes(a.evidence));
+  const label=mealSlot(a.title)??mealSlot(a.detail??'');
+  return sentences.length===1&&label&&mealSlot(sentences[0])===label?label:null;
+}
+
+function distinctMeal(progress,a,existing,text) {
   if(a.kind!=='meal_log'||a.operation==='update'&&existing?.hold!=='duplicate')return false;
-  const slot=mealSlot(a.evidence);
+  const slot=reportedMealSlot(a,text);
   if(!slot)return false;
   const others=progress.activities.filter(x=>!x.deleted&&(x.id!==existing?.id||a.operation==='clarify'&&!existing?.hold)&&x.kind==='meal_log'&&x.date===(a.date??existing?.date));
   return others.length>0&&others.every(x=>{
@@ -182,7 +191,7 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     if(!a||!text.includes(a.evidence)||a.date&&a.date>today)throw Error('Invalid candidate');
     let existing=a.targetId?progress.activities.find(x=>x.id===a.targetId&&!x.deleted):null;
     if(a.targetId&&!existing)throw Error('Unknown activity');
-    const separateMeal=distinctMeal(progress,a,existing);
+    const separateMeal=distinctMeal(progress,a,existing,text);
     if(separateMeal&&['create','clarify','update'].includes(a.operation)){
       if(existing?.hold!=='duplicate'&&a.operation==='clarify')existing=null;
       a.operation=existing?'update':'create';

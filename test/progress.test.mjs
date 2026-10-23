@@ -362,3 +362,15 @@ test('explicit additional meal resolves a duplicate even without a named meal sl
   assert.deepEqual(resolved.progress.activities.at(-1).needs,[]);
   assert.equal(resolved.delta,0);
 });
+
+test('dinner aliases and short evidence retain the explicitly reported meal',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const [text,evidence,title] of [['夕飯はカレーを食べた','夕飯はカレーを食べた','夕飯'],['晩ごはんは焼きそばを食べた','焼きそばを食べた','晩ごはん']]){
+    const result=apply(lunch.progress,legacy,[action('meal_log',{title,detail:'食事内容',evidence})],text);
+    assert.equal(result.progress.activities.length,2);
+    assert.equal(result.delta,0);
+  }
+  const unrelated=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',title:'晩ごはん',detail:'うどん',evidence:'うどんを食べた'})],'晩ごはんはまだ。うどんを食べた');
+  assert.equal(unrelated.progress.activities.at(-1).hold,'duplicate');
+});
