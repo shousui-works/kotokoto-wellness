@@ -105,7 +105,7 @@ export class FirestoreAccountStore {
     if(already)return this.read(uid);
     const writes=[];
     const {days,...legacy}=state.legacy,{activities,processed,...progress}=state.progress;
-    writes.push([target.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:processed}}],[target.collection('settings').doc('profile'),{profile:state.profile,chatEnabled:state.chatEnabled}]);
+    writes.push([target.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:processed}}],[target.collection('settings').doc('profile'),{profile:state.profile,chatEnabled:state.chatEnabled,interactionPreferences:normalizePreferences(state.interactionPreferences)}]);
     for(const [date,value]of Object.entries(days))writes.push([target.collection('legacyDays').doc(date),{date,value}]);
     for(const value of activities)writes.push([target.collection('activities').doc(docId(value.id)),value]);
     for(const [sequence,value]of state.conversation.messages.entries()){const {content,...rest}=value;writes.push([target.collection('threads').doc('main-0').collection('messages').doc(`import-${sequence}`),{sequence,...rest,text:content}]);}

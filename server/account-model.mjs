@@ -1,4 +1,4 @@
-import {emptyPreferences} from './interaction-preferences.mjs';
+import {emptyPreferences,normalizePreferences} from './interaction-preferences.mjs';
 import {emptyCollection} from '../dist/collection-model.mjs';
 import {applyPlush} from './plush-gacha.mjs';
 import {emptyMemory} from './owner-memory.mjs';
@@ -23,7 +23,7 @@ export function importAccount(payload){
     const legacy=normalizeState(source),progress=payload.progress?normalizeProgress(payload.progress):emptyProgress(legacy,new Date(0));
     if(Object.keys(legacy.days).length+progress.activities.length>5000)throw Error('large');
     const conversation=payload.conversation?normalizeConversation(payload.conversation):{version:1,messages:[]};
-    return {...emptyAccount(),initialized:true,messageCounter:conversation.messages.length/2,legacy,progress,profile:{version:1,nickname:normalizeNickname(payload.profile?.nickname??''),petName:normalizeNickname(payload.profile?.petName??'こむぎ')||'こむぎ',namesConfigured:payload.profile?.namesConfigured===true},conversation,chatEnabled:payload.chatEnabled!==false};
+    return {...emptyAccount(),initialized:true,interactionPreferences:normalizePreferences(payload.interactionPreferences),messageCounter:conversation.messages.length/2,legacy,progress,profile:{version:1,nickname:normalizeNickname(payload.profile?.nickname??''),petName:normalizeNickname(payload.profile?.petName??'こむぎ')||'こむぎ',namesConfigured:payload.profile?.namesConfigured===true},conversation,chatEnabled:payload.chatEnabled!==false};
   }catch{throw problem(400,'invalid_import','記録の形式・件数を確認してね。元の記録は残しています。');}
 }
 export function applyCommand(original,command,now=Date.now()){

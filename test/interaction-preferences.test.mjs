@@ -44,3 +44,11 @@ test('Firestore writer persists preferences even when names and chat settings di
  assert.equal(saved[0],'users/alice/datasets/fixture/settings/profile');assert.deepEqual(normalizePreferences(saved[1].interactionPreferences),after.interactionPreferences);
  assert.equal(normalizePreferences(undefined).preferred,null);
 });
+
+test('account backup import preserves preferences and rejects invalid versions',async()=>{
+ const {emptyAccount,importAccount}=await import('../server/account-model.mjs');
+ const source=emptyAccount();source.interactionPreferences=applyPreferences(null,update('encourage'),'応援','2026-10-23');
+ assert.deepEqual(importAccount(source).interactionPreferences,source.interactionPreferences);
+ assert.throws(()=>importAccount({...source,interactionPreferences:{version:99}}));
+ const legacy=emptyAccount();delete legacy.interactionPreferences;assert.deepEqual(importAccount(legacy).interactionPreferences,emptyPreferences());
+});
