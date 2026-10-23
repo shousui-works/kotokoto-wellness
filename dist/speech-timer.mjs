@@ -13,6 +13,7 @@ export function bindReplyEditing(input,onChange){
  const update=value=>{editing=value;onChange();};
  input.addEventListener('focus',()=>update(true));
  input.addEventListener('pointerdown',()=>update(true));
+ input.addEventListener('input',()=>update(true));
  input.addEventListener('blur',()=>{composing=false;update(false);});
  input.addEventListener('compositionstart',()=>{composing=true;update(true);});
  input.addEventListener('compositionend',()=>{composing=false;onChange();});

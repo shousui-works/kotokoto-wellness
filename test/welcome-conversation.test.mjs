@@ -46,6 +46,8 @@ test('focus and empty IME composition pause replies, while successful send relea
  input.dispatchEvent(new Event('compositionstart'));assert.equal(pending,null);
  input.dispatchEvent(new Event('compositionend'));assert.equal(pending,null);
  editing.sent();assert.equal(editing.active,false);assert.ok(pending);
+ input.dispatchEvent(new Event('input'));assert.equal(editing.active,true);assert.equal(pending,null);
+ editing.sent();assert.ok(pending);
  input.dispatchEvent(new Event('pointerdown'));assert.equal(pending,null);
  input.dispatchEvent(new Event('blur'));assert.ok(pending);
  timer.clear();
