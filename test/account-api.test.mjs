@@ -6,8 +6,8 @@ import {createAccountAPI} from '../server/account-api.mjs';
 import {MemoryAccountStore} from '../server/account-store.mjs';
 import {emptyState} from '../dist/model.mjs';
 const config={projectId:'example-project',authDomain:'app.example.com',appId:'test',apiKey:'public'};
-function fixture({actions=[],firstFailure=null}={}){const store=new MemoryAccountStore();let calls=0,clock=Date.parse('2026-10-19T03:00:00Z'),resolve,lastInput;
- const generate=async input=>{calls++;lastInput=input;if(resolve)await resolve.promise;if(calls===1&&firstFailure)return firstFailure;return {status:200,body:{requestId:input.requestId,reply:'会いに来てくれてうれしいよ。',actions}};};
+function fixture({actions=[],firstFailure=null,interactionUpdate=null}={}){const store=new MemoryAccountStore();let calls=0,clock=Date.parse('2026-10-19T03:00:00Z'),resolve,lastInput;
+ const generate=async input=>{calls++;lastInput=input;if(resolve)await resolve.promise;if(calls===1&&firstFailure)return firstFailure;return {status:200,body:{requestId:input.requestId,reply:'会いに来てくれてうれしいよ。',actions,interactionUpdate}};};
  const api=createAccountAPI({store,config,verify:async token=>{if(!['alice','bob'].includes(token))throw Error();return {uid:token};},generate,now:()=>clock});
  async function request(path,method='GET',data,token='alice',origin='https://app.example.com'){
   const req=Readable.from(data?[Buffer.from(JSON.stringify(data))]:[]);req.method=method;req.url=path;req.headers={host:'app.example.com',origin,...(token?{authorization:`Bearer ${token}`}:{})};let status,headers,body;
@@ -95,4 +95,32 @@ test('manual records and corrections use the JST day even while the server is on
  assert.equal(corrected.status,200);assert.equal(corrected.body.state.progress.activities[0].weightKg,61);
  const future=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:4,command:{type:'correct_activity',id:weight.body.state.progress.activities[0].id,changes:{date:'2026-10-20'}}});
  assert.equal(future.status,400);
+});
+
+
+test('interaction preferences commit with chat, replay once, isolate accounts and clear with history',async()=>{
+ const f=fixture({interactionUpdate:{style:'encourage',scope:'ongoing',certainty:'explicit',evidence:'応援してほしい',asked:false}});await f.initialize();
+ const input={requestId:randomUUID(),text:'応援してほしい',context:{interactionPreferences:{preferred:'nurture'}}};
+ const one=await f.request('/api/chat','POST',input);assert.equal(one.status,200);assert.equal(f.input.context.interactionPreferences.preferred,null);
+ assert.equal(one.body.state.interactionPreferences.preferred,'encourage');
+ const again=await f.request('/api/chat','POST',input);assert.equal(again.body.state.interactionPreferences.turns,1);
+ await f.request('/api/chat','POST',{requestId:randomUUID(),text:'こんにちは'});assert.equal(f.input.context.interactionPreferences.preferred,'encourage');
+ assert.equal((await f.request('/api/sync','GET',null,'bob')).body.state.interactionPreferences.preferred,null);
+ const state=(await f.request('/api/sync')).body.state;
+ await f.request('/api/conversations','DELETE',{requestId:randomUUID(),revision:state.revision});
+ assert.equal((await f.request('/api/sync')).body.state.interactionPreferences.preferred,null);
+});
+
+test('failed and conflicted conversations never save preference candidates; reset forgets preferences',async()=>{
+ const interactionUpdate={style:'listen',scope:'ongoing',certainty:'explicit',evidence:'聞いてほしい',asked:false};
+ const failed=fixture({interactionUpdate,firstFailure:{status:502,body:{error:{code:'upstream'}}}});await failed.initialize();
+ assert.equal((await failed.request('/api/chat','POST',{requestId:randomUUID(),text:'聞いてほしい'})).status,502);
+ assert.equal((await failed.request('/api/sync')).body.state.interactionPreferences.preferred,null);
+ const f=fixture({interactionUpdate});await f.initialize();const release=f.hold();const pending=f.request('/api/chat','POST',{requestId:randomUUID(),text:'聞いてほしい'});
+ while(!f.calls)await new Promise(r=>setImmediate(r));
+ await f.request('/api/commands','POST',{requestId:randomUUID(),revision:1,command:{type:'profile',nickname:'そら'}});release();assert.equal((await pending).status,409);
+ assert.equal((await f.request('/api/sync')).body.state.interactionPreferences.preferred,null);
+ const saved=await f.request('/api/chat','POST',{requestId:randomUUID(),text:'聞いてほしい'});
+ const reset=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:saved.body.state.revision,command:{type:'reset_memory'}});
+ assert.equal(reset.status,200);assert.equal(reset.body.state.interactionPreferences.preferred,null);
 });

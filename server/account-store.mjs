@@ -1,3 +1,4 @@
+import {normalizePreferences} from './interaction-preferences.mjs';
 import {normalizeCollection} from '../dist/collection-model.mjs';
 import {emptyMemory,normalizeMemory,MAX_MEMORY_MESSAGES} from './owner-memory.mjs';
 import {randomUUID} from 'node:crypto';
@@ -24,7 +25,7 @@ export class FirestoreAccountStore {
     return {revision:meta.revision,initialized:true,datasetId:meta.datasetId,chatLease:meta.chatLease??null,historyEpoch:meta.historyEpoch??"0",messageCounter:meta.messageCounter??0,
       legacy:{...saved.legacy,days:Object.fromEntries(days.docs.map(d=>[d.data().date,d.data().value]))},
       progress:{...saved.progress,activities:activities.docs.map(d=>d.data()),processed:saved.progress.legacyProcessed??[]},
-      collection:normalizeCollection(collection.data()),memory:normalizeMemory(memory.data()),profile:profile.data().profile,chatEnabled:profile.data().chatEnabled!==false,
+      interactionPreferences:normalizePreferences(profile.data().interactionPreferences),collection:normalizeCollection(collection.data()),memory:normalizeMemory(memory.data()),profile:profile.data().profile,chatEnabled:profile.data().chatEnabled!==false,
       conversation:{version:1,messages:messages.docs.map(d=>{const {sequence,text,...rest}=d.data();return {...rest,content:text};})}};
   }
   async loadMemoryWindow(tx,uid,state){
@@ -45,7 +46,7 @@ export class FirestoreAccountStore {
     if(!equal(before.memory,after.memory))write(dataset.collection('memory').doc('owner'),normalizeMemory(after.memory));
     const {days,...legacy}=after.legacy,{activities,processed,...progress}=after.progress;
     if(!equal({...before.legacy,days:{}},{...after.legacy,days:{}})||!equal({...before.progress,activities:[],processed:[]},{...after.progress,activities:[],processed:[]})||!before.initialized)write(dataset.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:before.progress.processed}});
-    if(!equal(before.profile,after.profile)||before.chatEnabled!==after.chatEnabled||!before.initialized)write(dataset.collection('settings').doc('profile'),{profile:after.profile,chatEnabled:after.chatEnabled});
+    if(!equal(before.interactionPreferences,after.interactionPreferences)||!equal(before.profile,after.profile)||before.chatEnabled!==after.chatEnabled||!before.initialized)write(dataset.collection('settings').doc('profile'),{profile:after.profile,chatEnabled:after.chatEnabled,interactionPreferences:normalizePreferences(after.interactionPreferences)});
     for(const date of new Set([...Object.keys(before.legacy.days),...Object.keys(days)])){
       if(equal(before.legacy.days[date],days[date]))continue;
       const ref=dataset.collection('legacyDays').doc(date);if(days[date])write(ref,{date,value:days[date]});else tx.delete(ref);
@@ -104,7 +105,7 @@ export class FirestoreAccountStore {
     if(already)return this.read(uid);
     const writes=[];
     const {days,...legacy}=state.legacy,{activities,processed,...progress}=state.progress;
-    writes.push([target.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:processed}}],[target.collection('settings').doc('profile'),{profile:state.profile,chatEnabled:state.chatEnabled}]);
+    writes.push([target.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:processed}}],[target.collection('settings').doc('profile'),{profile:state.profile,chatEnabled:state.chatEnabled,interactionPreferences:normalizePreferences(state.interactionPreferences)}]);
     for(const [date,value]of Object.entries(days))writes.push([target.collection('legacyDays').doc(date),{date,value}]);
     for(const value of activities)writes.push([target.collection('activities').doc(docId(value.id)),value]);
     for(const [sequence,value]of state.conversation.messages.entries()){const {content,...rest}=value;writes.push([target.collection('threads').doc('main-0').collection('messages').doc(`import-${sequence}`),{sequence,...rest,text:content}]);}
