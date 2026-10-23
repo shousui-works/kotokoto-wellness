@@ -1,3 +1,4 @@
+import {emptyPreferences,preferenceContext,applyPreferences} from './interaction-preferences.mjs';
 import {applyPlush,drawCandidate} from './plush-gacha.mjs';
 import {emptyMemory,normalizeMemory,splitMemoryWindow,conversationInput,memoryDay} from './owner-memory.mjs';
 import {randomUUID} from 'node:crypto';
@@ -97,7 +98,7 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
         const result=await store.atomic(uid,input.requestId,(state,op)=>{
           const repeated=replay(op,hash,state);if(repeated)return {value:repeated};requireSetup(state);requireRevision(state,input.revision);
           if(state.chatLease?.until>now())throw problem(409,'chat_busy','こむぎの返事を待ってから消してね。');old=state;
-          const next={...state,memory:{...emptyMemory(),revision:(state.memory?.revision??0)+1,updatedAt:new Date(now()).toISOString()},conversation:{version:1,messages:[]},historyEpoch:input.requestId,revision:state.revision+1};
+          const next={...state,interactionPreferences:emptyPreferences(),memory:{...emptyMemory(),revision:(state.memory?.revision??0)+1,updatedAt:new Date(now()).toISOString()},conversation:{version:1,messages:[]},historyEpoch:input.requestId,revision:state.revision+1};
           return {state:next,clearConversation:true,operation:{id:input.requestId,fingerprint:hash,status:'complete',at:now()},value:{status:200,body:packet(next)}};
         });
         if(old)await store.clearHistoryBodies(uid,old,now());send(res,result.status,result.body);return true;
@@ -116,7 +117,7 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
           if(state.chatLease?.until>time)throw problem(409,'chat_busy','別の画面でこむぎが返事を考えています。少し待ってね。');
           if(global.count+cost>120||personal.count>=30||personal.recent.length>=6||global.leases.length>=2)throw problem(429,'rate_limited','少しひと息ついてから、また話しかけてね。');
           const today=dayKey(time),context={date:today,hour:Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:'Asia/Tokyo'}).format(new Date(time))),stage:growthForXP(progressCompanion(state.progress,state.legacy).xp).stage.id,nickname:state.profile.nickname,petName:state.profile.petName??'こむぎ',...progressContext(state.legacy,state.progress,today,raw.selectedId??raw.context?.activities?.find(a=>a.selected)?.id)};
-          input=validateChatRequest({requestId:raw.requestId,messages:[{role:'user',content:text}],context});if(!input)throw problem(400,'invalid_chat','内容を確認してね。');input.messages=conversationInput(window.current,text,new Date(time).toISOString());input.context.currentTime=new Date(time).toISOString();input.context.timeZone='Asia/Tokyo';input.context.ownerMemory=memoryPlan.previous.summary;input.context.memoryThroughDate=memoryPlan.previous.throughDate;baseRevision=state.revision;
+          input=validateChatRequest({requestId:raw.requestId,messages:[{role:'user',content:text}],context});if(!input)throw problem(400,'invalid_chat','内容を確認してね。');input.messages=conversationInput(window.current,text,new Date(time).toISOString());input.context.currentTime=new Date(time).toISOString();input.context.timeZone='Asia/Tokyo';input.context.interactionPreferences=preferenceContext(state.interactionPreferences,today);input.context.ownerMemory=memoryPlan.previous.summary;input.context.memoryThroughDate=memoryPlan.previous.throughDate;baseRevision=state.revision;
           const until=time+90000;global.count+=cost;personal.count++;personal.recent.push(time);global.leases.push({key:`${uid}/${raw.requestId}`,until});
           return {state:{...state,chatLease:{id:raw.requestId,until}},operation:{id:raw.requestId,fingerprint:hash,status:'pending',until,at:time},usage,value:null};
         },{quota:true,now:now(),memoryWindow:true});
@@ -142,7 +143,7 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
           if(!ownsLease||state.revision!==baseRevision)outcome=fail(409,'context_changed','別の端末で記録が変わりました。入力を残してあるので、もう一度聞かせてね。');
           if(outcome.status===200){
             const applied=applyInterpretation(state.progress,{requestId:raw.requestId,actions:outcome.body.actions,text,reply:outcome.body.reply,today:dayKey(turnTime),at:new Date(turnTime).toISOString()},state.legacy);
-            state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
+            state.interactionPreferences=applyPreferences(state.interactionPreferences,outcome.body.interactionUpdate,text,dayKey(turnTime));state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
             outcome={status:200,body:{requestId:raw.requestId,reply:applied.reply,receipts:applied.receipts,actions:[],...packet(state)}};
           }
           // Only a finalized failure permits a new user-initiated attempt; unknown storage outcomes keep the old ID.
