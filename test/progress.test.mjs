@@ -342,6 +342,7 @@ test('meal shorthand and explicit saved title distinguish meals despite leftover
     {title:'昼ごはん',detail:'晩ごはんの残り',evidence:'昼ごはんは晩ごはんの残り'},
     {title:'昼はうどん',detail:'うどん',evidence:'昼はうどん'},
     {title:'食事',detail:'昼ごはん：うどん',evidence:'うどん'},
+    {title:'食事',detail:'昼ごはん：うどん',evidence:'晩ごはんの残りを食べた'},
   ]){
     const lunch=apply(progress,legacy,[action('meal_log',prior)],prior.evidence);
     const dinner=apply(lunch.progress,legacy,[action('meal_log',{title:'夕食',detail:'焼きそば',evidence:'夜は焼きそば'})],'夜は焼きそば');
@@ -349,4 +350,15 @@ test('meal shorthand and explicit saved title distinguish meals despite leftover
     assert.equal(dinner.progress.activities.at(-1).hold,null);
     assert.equal(dinner.delta,0);
   }
+});
+
+test('explicit additional meal resolves a duplicate even without a named meal slot',()=>{
+  const {legacy,progress}=start();
+  const first=apply(progress,legacy,[action('meal_log',{detail:'おにぎり',evidence:'おにぎりを食べた'})],'おにぎりを食べた');
+  const pending=apply(first.progress,legacy,[action('meal_log',{operation:'clarify',detail:'パン',evidence:'パンを食べた'})],'パンを食べた');
+  const resolved=apply(pending.progress,legacy,[action('meal_log',{operation:'update',targetId:pending.progress.activities.at(-1).id,additional:true,evidence:'追加で食べた'})],'追加で食べた');
+  assert.equal(resolved.progress.activities.length,2);
+  assert.equal(resolved.progress.activities.at(-1).hold,null);
+  assert.deepEqual(resolved.progress.activities.at(-1).needs,[]);
+  assert.equal(resolved.delta,0);
 });

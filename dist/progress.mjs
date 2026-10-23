@@ -167,7 +167,7 @@ function distinctMeal(progress,a,existing) {
   const others=progress.activities.filter(x=>!x.deleted&&(x.id!==existing?.id||a.operation==='clarify'&&!existing?.hold)&&x.kind==='meal_log'&&x.date===(a.date??existing?.date));
   return others.length>0&&others.every(x=>{
     // Prefer the meal label over descriptions such as yesterday's dinner leftovers.
-    const previous=mealSlot(x.title)??mealSlot([x.detail,x.evidence].join(' '));
+    const previous=mealSlot(x.title)??mealSlot(x.detail??'')??mealSlot(x.evidence);
     return previous&&previous!==slot;
   });
 }
