@@ -1,14 +1,15 @@
+import {createSpeechTimer} from './speech-timer.mjs';
 import {createPushSettings} from './push-settings.mjs?v=random-3';
 import {createShelfPosition} from './shelf-position.mjs?v=1';
 import {createPlushUI} from './plush-ui.mjs?v=menu-1';
-import {createAccountClient} from './account-client.mjs?v=push-1';
+import {createAccountClient} from './account-client.mjs?v=welcome-1';
 const account=await createAccountClient();
 const storage=account.storage;
 import {createRoomMotion} from './companion-motion.mjs?v=stroke-pet-1';
 import {bindCompanionPetting} from './companion-petting.mjs?v=1';
 import {createCompanionBubble,speechPages} from './companion-bubble.mjs?v=keyboard-1';
 import {createCompanionChat,CHAT_STORAGE,HABIT_PRAISE} from './companion-chat.mjs?v=idle-4';
-import {createKomugiConversation} from './komugi-conversation.mjs?v=voice-auto-send-1';
+import {createKomugiConversation} from './komugi-conversation.mjs?v=welcome-2';
 import {createProgressUI} from './progress-ui.mjs?v=daily-life-1';
 import {createRoomViewport} from './room-viewport.mjs?v=name-intro-1';
 import {PROFILE_STORAGE,loadProfile,saveProfile,addressCompanionLine,createPetNameLabels} from './profile.mjs?v=names-2';
@@ -23,6 +24,15 @@ const petText=text=>text.replaceAll('こむぎ',()=>petName());
 function readProfile(){try{profile=loadProfile(storage);}catch{profile={version:1,nickname:''};$('nickname-status').textContent='保存した名前を読み込めませんでした。元のデータは上書きしません。';}return profile;}
 import {HABITS,ITEMS,MOODS,dateKey,emptyState,normalizeState,totals as baseTotals,recordHabit,buyItem,recentDays,GROWTH_STAGES,growthForXP,COMPANION_FEELINGS,affectionFor as baseAffectionFor,companionFeeling as baseCompanionFeeling,petCompanion} from './model.mjs?v=report-1';
 let plushUI,roomMotion,roomFaces,roomAffection,companionChat,conversation,progress,nameIntro,activeNamePrompt=false,activeConversation=null,activeListening=false,activeChat=null,activePraise=null,praiseTimer,speechConversation=null,speechPage=-1;
+const replyTimer=createSpeechTimer({advance:advanceConversationSpeech});
+function pauseReplyTimer(){replyTimer.pause(document.hidden||Boolean(document.querySelector('dialog[open]'))||Boolean(conversation?.shouldPauseReply)||Boolean($('conversation-input')?.value.trim()));}
+function advanceConversationSpeech(){
+  if(!activeConversation)return;
+  if(activeConversation.index+1===activeConversation.pages.length){clearConversationSpeech();return;}
+  activeConversation.text=activeConversation.pages[++activeConversation.index];renderCompanionSpeech();
+}
+document.addEventListener('visibilitychange',pauseReplyTimer);
+
 const STORAGE='kotokoto-wellness-v1';const $=id=>document.getElementById(id);let state=emptyState(),loadFailed=false;try{const raw=storage.getItem(STORAGE);if(raw!==null){const parsed=JSON.parse(raw);if(parsed?.version!==1)throw new Error('Unknown data version');state=normalizeState(parsed);}}catch{loadFailed=true;$('storage-warning').hidden=false;$('storage-warning').textContent='保存済みのきろくを読み込めませんでした。元のデータは上書きしません。ブラウザの設定をご確認ください。';}let currentTab='room',lastDate=dateKey(),toastTimer;const today=()=>state.days[dateKey()]||{habits:[]};const dayForEdit=()=>state.days[dateKey()]??={habits:[]};
 const totals=s=>{const t=baseTotals(s),xp=progress?.companion.xp??t.xp;return {...t,xp,level:Math.floor(xp/40)+1,progress:xp%40};};
 const affectionFor=s=>baseAffectionFor(s,progress?.companion);
@@ -70,11 +80,12 @@ function renderCompanionSpeech(feeling=companionFeeling(state)){
   const hint=$('companion-speech-hint');hint.hidden=!activeConversation;
   if(activeConversation){
     const {pages,index}=activeConversation;
-    hint.textContent=index<pages.length-1?`${index+1} / ${pages.length} · タップでつづき`:'タップで読み終わる';
+    hint.textContent=index<pages.length-1?`${index+1} / ${pages.length} · タップでつづき`:'タップ、またはしばらくすると読み終わる';
     bubble.title=hint.textContent;bubble.removeAttribute('aria-haspopup');bubble.removeAttribute('aria-controls');bubble.removeAttribute('aria-expanded');
   }else{bubble.title=petName()+'のようすを見る';bubble.setAttribute('aria-haspopup','dialog');bubble.setAttribute('aria-controls','room-sheet');bubble.setAttribute('aria-expanded',String(currentTab==='companion'));}
   if(activeNamePrompt&&!activeConversation){bubble.title='呼ばれたい名前を教える';bubble.removeAttribute('aria-haspopup');bubble.removeAttribute('aria-expanded');bubble.setAttribute('aria-controls','name-intro-form');}
   const pageChanged=activeConversation&&(activeConversation!==speechConversation||activeConversation.index!==speechPage);
+  if(activeConversation&&(pageChanged||changed)){replyTimer.page(activeConversation.text);pauseReplyTimer();}
   speechConversation=activeConversation;speechPage=activeConversation?.index??-1;
   if(changed||pageChanged){if(speech&&!activeListening)roomAffection?.speak(affectionFor(state).score);if(activeConversation||activeNamePrompt)roomFaces?.speak(message);bubble.classList.remove('speech-arriving');requestAnimationFrame(()=>bubble.classList.add('speech-arriving'));}
 }
@@ -84,10 +95,12 @@ function showCompanionPraise(text){
   praiseTimer=setTimeout(()=>{activePraise=null;renderCompanionSpeech();},12000);
 }
 function clearConversationSpeech(){
+  replyTimer.clear();
   roomAffection?.clear();
   activeListening=false;activeConversation=null;roomMotion?.setSpeaking(false);renderCompanionSpeech();companionChat?.refresh();
 }
 function approachForConversation(){
+  replyTimer.clear();
   roomAffection?.clear();
   roomFaces?.quiet();
   activeListening=true;activeConversation=null;clearTimeout(praiseTimer);activePraise=null;
@@ -141,8 +154,7 @@ $('room-sheet').addEventListener('close',()=>{currentTab='room';history.replaceS
 document.querySelector('.companion-bubble').addEventListener('click',()=>{
   if(activeNamePrompt&&!activeConversation){nameIntro.focus();return;}
   if(!activeConversation){switchTab('companion');return;}
-  if(activeConversation.index+1===activeConversation.pages.length){clearConversationSpeech();return;}
-  activeConversation.text=activeConversation.pages[++activeConversation.index];renderCompanionSpeech();
+  advanceConversationSpeech();
 });
 $('room-sheet').addEventListener('click',event=>{if(event.target!==$('room-sheet'))return;const r=$('room-sheet').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('room-sheet').close();});
 const reactionScene=$('scene-home').querySelector('.room-scene').cloneNode(true);reactionScene.classList.remove('room-scene--world');reactionScene.classList.add('room-scene--preview');reactionScene.querySelector('[data-companion]').removeAttribute('data-companion');$('reaction-scene').append(reactionScene);
@@ -227,7 +239,7 @@ window.addEventListener('storage',event=>{if(account.enabled&&account.user)retur
 plushUI=createPlushUI({account,openPanel:()=>switchTab('plush'),onViewChange:tab=>{if(currentTab==='plush'){$('sheet-title').textContent=({gacha:'ぬいぐるみガチャ',book:'犬種図鑑',shelf:'棚に飾る',history:'ガチャの履歴'})[tab];syncPanelButtons();}},toast,getPetName:petName,getStage:()=>growthForXP(totals(state).xp).stage.id});
 createShelfPosition({shelf:$('plush-shelf'),scene:$('scene-home'),backdrop:$('scene-home').querySelector('.room-backdrop')});
 progress=createProgressUI({storage,account,getState:()=>state,onChange:()=>render(),onContinue:activity=>{switchTab('room');conversation?.focus(activity.title);},onError:message=>toast(message)});
-conversation=createKomugiConversation({root:$('talk'),storage,fetchImpl:account.fetch,cloud:account.enabled&&!!account.user,getPetName:petName,pendingStore:account.pendingConversation,onClearHistory:()=>account.clearHistory?.(),getContext:()=>({date:dateKey(),hour:new Date().getHours(),stage:growthForXP(totals(state).xp).stage.id,nickname:readProfile().nickname,petName:petName(),...progress.context()}),onReply:showConversationReply,onSend:approachForConversation,onFailure:clearConversationSpeech,onResult:(result,text,context)=>account.enabled&&account.user?({reply:result.reply,receipts:result.receipts??[]}):progress.handleReport(result,text,context),onInteraction:active=>{if(active)companionChat.interrupt();else companionChat.refresh();},onClearTarget:()=>progress.clearTarget()});
+conversation=createKomugiConversation({root:$('talk'),storage,fetchImpl:account.fetch,cloud:account.enabled&&!!account.user,canWelcome:()=>currentTab==='room'&&!activeConversation&&!activeNamePrompt&&!account.needsSetup&&account.writable&&!roomTools.open&&(companionChat?.enabled??true),getPetName:petName,pendingStore:account.pendingConversation,onClearHistory:()=>account.clearHistory?.(),getContext:()=>({date:dateKey(),hour:new Date().getHours(),stage:growthForXP(totals(state).xp).stage.id,nickname:readProfile().nickname,petName:petName(),...progress.context()}),onReply:showConversationReply,onSend:approachForConversation,onFailure:clearConversationSpeech,onResult:(result,text,context)=>account.enabled&&account.user?({reply:result.reply,receipts:result.receipts??[]}):progress.handleReport(result,text,context),onInteraction:active=>{pauseReplyTimer();if(active)companionChat.interrupt();else companionChat.refresh();},onClearTarget:()=>progress.clearTarget()});
 new ResizeObserver(()=>roomMotion.refresh()).observe($('room-console'));
 nameIntro=createNameIntro({form:$('name-intro-form'),chatForm:$('conversation-form'),input:$('name-intro-value'),later:$('name-intro-later'),status:$('name-intro-status'),getNickname:()=>readProfile().nickname,saveNickname:name=>account.enabled&&account.user?account.command({type:'profile',nickname:name}).then(()=>{profile=readProfile();}):(()=>{profile=saveProfile(storage,name);})(),onPrompt:()=>{activeNamePrompt=true;companionChat.interrupt();roomMotion.approachConversation();renderCompanionSpeech();},onComplete:name=>{activeNamePrompt=false;Promise.resolve(approachForConversation()).then(()=>showConversationReply(`${name}って呼ぶね。教えてくれてうれしいな。これからよろしくね！`));},onCancel:()=>{activeNamePrompt=false;roomMotion.setSpeaking(false);roomAffection?.clear();renderCompanionSpeech();companionChat.refresh();}});
 createRoomViewport({input:$('conversation-input'),extraInputs:[$('name-intro-value')],onChange:({height})=>{
@@ -239,6 +251,8 @@ createRoomViewport({input:$('conversation-input'),extraInputs:[$('name-intro-val
   requestAnimationFrame(()=>roomMotion.refresh());
 }});
 if(account.enabled)account.subscribe(()=>{if(account.user){state=account.state?normalizeState(account.state.legacy):emptyState();readProfile();progress.reload();conversation.reload();companionChat.sync();$('companion-chat-toggle').checked=account.state?.chatEnabled!==false;render();}});
+$('conversation-input').addEventListener('input',pauseReplyTimer);
+new MutationObserver(pauseReplyTimer).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 conversation.open();
 switchTab(account.needsSetup?'room':location.hash.slice(1),false);
 if(!account.needsSetup)nameIntro.show();

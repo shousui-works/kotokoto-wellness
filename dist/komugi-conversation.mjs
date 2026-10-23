@@ -1,3 +1,5 @@
+import {bindReplyEditing} from './speech-timer.mjs';
+import {createWelcomeConversation,WELCOME_TEXT} from './welcome-conversation.mjs';
 import {createVoiceInput} from './voice-input.mjs?v=auto-send-1';
 export const CONVERSATION_STORAGE = 'kotokoto-komugi-conversation-v1';
 export const MESSAGE_LIMIT = 600;
@@ -57,7 +59,7 @@ export function requestMessages(data, text) {
   return messages;
 }
 
-export function createKomugiConversation({root, storage, fetchImpl = globalThis.fetch, getContext = () => ({}), onReply = () => {},onSend=()=>{},onFailure=()=>{},onResult = result=>result,onInteraction=()=>{},onClearTarget=()=>{},getPetName=()=> 'こむぎ',cloud=false,pendingStore=null,onClearHistory=async()=>{}}) {
+export function createKomugiConversation({root, storage, fetchImpl = globalThis.fetch, getContext = () => ({}), onReply = () => {},onSend=()=>{},onFailure=()=>{},onResult = result=>result,onInteraction=()=>{},onClearTarget=()=>{},getPetName=()=> 'こむぎ',canWelcome=()=>false,cloud=false,pendingStore=null,onClearHistory=async()=>{}}) {
   if (!storage) {
     try { storage = globalThis.localStorage; }
     catch { storage = {getItem() { throw new Error('Storage unavailable'); }}; }
@@ -68,6 +70,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   const status = $('conversation-status'), warning = $('conversation-warning'), send = $('conversation-send'), clear = $('conversation-clear');
   let saved = loadConversation(storage), busy = false, available = false, sessionPromise = null, pending = pendingStore?.read()??null,expanded=false,recentReceipts=[];
   let voiceActive=false;
+  const replyEditing=bindReplyEditing(input,()=>onInteraction(true));
   const voiceButton=$('conversation-voice'),voiceStatus=$('conversation-voice-status');
   const voice=createVoiceInput({input,canStart:()=>available&&!busy&&!expanded&&!form.hidden&&!document.hidden&&!document.querySelector('dialog[open]'),
     onInput:()=>input.dispatchEvent(new Event('input',{bubbles:true})),
@@ -108,7 +111,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     article.className = 'conversation-message conversation-message--' + role;
     const name = document.createElement('span');
     name.className = 'conversation-author';
-    name.textContent = role === 'user' ? 'あなた' : getPetName();
+    name.textContent = role === 'user' ? (content===WELCOME_TEXT?'画面を開いたとき':'あなた') : getPetName();
     const text = document.createElement('p');
     text.textContent = content;
     article.append(name, text);
@@ -165,6 +168,18 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     if (!available) throw new Error(data.loginRequired?petStatus('login'):data.setupRequired?'アカウントで使う記録を選んでね。':'おはなしの準備中です。もう少し待ってね。');
   }
 
+  const welcome=createWelcomeConversation({
+    canStart:()=>cloud&&available&&!busy&&!voiceActive&&!expanded&&!pending&&!input.value.trim()&&document.activeElement!==input&&!document.hidden&&!form.hidden&&!document.querySelector('dialog[open]')&&canWelcome(),
+    request:async()=>{const requestId=crypto.randomUUID();const response=await fetchImpl('/api/chat',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId,mode:'welcome'}),signal:AbortSignal.timeout(55000)});if(!response.ok)return null;const data=await response.json();if(data.skipped)return null;if(data.requestId!==requestId||typeof data.reply!=='string'||!data.reply.trim()||data.reply.length>MESSAGE_LIMIT)return null;return data;},
+    approach:onSend,reply:onReply,cancel:onFailure,saved:()=>{saved=loadConversation(storage);render();},
+  });
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)welcome.interrupt();});
+  root.addEventListener('focusin',()=>welcome.interrupt());
+  input.addEventListener('input',()=>welcome.interrupt());
+  const welcomePanels=new MutationObserver(()=>{if(form.hidden||document.querySelector('dialog[open]'))welcome.interrupt();});
+  welcomePanels.observe(form,{attributes:true,attributeFilter:['hidden']});
+  document.querySelectorAll('dialog').forEach(dialog=>welcomePanels.observe(dialog,{attributes:true,attributeFilter:['open']}));
+
   async function open() {
     if (busy) return;
     saved = loadConversation(storage); storageWarning(); render();
@@ -172,6 +187,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     try { sessionPromise = session(); await sessionPromise; status.textContent = ''; }
     catch (error) { available = false; sessionPromise = null; status.textContent = error.message; }
     render();
+    void welcome.start();
   }
 
   function save(data) {
@@ -196,7 +212,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     event.preventDefault();
     const text = input.value.trim();
     if (busy || voiceActive || !available || !text || text.length > MESSAGE_LIMIT) return;
-    voice.clearNotice();
+    welcome.interrupt();voice.clearNotice();
     // Unknown network outcomes reuse the same ID and payload for five minutes.
     if (!pending || pending.text !== text || (!cloud&&Date.now() - pending.at > 4 * 60000)) {
       pending = {text, at: Date.now(), body: {requestId: crypto.randomUUID(), messages: requestMessages(saved.data, text), context: getContext()}};
@@ -206,6 +222,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     try {
       const arrival=Promise.resolve(onSend()).catch(()=>{});
       await sessionPromise;
+      await welcome.pending;
       let response = await fetchImpl('/api/chat', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(pending.body), signal: AbortSignal.timeout(45000)});
       if (response.status === 401) {
         sessionPromise = session(); await sessionPromise;
@@ -219,7 +236,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
       recentReceipts=applied?.receipts??[];
       await arrival;
       input.value = '';input.style.height=''; pending = null;pendingStore?.write(null); status.textContent = '';
-      onReply(reply);
+      replyEditing.sent();onReply(reply);
     } catch (error) {
       onFailure();
       status.textContent = error.name === 'TimeoutError' || error.name === 'TypeError' ? 'お返事が届きませんでした。入力は残してあるので、もう一度送ってね。' : error.message;
@@ -240,7 +257,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     catch { status.textContent = '履歴を消せませんでした。ブラウザの設定をご確認ください。'; }
   });
   storageWarning(); render();
-  return {open,refreshPetName,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
+  return {open,refreshPetName,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get shouldPauseReply(){return busy||voiceActive||expanded||replyEditing.active||Boolean(input.value.trim());},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
     const target=$('conversation-target');target.replaceChildren();target.hidden=!label;
     if(label){target.append(document.createTextNode(label+'のつづき'));const cancel=document.createElement('button');cancel.type='button';cancel.textContent='×';cancel.setAttribute('aria-label','補足する対象を解除');cancel.addEventListener('click',()=>{target.hidden=true;onClearTarget();});target.append(cancel);}
     input.focus();

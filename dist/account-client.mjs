@@ -41,7 +41,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     if(locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     if(response.status===401){locked=true;state=null;map.clear();local.removeItem(cacheKey(identity));notify();}
     if(!response.ok){const error=Object.assign(new Error(data.error?.message??'保存できませんでした。入力は残しています。'),{status:response.status,code:data.error?.code,retryable:data.error?.retryable===true});throw error;}
-    if(data.state)install(data.state);if(path==='/api/chat'&&user)local.removeItem('kotokoto-cloud-draft:'+user.uid);return data;
+    if(data.state)install(data.state);if(path==='/api/chat'&&user&&JSON.parse(init.body??'{}').mode!=='welcome')local.removeItem('kotokoto-cloud-draft:'+user.uid);return data;
   }
   async function sync(force=false){if(!user||(!force&&busy)||locked)return;try{await request('/api/sync'+(state&&!force?'?revision='+state.revision:''));offline=false;notice='';lastSync=new Date();notify();}catch(error){if(!state&&error.status!==401){try{const cached=JSON.parse(local.getItem(cacheKey(user.uid))??'null');if(cached){state=cached;map=snapshotStorage(cached);}}catch{}}
     offline=true;notify();}}
@@ -106,7 +106,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     async fetch(path,init={}){
       if(path==='/api/chat/session'&&(!user||!state?.initialized||offline||locked))return Response.json({available:false,loginRequired:!user,setupRequired:!!user&&!state?.initialized});
       if(!path.startsWith('/api/'))return fetchImpl(path,init);
-      let supplied=init;if(path==='/api/chat'&&init.body){const b=JSON.parse(init.body);supplied={...init,body:JSON.stringify({requestId:b.requestId,text:b.messages.at(-1).content,selectedId:b.context?.activities?.find(a=>a.selected)?.id??null})};}
+      let supplied=init;if(path==='/api/chat'&&init.body){const b=JSON.parse(init.body);supplied={...init,body:JSON.stringify(b.mode==='welcome'?{requestId:b.requestId,mode:'welcome'}:{requestId:b.requestId,text:b.messages.at(-1).content,selectedId:b.context?.activities?.find(a=>a.selected)?.id??null})};}
       try{return Response.json(await request(path,supplied));}catch(error){return Response.json({error:{code:error.code,message:error.message,retryable:error.retryable===true}},{status:error.status??503});}
     },async clearHistory(){if(!user||!state)return;const data=await request('/api/conversations',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:crypto.randomUUID(),revision:state.revision})});return data;},
   };

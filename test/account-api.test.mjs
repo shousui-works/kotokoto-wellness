@@ -124,3 +124,23 @@ test('failed and conflicted conversations never save preference candidates; rese
  const reset=await f.request('/api/commands','POST',{requestId:randomUUID(),revision:saved.body.state.revision,command:{type:'reset_memory'}});
  assert.equal(reset.status,200);assert.equal(reset.body.state.interactionPreferences.preferred,null);
 });
+
+test('welcome is throttled per account and cannot record model actions or learned preferences',async()=>{
+ const f=fixture({actions:[{operation:'create',kind:'housework',date:'2026-10-19',title:'掃除',evidence:'掃除した'}],interactionUpdate:{style:'encourage',scope:'ongoing',certainty:'explicit',evidence:'ごあいさつ',asked:false}});
+ await f.initialize();await f.initialize('bob');
+ const send=(uid='alice')=>f.request('/api/chat','POST',{requestId:randomUUID(),mode:'welcome'},uid);
+ const first=await send();assert.equal(first.status,200);assert.equal(f.input.context.welcome,true);
+ assert.equal(first.body.state.interactionPreferences.preferred,null);assert.equal(first.body.state.progress.activities.length,0);assert.deepEqual(first.body.receipts,[]);
+ assert.equal(first.body.state.conversation.messages.length,2);
+ assert.equal((await send()).body.skipped,true);assert.equal(f.calls,1);
+ assert.equal((await send('bob')).status,200);assert.equal(f.calls,2);
+ f.advance(30*60000);assert.equal((await send()).body.skipped,undefined);assert.equal(f.calls,3);
+});
+test('welcome reservation prevents duplicate generation even while pending or after failure',async()=>{
+ const f=fixture({firstFailure:{status:502,body:{error:{code:'upstream_unavailable',message:'failed'}}}});await f.initialize();
+ const release=f.hold(),pending=f.request('/api/chat','POST',{requestId:randomUUID(),mode:'welcome'});
+ while(!f.calls)await new Promise(r=>setImmediate(r));
+ assert.equal((await f.request('/api/chat','POST',{requestId:randomUUID(),mode:'welcome'})).body.skipped,true);
+ release();assert.equal((await pending).status,502);
+ assert.equal((await f.request('/api/chat','POST',{requestId:randomUUID(),mode:'welcome'})).body.skipped,true);assert.equal(f.calls,1);
+});

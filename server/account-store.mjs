@@ -25,7 +25,7 @@ export class FirestoreAccountStore {
     return {revision:meta.revision,initialized:true,datasetId:meta.datasetId,chatLease:meta.chatLease??null,historyEpoch:meta.historyEpoch??"0",messageCounter:meta.messageCounter??0,
       legacy:{...saved.legacy,days:Object.fromEntries(days.docs.map(d=>[d.data().date,d.data().value]))},
       progress:{...saved.progress,activities:activities.docs.map(d=>d.data()),processed:saved.progress.legacyProcessed??[]},
-      interactionPreferences:normalizePreferences(profile.data().interactionPreferences),collection:normalizeCollection(collection.data()),memory:normalizeMemory(memory.data()),profile:profile.data().profile,chatEnabled:profile.data().chatEnabled!==false,
+      welcomeAt:profile.data().welcomeAt??0,interactionPreferences:normalizePreferences(profile.data().interactionPreferences),collection:normalizeCollection(collection.data()),memory:normalizeMemory(memory.data()),profile:profile.data().profile,chatEnabled:profile.data().chatEnabled!==false,
       conversation:{version:1,messages:messages.docs.map(d=>{const {sequence,text,...rest}=d.data();return {...rest,content:text};})}};
   }
   async loadMemoryWindow(tx,uid,state){
@@ -46,7 +46,7 @@ export class FirestoreAccountStore {
     if(!equal(before.memory,after.memory))write(dataset.collection('memory').doc('owner'),normalizeMemory(after.memory));
     const {days,...legacy}=after.legacy,{activities,processed,...progress}=after.progress;
     if(!equal({...before.legacy,days:{}},{...after.legacy,days:{}})||!equal({...before.progress,activities:[],processed:[]},{...after.progress,activities:[],processed:[]})||!before.initialized)write(dataset.collection('companion').doc('state'),{legacy,progress:{...progress,legacyProcessed:before.progress.processed}});
-    if(!equal(before.interactionPreferences,after.interactionPreferences)||!equal(before.profile,after.profile)||before.chatEnabled!==after.chatEnabled||!before.initialized)write(dataset.collection('settings').doc('profile'),{profile:after.profile,chatEnabled:after.chatEnabled,interactionPreferences:normalizePreferences(after.interactionPreferences)});
+    if(before.welcomeAt!==after.welcomeAt||!equal(before.interactionPreferences,after.interactionPreferences)||!equal(before.profile,after.profile)||before.chatEnabled!==after.chatEnabled||!before.initialized)write(dataset.collection('settings').doc('profile'),{profile:after.profile,chatEnabled:after.chatEnabled,welcomeAt:after.welcomeAt??0,interactionPreferences:normalizePreferences(after.interactionPreferences)});
     for(const date of new Set([...Object.keys(before.legacy.days),...Object.keys(days)])){
       if(equal(before.legacy.days[date],days[date]))continue;
       const ref=dataset.collection('legacyDays').doc(date);if(days[date])write(ref,{date,value:days[date]});else tx.delete(ref);

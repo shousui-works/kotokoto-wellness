@@ -107,3 +107,11 @@ test('pending plush draw is recovered with the original request on initial sync'
  }});
  assert.equal(f.requests.length,1);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);assert.equal(f.client.state.revision,11);
 });
+
+test('automatic greeting preserves its mode and the user draft',async t=>{
+ const local=memory();local.setItem('kotokoto-cloud-draft:alice','書きかけ');
+ const f=await accountHarness(t,{local,send:async()=>Response.json({skipped:true})});
+ const response=await f.client.fetch('/api/chat',{method:'POST',body:JSON.stringify({requestId:'greeting',mode:'welcome'})});
+ assert.equal(response.status,200);assert.deepEqual(f.requests[0].body,{requestId:'greeting',mode:'welcome'});
+ assert.equal(local.getItem('kotokoto-cloud-draft:alice'),'書きかけ');
+});
