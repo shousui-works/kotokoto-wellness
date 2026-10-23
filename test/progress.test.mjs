@@ -335,3 +335,18 @@ test('meal corrections and repeat confirmations keep their original semantics',(
   const otherDay=apply(lunch.progress,legacy,[action('meal_log',{operation:'clarify',date:'2026-10-17',title:'夕食',detail:'焼きそば',evidence:'夕食は焼きそば'})],'夕食は焼きそば');
   assert.equal(otherDay.progress.activities.at(-1).hold,'duplicate');
 });
+
+test('meal shorthand and explicit saved title distinguish meals despite leftovers detail',()=>{
+  const {legacy,progress}=start();
+  for(const prior of [
+    {title:'昼ごはん',detail:'晩ごはんの残り',evidence:'昼ごはんは晩ごはんの残り'},
+    {title:'昼はうどん',detail:'うどん',evidence:'昼はうどん'},
+    {title:'食事',detail:'昼ごはん：うどん',evidence:'うどん'},
+  ]){
+    const lunch=apply(progress,legacy,[action('meal_log',prior)],prior.evidence);
+    const dinner=apply(lunch.progress,legacy,[action('meal_log',{title:'夕食',detail:'焼きそば',evidence:'夜は焼きそば'})],'夜は焼きそば');
+    assert.equal(dinner.progress.activities.length,2);
+    assert.equal(dinner.progress.activities.at(-1).hold,null);
+    assert.equal(dinner.delta,0);
+  }
+});

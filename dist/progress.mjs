@@ -155,7 +155,7 @@ export function withFollowup(reply,question) {
 }
 
 function mealSlot(value) {
-  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|食)/],['lunch',/昼(?:ごはん|ご飯|御飯|食)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|食)/]]
+  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|食|は)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|食|は)/]]
     .filter(([,pattern])=>pattern.test(value));
   return slots.length===1?slots[0][0]:null;
 }
@@ -166,7 +166,8 @@ function distinctMeal(progress,a,existing) {
   if(!slot)return false;
   const others=progress.activities.filter(x=>!x.deleted&&(x.id!==existing?.id||a.operation==='clarify'&&!existing?.hold)&&x.kind==='meal_log'&&x.date===(a.date??existing?.date));
   return others.length>0&&others.every(x=>{
-    const previous=mealSlot([x.title,x.detail,x.evidence].join(' '));
+    // Prefer the meal label over descriptions such as yesterday's dinner leftovers.
+    const previous=mealSlot(x.title)??mealSlot([x.detail,x.evidence].join(' '));
     return previous&&previous!==slot;
   });
 }
