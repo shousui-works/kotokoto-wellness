@@ -392,3 +392,14 @@ test('negated meal labels in full evidence keep duplicate confirmation',()=>{
     assert.equal(result.progress.activities.at(-1).hold,'duplicate',text);
   }
 });
+
+test('unrelated negative clauses do not erase an affirmative meal label',()=>{
+  const {legacy,progress}=start();
+  const lunch=apply(progress,legacy,[action('meal_log',{title:'昼食',detail:'うどん',evidence:'昼食はうどん'})],'昼食はうどん');
+  for(const operation of ['create','clarify']){
+    const text='晩ごはんはカレーを食べた、野菜は食べなかった';
+    const result=apply(lunch.progress,legacy,[action('meal_log',{operation,title:'晩ごはん',detail:'カレー',evidence:text})],text);
+    assert.equal(result.progress.activities.length,2);
+    assert.equal(result.progress.activities.at(-1).hold,null);
+  }
+});
