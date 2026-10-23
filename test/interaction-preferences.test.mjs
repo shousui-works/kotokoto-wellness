@@ -7,7 +7,7 @@ test('explicit preference persists; daily override expires without replacing it'
  p=applyPreferences(p,update('listen','today'),'応援','2026-10-23');
  assert.deepEqual(preferenceContext(p,'2026-10-23'),{preferred:'praise',today:'listen',canAsk:true});
  assert.equal(preferenceContext(p,'2026-10-24').today,null);
- p=applyPreferences(p,update('encourage'),'応援','2026-10-23');assert.equal(p.preferred,'encourage');assert.equal(p.today,null);
+ p=applyPreferences(p,update('encourage'),'応援','2026-10-23');assert.equal(p.preferred,'encourage');assert.deepEqual(p.today,{style:'listen',date:'2026-10-23'});
 });
 test('inference requires three distinct days and cannot replace an established choice',()=>{
  let p=emptyPreferences();for(let i=0;i<8;i++)p=applyPreferences(p,update('encourage','ongoing','inferred'),'応援','2026-10-23');
