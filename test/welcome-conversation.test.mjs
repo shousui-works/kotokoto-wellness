@@ -36,3 +36,17 @@ test('Firestore persists the welcome cooldown without requiring other profile ch
  store.writeState({set:(r,v)=>writes.push([r.path,v])},'alice',before,after);
  assert.equal(writes.find(([path])=>path.endsWith('/settings/profile'))[1].welcomeAt,123456789);
 });
+test('focus and empty IME composition pause replies, while successful send releases retained focus',async()=>{
+ const {bindReplyEditing}=await import('../dist/speech-timer.mjs');
+ const input=new EventTarget();let pending=null;
+ const timer=createSpeechTimer({advance(){},setTimer:fn=>(pending=fn,1),clearTimer:()=>pending=null});
+ const editing=bindReplyEditing(input,()=>timer.pause(editing.active));
+ timer.page('hello');assert.ok(pending);
+ input.dispatchEvent(new Event('focus'));assert.equal(editing.active,true);assert.equal(pending,null);
+ input.dispatchEvent(new Event('compositionstart'));assert.equal(pending,null);
+ input.dispatchEvent(new Event('compositionend'));assert.equal(pending,null);
+ editing.sent();assert.equal(editing.active,false);assert.ok(pending);
+ input.dispatchEvent(new Event('pointerdown'));assert.equal(pending,null);
+ input.dispatchEvent(new Event('blur'));assert.ok(pending);
+ timer.clear();
+});

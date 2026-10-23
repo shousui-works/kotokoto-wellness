@@ -1,3 +1,4 @@
+import {bindReplyEditing} from './speech-timer.mjs';
 import {createWelcomeConversation,WELCOME_TEXT} from './welcome-conversation.mjs';
 import {createVoiceInput} from './voice-input.mjs?v=auto-send-1';
 export const CONVERSATION_STORAGE = 'kotokoto-komugi-conversation-v1';
@@ -69,6 +70,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
   const status = $('conversation-status'), warning = $('conversation-warning'), send = $('conversation-send'), clear = $('conversation-clear');
   let saved = loadConversation(storage), busy = false, available = false, sessionPromise = null, pending = pendingStore?.read()??null,expanded=false,recentReceipts=[];
   let voiceActive=false;
+  const replyEditing=bindReplyEditing(input,()=>onInteraction(true));
   const voiceButton=$('conversation-voice'),voiceStatus=$('conversation-voice-status');
   const voice=createVoiceInput({input,canStart:()=>available&&!busy&&!expanded&&!form.hidden&&!document.hidden&&!document.querySelector('dialog[open]'),
     onInput:()=>input.dispatchEvent(new Event('input',{bubbles:true})),
@@ -234,7 +236,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
       recentReceipts=applied?.receipts??[];
       await arrival;
       input.value = '';input.style.height=''; pending = null;pendingStore?.write(null); status.textContent = '';
-      onReply(reply);
+      replyEditing.sent();onReply(reply);
     } catch (error) {
       onFailure();
       status.textContent = error.name === 'TimeoutError' || error.name === 'TypeError' ? 'お返事が届きませんでした。入力は残してあるので、もう一度送ってね。' : error.message;
@@ -255,7 +257,7 @@ export function createKomugiConversation({root, storage, fetchImpl = globalThis.
     catch { status.textContent = '履歴を消せませんでした。ブラウザの設定をご確認ください。'; }
   });
   storageWarning(); render();
-  return {open,refreshPetName,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get shouldPauseReply(){return busy||voiceActive||expanded||Boolean(input.value.trim());},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
+  return {open,refreshPetName,reload(){saved=loadConversation(storage);if(!available)voice.cancel();render();},get shouldPauseReply(){return busy||voiceActive||expanded||replyEditing.active||Boolean(input.value.trim());},get isInteracting(){return busy||voiceActive||expanded||root.contains(document.activeElement);},focus(label=''){
     const target=$('conversation-target');target.replaceChildren();target.hidden=!label;
     if(label){target.append(document.createTextNode(label+'のつづき'));const cancel=document.createElement('button');cancel.type='button';cancel.textContent='×';cancel.setAttribute('aria-label','補足する対象を解除');cancel.addEventListener('click',()=>{target.hidden=true;onClearTarget();});target.append(cancel);}
     input.focus();
