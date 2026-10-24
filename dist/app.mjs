@@ -136,7 +136,7 @@ function previewReaction(id){
 }
 function renderMemory(){const memory=account.state?.memory;$('memory-details').hidden=!account.user||!account.state?.initialized;$('owner-memory').textContent=memory?.summary||'まだ記憶はありません。';$('memory-through').textContent=memory?.throughDate?memory.throughDate+'までのおはなしを覚えています。':'日付が変わった後の最初の会話で、前日までのおはなしをまとめます。';}
 $('memory-reset').addEventListener('click',async()=>{if(!confirm('会話から覚えたことをリセットしますか？ 過去のおはなしから自動で覚え直すことはありません。行動の記録は残ります。'))return;if(await cloudSave({type:'reset_memory'}))toast('覚えていたことをリセットしたよ。');});
-function render(){conversation?.refreshPetName();plushUI?.render();renderMemory();updatePetLabels(petName());const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));progress?.render();roomMotion?.refresh();}
+function render(){document.title=document.body.hasAttribute('data-room-loading')?'こつこつ日和':'こつこつ日和 | '+petName()+'と、のんびり。';conversation?.refreshPetName();plushUI?.render();renderMemory();updatePetLabels(petName());const t=totals(state);$('balance').textContent=t.seeds;$('level').textContent=`Lv. ${t.level}`;renderGrowth(t.xp);$('date-label').textContent=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());renderHabits();renderWeek();renderShop();roomDecor();renderCompanionFeeling();renderWeights();renderHistory();document.querySelectorAll('[data-mood]').forEach(button=>button.setAttribute('aria-pressed',String(today().mood===button.dataset.mood)));progress?.render();roomMotion?.refresh();}
 const PANEL_TITLES={plush:['LITTLE FRIENDS','ぬいぐるみ'],today:['LITTLE THINGS COUNT','今日のえらい'],decorate:['MAKE A LITTLE HOME','おへやのもようがえ'],records:['YOUR OWN RHYTHM','わたしのきろく'],companion:['MY LITTLE PARTNER','こむぎのようす']};
 function syncPanelButtons(){document.querySelectorAll('[data-tab]').forEach(button=>button.setAttribute('aria-expanded',String($('room-sheet').open&&button.dataset.tab===currentTab&&(!button.dataset.plushTab||button.dataset.plushTab===plushUI?.tab))));}
 function switchTab(tab,updateHash=true){
@@ -256,6 +256,10 @@ new MutationObserver(pauseReplyTimer).observe(document.body,{subtree:true,attrib
 conversation.open();
 switchTab(account.needsSetup?'room':location.hash.slice(1),false);
 if(!account.needsSetup)nameIntro.show();
+// Reveal the saved name and growth stage only after the visible room has been measured.
+roomMotion.refresh();
+document.body.removeAttribute('data-room-loading');
+document.title='こつこつ日和 | '+petName()+'と、のんびり。';
 
 // Discover access through the authenticated server; hiding a link is not authorization.
 async function discoverAdmin(){const link=$('admin-open');if(!link)return;link.hidden=true;if(!account.user)return;try{const r=await account.fetch('/api/admin/session');const data=await r.json();link.hidden=!(r.ok&&data.admin===true);}catch{}}

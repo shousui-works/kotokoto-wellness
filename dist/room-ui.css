@@ -1,5 +1,8 @@
 /* The room is the screen; existing recording and pet components live in sheets. */
 :root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+/* Keep the static puppy and default name out of view until saved state and layout are ready. */
+.room-app[data-room-loading] .room-scene--world .dog,.room-app[data-room-loading] .room-console,.room-app[data-room-loading] .room-hud,.room-app[data-room-loading] .companion-bubble{visibility:hidden}
+.room-app[data-room-loading] .room-scene--world .dog{transition:none}
 html,body.room-app{margin:0;width:100%;height:100%;overflow:hidden}.room-app{background:#e9dfca}
 .room-world{position:fixed;inset:var(--room-top,0px) 0 auto;width:100%;height:var(--room-height,100dvh);overflow:hidden}.room-world .room-scene--world{position:absolute;inset:0;width:100%;height:100%;isolation:isolate;touch-action:manipulation}
 .room-backdrop{position:absolute;inset:0;background:#e7decb url('./assets/room-portrait-v2.jpg') center center/cover no-repeat;pointer-events:none}.room-light{position:absolute;inset:0;background:linear-gradient(180deg,#fff7e91a,transparent 30%,transparent 75%,#514d2910);pointer-events:none}
