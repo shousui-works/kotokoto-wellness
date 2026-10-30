@@ -4,6 +4,7 @@ import {createDailySummarizer} from './owner-memory.mjs';
 import {createAccountAPI} from './account-api.mjs';
 import {FirestoreAccountStore} from './account-store.mjs';
 import {createReportGenerator} from './komugi-chat.mjs';
+import {createMealPhotoEstimator} from './meal-photo.mjs';
 export async function createFirebaseRuntime(env=process.env){
   const mode=env.ACCOUNT_MODE??'legacy';if(!['legacy','required'].includes(mode))throw Error('Invalid ACCOUNT_MODE');
   if(mode==='legacy')return async(req,res,path)=>{if(path!=='/api/account/config')return false;res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end('{"mode":"legacy"}');return true;};
@@ -13,5 +14,5 @@ export async function createFirebaseRuntime(env=process.env){
   const app=initializeApp({credential:applicationDefault(),projectId:env.GOOGLE_CLOUD_PROJECT});
   const db=getFirestore(app,env.FIRESTORE_DATABASE_ID),store=new FirestoreAccountStore(db),admin=new FirestoreUsageStore(db);
   const onUsage=(entry,meta)=>admin.record(entry,meta);
-  return createAccountAPI({store,admin,push:createPushRuntime(db,env),verify:token=>getAuth(app).verifyIdToken(token,true),generate:createReportGenerator({timeoutMs:25000,onUsage}),summarize:createDailySummarizer({onUsage}),apiAvailable:!!env.OPENAI_API_KEY,config:{projectId:env.GOOGLE_CLOUD_PROJECT,appId:env.FIREBASE_WEB_APP_ID,authDomain:env.FIREBASE_AUTH_DOMAIN,apiKey:env.FIREBASE_PUBLIC_API_KEY}});
+  return createAccountAPI({store,admin,push:createPushRuntime(db,env),verify:token=>getAuth(app).verifyIdToken(token,true),generate:createReportGenerator({timeoutMs:25000,onUsage}),estimateMeal:createMealPhotoEstimator({onUsage}),summarize:createDailySummarizer({onUsage}),apiAvailable:!!env.OPENAI_API_KEY,config:{projectId:env.GOOGLE_CLOUD_PROJECT,appId:env.FIREBASE_WEB_APP_ID,authDomain:env.FIREBASE_AUTH_DOMAIN,apiKey:env.FIREBASE_PUBLIC_API_KEY}});
 }

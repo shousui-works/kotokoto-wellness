@@ -1,4 +1,5 @@
 import {dateKey, affectionFor, totals} from './model.mjs';
+import {normalizeIntake} from './meal-intake.mjs';
 
 export const PROGRESS_STORAGE = 'kotokoto-progress-v1';
 export const QUESTS = Object.freeze([
@@ -57,7 +58,9 @@ export function normalizeProgress(raw) {
     if(a.estimate!==null&&(!finite(a.estimate?.kcal,0,20000)||(a.estimate.source==='luna'?typeof a.estimate.basis!=='string'||!a.estimate.basis.trim()||a.estimate.basis.length>300:!finite(a.estimate?.weightKg,1,500)||!finite(a.estimate?.mets,1,20))))throw Error('Invalid estimate');
     if(!Array.isArray(a.needs)||a.needs.some(n=>!['date','duplicate','minutes','weight','kcal','meal'].includes(n)))throw Error('Invalid pending activity');
     ids.add(a.id);
-    return {...candidate,pointVersion:a.pointVersion??1,id:a.id,at:a.at,updatedAt:a.updatedAt??a.at,hold:a.hold,deleted:a.deleted,estimate:a.estimate,needs:[...a.needs],praise:typeof a.praise==='string'?a.praise.slice(0,600):'',corrections:a.corrections.slice(-50)};
+    if(a.intake!=null&&a.kind!=='meal_log')throw Error('Invalid meal intake activity');
+    const intake=normalizeIntake(a.intake);
+    return {...candidate,...(intake?{intake}:{}),pointVersion:a.pointVersion??1,id:a.id,at:a.at,updatedAt:a.updatedAt??a.at,hold:a.hold,deleted:a.deleted,estimate:a.estimate,needs:[...a.needs],praise:typeof a.praise==='string'?a.praise.slice(0,600):'',corrections:a.corrections.slice(-50)};
   });
   if(raw.processed.some(id=>typeof id!=='string'||!ID.test(id)))throw Error('Invalid transaction');
   if(raw.baselineXP!==undefined&&!finite(raw.baselineXP,0,1e12))throw Error('Invalid growth baseline');
@@ -222,7 +225,8 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     let hold=a.operation==='clarify'?'duplicate':null;
     if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
     if(existing){
-      existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,deleted:existing.deleted}});
+      existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,deleted:existing.deleted,...(existing.intake?{intake:structuredClone(existing.intake)}:{})}});
+      if(existing.intake&&(a.kind!=='meal_log'||a.detail!==null&&a.detail!==existing.detail))delete existing.intake;
       const changes=Object.fromEntries(Object.entries(a).filter(([,value])=>value!==null));
       const changed=['kind','minutes','weightKg','detail'].some(key=>a[key]!==null&&a[key]!==existing[key]);
       const estimate=a.estimatedKcal!==null?{source:'luna',kcal:round1(a.estimatedKcal),basis:a.estimateBasis}:changed?null:existing.estimate;
@@ -264,7 +268,9 @@ export function correctActivity(original,id,changes,legacy,at=new Date().toISOSt
   if(!a)throw Error('記録が見つかりません。');
   const candidate=normalizeCandidate({...a,...changes,operation:'update',targetId:id});
   if(!candidate||candidate.date&&candidate.date>today)throw Error('日付や数値を確認してください。');
-  a.corrections.push({at,previous:{date:a.date,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,detail:a.detail}});
+  if(Object.hasOwn(changes,'intakeKcal')&&(!a.intake||a.kind!=='meal_log'||!finite(changes.intakeKcal,0,20000)))throw Error('摂取カロリーを確認してください。');
+  a.corrections.push({at,previous:{date:a.date,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,detail:a.detail,...(a.intake?{intake:structuredClone(a.intake)}:{})}});
+  if(a.intake&&(changes.intakeKcal!==undefined&&Math.round(changes.intakeKcal)!==a.intake.kcal||Object.hasOwn(changes,'detail')&&changes.detail!==a.detail))a.intake={...a.intake,kcal:Math.round(changes.intakeKcal??a.intake.kcal),source:'edited',items:[]};
   const changed=['minutes','weightKg','detail','kcal'].some(key=>candidate[key]!==a[key]);
   Object.assign(a,candidate,{operation:'create',targetId:null,additional:false,updatedAt:at,estimate:changed?null:a.estimate});
   resolveActivity(a,legacy,progress);

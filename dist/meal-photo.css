@@ -1,0 +1,21 @@
+.conversation-photo{flex:0 0 36px;width:36px;height:42px;padding:7px;border:0;background:transparent;color:#818c73;cursor:pointer;border-radius:12px;align-self:center}
+.conversation-photo svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.conversation-photo:disabled{opacity:.4;cursor:default}
+.conversation-photo:focus-visible{outline:2px solid #748c62;outline-offset:2px}
+.meal-photo-dialog{width:min(560px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow-y:auto;box-sizing:border-box;padding:22px;color:#4e5847;border:1px solid #dce0d2;border-radius:24px;background:#fffdf5}
+.meal-photo-dialog label:not(.meal-photo-pick){display:block;font-size:.9rem;margin:14px 0 6px}
+.meal-photo-dialog input:not([type=file]),.meal-photo-dialog textarea,.meal-photo-dialog select{box-sizing:border-box;width:100%;padding:11px;border:1px solid #d4dccb;border-radius:12px;background:white;color:inherit;font:inherit}
+.meal-photo-dialog button.primary-btn{width:100%;margin-top:16px}
+.meal-photo-dialog .dialog-top{position:sticky;top:-22px;background:#fffdf5;z-index:1;padding-top:8px}
+.meal-photo-file{display:none}
+.meal-photo-pick{display:block;width:100%;text-align:center;cursor:pointer;margin-top:16px}
+#meal-photo-preview{display:block;width:100%;max-height:240px;object-fit:contain;border-radius:16px;background:#f2f1e8;margin:12px 0}
+#meal-photo-preview[hidden]{display:none}
+.meal-photo-item{border:1px solid #dee3d3;border-radius:16px;padding:8px 14px 12px;margin:14px 0;min-width:0}
+.meal-photo-item legend{padding:0 6px;font-size:.88rem}
+.meal-photo-item label:first-of-type{margin-top:0}
+.meal-photo-total{font-size:.9rem;padding:14px;background:#f0f3e7;border-radius:14px}
+.meal-photo-total strong{font-size:1.65rem;padding:0 3px}
+.meal-photo-privacy{margin-bottom:0;font-size:.78rem}
+.daily-intake-card{background:#f6efdf}
+@media(max-width:380px){.conversation-photo{flex-basis:30px;width:30px;padding:5px}.meal-photo-dialog{padding:16px}.meal-photo-dialog .dialog-top{top:-16px}}
