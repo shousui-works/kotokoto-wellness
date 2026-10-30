@@ -108,6 +108,23 @@ test('pending plush draw is recovered with the original request on initial sync'
  assert.equal(f.requests.length,1);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);assert.equal(f.client.state.revision,11);
 });
 
+test('lost meal confirmation survives reload without a photo or a new request ID',async t=>{
+ const local=memory(),id='00000000-0000-4000-8000-000000000037';
+ const command={type:'confirm_meal_photo',estimateId:id,date:'2026-10-30',mealType:'lunch',targetId:null,items:[{name:'ご飯',portion:'半分',kcal:115}]};
+ const lost=await accountHarness(t,{local,send:async()=>{throw new TypeError('response lost');}});
+ await assert.rejects(lost.client.command(command,{requestId:id,revision:1}),/response lost/);
+ const pending=JSON.parse(local.getItem('kotokoto-cloud-pending-v1:alice'));
+ assert.deepEqual(pending,{requestId:id,revision:1,command});assert.equal(JSON.stringify(pending).includes('image'),false);
+ await assert.rejects(lost.client.command({...command,estimateId:'another-photo'}),/未確認/);
+ const other=await accountHarness(t,{local,uid:'bob',send:async()=>{throw Error('must not replay another user');}});
+ assert.equal(other.requests.length,0);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),JSON.stringify(pending));
+ const restored=await accountHarness(t,{local,cloud:{...emptyAccount(),initialized:true,datasetId:'fixture',revision:2},send:async(path,body)=>{
+  assert.equal(path,'/api/commands');assert.deepEqual(body,pending);
+  return Response.json({state:{...emptyAccount(),initialized:true,datasetId:'fixture',revision:2},recorded:true});
+ }});
+ assert.equal(restored.requests.length,1);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);
+});
+
 test('automatic greeting preserves its mode and the user draft',async t=>{
  const local=memory();local.setItem('kotokoto-cloud-draft:alice','書きかけ');
  const f=await accountHarness(t,{local,send:async()=>Response.json({skipped:true})});

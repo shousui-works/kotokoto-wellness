@@ -12,8 +12,8 @@ import {normalizeProgress,calorieSummary,dayReport,correctActivity,recordManual,
 const photo='data:image/jpeg;base64,'+Buffer.from([255,216,255,192,0,11,8,0,16,0,16,3,1,17,0,255,217]).toString('base64');
 const estimate={status:'ok',items:[{name:'ご飯',portion:'茶碗1杯、約150g',kcal:230},{name:'焼き魚',portion:'1切れ、約80g',kcal:160}],basis:'器の大きさから一般的な量を仮定。油や調味料は写真では確認できないため目安。',question:''};
 function fixture({result={status:200,body:{estimate}},delay=null}={}){
-  const store=new MemoryAccountStore();let calls=0,clock=Date.parse('2026-10-30T03:00:00Z');
-  const api=createAccountAPI({store,now:()=>clock,config:{},verify:async token=>({uid:token}),generate:async()=>({status:200,body:{reply:'こんにちは',actions:[]}}),estimateMeal:async()=>{calls++;if(delay)await delay;return structuredClone(result);}});
+  const store=new MemoryAccountStore();let calls=0,clock=Date.parse('2026-10-30T03:00:00Z'),lastInput;
+  const api=createAccountAPI({store,now:()=>clock,config:{},verify:async token=>({uid:token}),generate:async()=>({status:200,body:{reply:'こんにちは',actions:[]}}),estimateMeal:async input=>{lastInput=input;calls++;if(delay)await delay;return structuredClone(result);}});
   async function request(path,data,uid='alice',origin='https://app.example'){
     const req=Readable.from([Buffer.from(JSON.stringify(data))]);Object.assign(req,{method:'POST',url:path,headers:{host:'app.example',origin,...(uid?{authorization:'Bearer '+uid}:{})}});
     let status,body;await api(req,{writeHead(s){status=s;},end(s){body=JSON.parse(s);}},path);return {status,body};
@@ -21,7 +21,7 @@ function fixture({result={status:200,body:{estimate}},delay=null}={}){
   async function init(uid='alice'){assert.equal((await request('/api/commands',{requestId:randomUUID(),revision:0,command:{type:'initialize'}},uid)).status,200);}
   const analyze=(id=randomUUID(),extra={},uid='alice')=>request('/api/meal-photo/estimate',{requestId:id,image:photo,note:'',...extra},uid);
   const confirm=(id,extra={},uid='alice')=>request('/api/meal-photo/confirm',{requestId:id,revision:1,date:'2026-10-30',mealType:'lunch',items:estimate.items,...extra},uid);
-  return {store,request,init,analyze,confirm,get calls(){return calls;},advance(ms){clock+=ms;}};
+  return {store,request,init,analyze,confirm,get calls(){return calls;},get lastInput(){return lastInput;},advance(ms){clock+=ms;}};
 }
 test('photo boundaries reject external URLs, wrong types, oversized and huge-dimension images',()=>{
   assert.equal(validateMealPhoto(photo).hash.length,64);
@@ -29,13 +29,35 @@ test('photo boundaries reject external URLs, wrong types, oversized and huge-dim
   const bytes=Buffer.from(photo.split(',')[1],'base64');bytes.writeUInt16BE(64000,7);assert.throws(()=>validateMealPhoto('data:image/jpeg;base64,'+bytes.toString('base64')));
   assert.throws(()=>normalizeMealEstimate({...estimate,items:[{name:'料理',portion:'1人分',kcal:-1}]}));
   assert.throws(()=>normalizeIntake({version:1,kcal:99,source:'photo',mealType:'lunch',items:estimate.items,estimate}));
+  for(const items of [{length:0},'',null])assert.throws(()=>normalizeIntake({version:1,kcal:99,source:'edited',mealType:'lunch',items,estimate}));
 });
-test('estimator sends only the prepared image and note through fixed Luna with structured outputs',async()=>{
+test('persistent meal command replays confirmation after the revision changes',async()=>{
+  const f=fixture();await f.init();const id=randomUUID();await f.analyze(id);
+  const command={type:'confirm_meal_photo',estimateId:id,date:'2026-10-30',mealType:'lunch',items:estimate.items,targetId:null};
+  const payload={requestId:id,revision:1,command};
+  const saved=await f.request('/api/commands',payload);assert.equal(saved.status,200);assert.equal(saved.body.state.progress.activities.length,1);
+  const state=await f.store.read('alice');state.revision++;f.store.accounts.set('alice',state);
+  const replay=await f.request('/api/commands',payload);assert.equal(replay.status,200);assert.equal(replay.body.state.revision,3);assert.equal(replay.body.state.progress.activities.length,1);
+  assert.equal((await f.request('/api/commands',{...payload,command:{...command,estimateId:randomUUID()}})).status,400);
+  assert.equal((await f.request('/api/commands',{...payload,command:{...command,items:[{...estimate.items[0],kcal:100}]}})).status,409);
+  assert.equal(dayReport(replay.body.state.progress,'2026-10-30').total,5);
+});
+test('estimator sends the prepared image and owner portions through fixed Luna with structured outputs',async()=>{
   let sent,usage;
   const generate=createMealPhotoEstimator({apiKey:'test-placeholder',fetchImpl:async(url,init)=>{assert.equal(url,'https://api.openai.com/v1/responses');sent=JSON.parse(init.body);return Response.json({id:'test-response',model:'gpt-6-luna',status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(estimate)}]}],usage:{input_tokens:100,output_tokens:80}});},onUsage:(entry,meta)=>{usage={entry,meta};}});
-  const result=await generate({image:photo,note:'ご飯は普通盛り'},'alice');assert.equal(result.status,200);assert.deepEqual(result.body.estimate,estimate);
+  const adjustments=[{name:'ご飯',portion:'半分、75g'}];
+  const result=await generate({image:photo,note:'ご飯は普通盛り',adjustments},'alice');assert.equal(result.status,200);assert.deepEqual(result.body.estimate,estimate);
+  assert.ok(sent.input[1].content[0].text.includes(JSON.stringify(adjustments)));assert.match(sent.input[0].content,/一覧から外した料理は戻さず/);
   assert.equal(sent.model,'gpt-6-luna');assert.equal(sent.reasoning.effort,'low');assert.equal(sent.store,false);assert.equal(sent.input[1].content[1].type,'input_image');assert.equal(sent.input[1].content[1].image_url,photo);assert.equal(sent.text.format.strict,true);assert.equal(usage.meta.uid,'alice');assert.equal(usage.entry.purpose,'chat');assert.equal(JSON.stringify(usage).includes(photo),false);
   const bad=createMealPhotoEstimator({fetchImpl:async()=>Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({...estimate,items:[{name:'料理',portion:'1皿',kcal:Infinity}]})}]}]})});assert.equal((await bad({image:photo,note:''},'alice')).status,502);
+});
+test('re-estimation validates and forwards edited portions and fingerprints their contents',async()=>{
+  const f=fixture();await f.init();const id=randomUUID(),adjustments=[{name:' ご飯 ',portion:' 半分、75g '}];
+  assert.equal((await f.analyze(id,{adjustments})).status,200);assert.deepEqual(f.lastInput.adjustments,[{name:'ご飯',portion:'半分、75g'}]);
+  assert.equal((await f.analyze(id,{adjustments})).status,200);assert.equal(f.calls,1);
+  assert.equal((await f.analyze(id,{adjustments:[{name:'ご飯',portion:'1杯'}]})).status,409);
+  for(const invalid of [[],{},Array(13).fill(adjustments[0]),[{name:'ご飯',portion:''}],[{name:'ご飯',portion:'x'.repeat(81)}]])assert.equal((await f.analyze(randomUUID(),{adjustments:invalid})).status,400);
+  assert.equal(f.calls,1);
 });
 test('photo analysis requires identity, same origin, setup and a valid bounded request',async()=>{
   const f=fixture(),id=randomUUID();assert.equal((await f.analyze(id,{},null)).status,401);

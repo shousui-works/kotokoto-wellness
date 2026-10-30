@@ -36,7 +36,7 @@ async function generate(input){
 }
 let pushEnabled=false,pushFrequency=2;
 const fakePush=process.env.PUSH_FIXTURE?{publicKey:'fixture-public-key',async handle(uid,method,input){if(method==='PUT'){pushEnabled=true;pushFrequency=input.frequency;}if(method==='DELETE')pushEnabled=false;return method==='POST'?{sent:true}:{enabled:pushEnabled,frequency:pushFrequency};}}:null;
-const estimateMeal=async()=>({status:200,body:{estimate:process.env.MEAL_PHOTO_FIXTURE==='not-food'?{status:'not_food',items:[],basis:'食事ではありません。',question:'食事が写った写真を選んでね。'}:{status:'ok',items:[{name:'ご飯',portion:'茶碗1杯、約150g',kcal:230},{name:'焼き魚',portion:'1切れ、約80g',kcal:160}],basis:'架空のUI検証用の固定応答。実際の写真解析ではありません。',question:''}}});
+const estimateMeal=async({adjustments})=>({status:200,body:{estimate:process.env.MEAL_PHOTO_FIXTURE==='not-food'?{status:'not_food',items:[],basis:'食事ではありません。',question:'食事が写った写真を選んでね。'}:{status:'ok',items:adjustments?.map(item=>({...item,kcal:item.portion.includes('半分')?115:160}))??[{name:'ご飯',portion:'茶碗1杯、約150g',kcal:230},{name:'焼き魚',portion:'1切れ、約80g',kcal:160}],basis:'架空のUI検証用の固定応答。実際の写真解析ではありません。',question:''}}});
 const api=createAccountAPI({estimateMeal,push:fakePush,store:new MemoryAccountStore(),config:{projectId:'fixture',authDomain:'localhost',apiKey:'fixture',appId:'fixture'},verify:async t=>{if(t!=='fixture-token')throw Error();return {uid:'fixture-alice'};},generate});
 const server=createAppServer({accountHandler:async(req,res,path)=>{
  if(process.env.PUSH_FIXTURE&&path==='/fixture-push.mjs'){

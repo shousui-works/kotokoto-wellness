@@ -1,6 +1,6 @@
 import {problem,uuid,fingerprint,dayKey,requireSetup,requireRevision,publicAccount} from './account-model.mjs';
 import {validateMealPhoto} from './meal-photo.mjs';
-import {MEAL_TYPES,normalizeMealItems,normalizeMealEstimate} from '../dist/meal-intake.mjs';
+import {MEAL_TYPES,normalizeMealItems,normalizeMealPortions,normalizeMealEstimate} from '../dist/meal-intake.mjs';
 import {applyInterpretation,validDate} from '../dist/progress.mjs';
 
 export function createMealPhotoAPI({store,estimate,now=Date.now,apiAvailable=true}){
@@ -10,8 +10,9 @@ export function createMealPhotoAPI({store,estimate,now=Date.now,apiAvailable=tru
     if(path==='/api/meal-photo/estimate'){
       if(!apiAvailable||!estimate)throw problem(503,'photo_unavailable','写真の確認は準備中です。');
       if(typeof raw.note!=='string'||raw.note.length>400)throw problem(400,'invalid_note','量や材料の補足は400文字以内で入力してください。');
+      let adjustments;try{adjustments=raw.adjustments==null?null:normalizeMealPortions(raw.adjustments);}catch(error){throw problem(400,'invalid_meal',error.message);}
       let photo;try{photo=validateMealPhoto(raw.image);}catch(error){throw problem(400,'invalid_photo',error.message);}
-      const hash=fingerprint({type:'meal_photo',imageHash:photo.hash,note:raw.note}),time=now();
+      const hash=fingerprint({type:'meal_photo',imageHash:photo.hash,note:raw.note,adjustments}),time=now();
       function replay(op){
         if(op.fingerprint!==hash||op.type!=='meal_photo')throw problem(409,'request_conflict','同じ送信IDの内容が変わっています。写真を選び直してください。');
         if(op.bodyCleared)throw problem(409,'history_cleared','この推定は削除済みです。写真を選び直してください。');
@@ -28,7 +29,7 @@ export function createMealPhotoAPI({store,estimate,now=Date.now,apiAvailable=tru
         return {state:{...state,chatLease:{id,until}},operation:{id,type:'meal_photo',fingerprint:hash,status:'pending',until,at:time},usage,value:null};
       },{quota:true,now:time});
       if(reserved)return reserved;
-      let outcome;try{outcome=await estimate({image:photo.dataUrl,note:raw.note},uid);if(outcome.status===200)outcome={status:200,body:{estimate:normalizeMealEstimate(outcome.body.estimate)}};}
+      let outcome;try{outcome=await estimate({image:photo.dataUrl,note:raw.note,adjustments},uid);if(outcome.status===200)outcome={status:200,body:{estimate:normalizeMealEstimate(outcome.body.estimate)}};}
       catch{outcome={status:503,body:{error:{code:'photo_failed',message:'写真の確認に失敗しました。少し待って、もう一度試してください。',retryable:true}}};}
       return store.atomic(uid,id,(state,op,usage)=>{
         if(op?.status!=='pending')return {value:replay(op)};

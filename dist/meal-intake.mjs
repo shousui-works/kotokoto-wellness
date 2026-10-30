@@ -2,11 +2,18 @@
 export const MEAL_TYPES={breakfast:'朝食',lunch:'昼食',dinner:'夕食',snack:'間食',other:'食事'};
 const number=(n,max=20000)=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;
 const text=(s,max)=>typeof s==='string'&&!!s.trim()&&s.length<=max;
-export function normalizeMealItems(items){
+export function normalizeMealPortions(items){
   if(!Array.isArray(items)||!items.length||items.length>12)throw Error('料理は1〜12品で入力してください。');
-  const out=items.map(item=>{
-    if(!text(item?.name,60)||!text(item.portion,80)||!number(item.kcal,5000))throw Error('料理名・食べた量・kcalを確認してください。');
-    return {name:item.name.trim(),portion:item.portion.trim(),kcal:Math.round(item.kcal)};
+  return items.map(item=>{
+    if(!text(item?.name,60)||!text(item.portion,80))throw Error('料理名・食べた量を確認してください。');
+    return {name:item.name.trim(),portion:item.portion.trim()};
+  });
+}
+export function normalizeMealItems(items){
+  const portions=normalizeMealPortions(items);
+  const out=items.map((item,index)=>{
+    if(!number(item.kcal,5000))throw Error('料理ごとのkcalを確認してください。');
+    return {...portions[index],kcal:Math.round(item.kcal)};
   });
   if(out.reduce((sum,item)=>sum+item.kcal,0)>20000)throw Error('合計カロリーを確認してください。');
   return out;
@@ -26,6 +33,7 @@ export function normalizeIntake(value){
   if(value.version!==1||!number(value.kcal)||!['photo','edited'].includes(value.source)||!Object.hasOwn(MEAL_TYPES,value.mealType))throw Error('Invalid meal intake');
   const estimate=normalizeMealEstimate(value.estimate);
   if(estimate.status!=='ok')throw Error('Invalid meal intake estimate');
+  if(!Array.isArray(value.items))throw Error('Invalid meal intake items');
   const items=value.items.length?normalizeMealItems(value.items):[];
   if(items.length&&Math.round(value.kcal)!==items.reduce((sum,item)=>sum+item.kcal,0))throw Error('Invalid meal intake total');
   return {version:1,kcal:Math.round(value.kcal),source:value.source,mealType:value.mealType,items,estimate};

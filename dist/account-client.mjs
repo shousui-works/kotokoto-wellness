@@ -47,10 +47,10 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     offline=true;notify();}}
   const clearPending=()=>{pending=null;if(user)local.removeItem(pendingKey(user.uid));};
   const namesMissing=()=>!!user&&(!state?.initialized?!namesDraft:(!state.profile?.namesConfigured||!state.profile?.nickname||!state.profile?.petName));
-  async function mutate(command,{revision}={}){
+  async function mutate(command,{revision,requestId}={}){
     if(!user)throw Error('ログインしてから記録してね。');if(offline||locked)throw Error('今は閲覧のみです。接続を確認してから保存してね。');if(busy)throw Error('保存を待ってから、もう一度試してね。');
     if(pending&&JSON.stringify(pending.command)!==JSON.stringify(command))throw Error('未確認の保存があります。「アカウント」から確認してね。');
-    if(!pending){pending={requestId:crypto.randomUUID(),revision:revision??state.revision,command};local.setItem(pendingKey(user.uid),JSON.stringify(pending));}
+    if(!pending){pending={requestId:requestId??crypto.randomUUID(),revision:revision??state.revision,command};local.setItem(pendingKey(user.uid),JSON.stringify(pending));}
     notice='';busy=true;render();try{const result=await request('/api/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pending)});clearPending();return result;}
     catch(error){if(error.status&&error.status<500&&error.status!==401){clearPending();await sync(true);}throw error;}finally{busy=false;notify();}
   }
@@ -95,8 +95,8 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     render();
   }
   await sync();setupUI();
-  // A lost response must replay the original draw ID, not charge for a new draw.
-  if(user&&state?.initialized&&!offline&&pending&&['plush_draw','plush_exchange'].includes(pending.command?.type)){try{await mutate(pending.command);}catch(error){notice=error.message;render();}}
+  // Recover the original ID after reload, including a meal saved before its response was lost.
+  if(user&&state?.initialized&&!offline&&pending&&['plush_draw','plush_exchange','confirm_meal_photo'].includes(pending.command?.type)){try{await mutate(pending.command);}catch(error){notice=error.message;render();}}
 
   const draftInput=$('conversation-input');if(user&&draftInput){draftInput.value=local.getItem('kotokoto-cloud-draft:'+user.uid)??'';draftInput.addEventListener('input',()=>{if(user)local.setItem('kotokoto-cloud-draft:'+user.uid,draftInput.value);});}
   let initialUID=user?.uid??null;onAuthStateChanged(auth,next=>{if((next?.uid??null)===initialUID)return;generation++;if(initialUID){local.removeItem(cacheKey(initialUID));local.removeItem(pendingKey(initialUID));local.removeItem('kotokoto-cloud-draft:'+initialUID);local.removeItem('kotokoto-cloud-chat-pending:'+initialUID);}user=next;state=null;map.clear();location.reload();});

@@ -81,6 +81,12 @@ export function createAccountAPI({store,verify,config,generate,estimateMeal=null
       }
       if(pathname==='/api/commands'&&req.method==='POST'){
         const input=await body(req,32*1024);if(!uuid(input.requestId))throw problem(400,'invalid_id','要求IDを確認してね。');const hash=fingerprint(input);
+        if(input.command?.type==='confirm_meal_photo'){
+          if(input.command.estimateId!==input.requestId)throw problem(400,'invalid_id','写真の確認IDを確認してください。');
+          const {date,mealType,items,targetId}=input.command;
+          const result=await mealPhoto(uid,'/api/meal-photo/confirm',{requestId:input.requestId,revision:input.revision,date,mealType,items,targetId});
+          send(res,result.status,result.body);return true;
+        }
         if(['plush_draw','plush_exchange'].includes(input.command?.type)){
           const candidate=input.command.type==='plush_draw'?choosePlush():null;
           const result=await store.gacha(uid,input.requestId,(state,old,enabled)=>{
