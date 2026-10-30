@@ -8,13 +8,15 @@ import {progressContext,applyInterpretation,progressCompanion} from '../dist/pro
 import {growthForXP} from '../dist/model.mjs';
 import {appendExchange} from '../dist/komugi-conversation.mjs';
 import {validateChatRequest} from './komugi-chat.mjs';
+import {createMealPhotoAPI} from './meal-photo-api.mjs';
 const send=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const originOK=req=>{try{return req.headers['sec-fetch-site']!=='cross-site'&&new URL(req.headers.origin).origin===req.headers.origin&&new URL(req.headers.origin).host===req.headers.host;}catch{return false;}};
 async function body(req,limit=2*1024*1024){let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>limit)throw problem(413,'too_large','記録が大きすぎるため、取り込めませんでした。元のデータは残っています。');chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks));}catch{throw problem(400,'invalid_json','送信内容を確認してね。');}}
 const known=error=>fail(error.status??503,error.code??'storage_unavailable',error.status?error.message:'今は記録につながりません。入力を残して、少し待ってから試してね。');
 
-export function createAccountAPI({store,verify,config,generate,summarize=null,now=Date.now,apiAvailable=true,proxy=globalThis.fetch,admin=null,choosePlush=drawCandidate,push=null}){
+export function createAccountAPI({store,verify,config,generate,estimateMeal=null,summarize=null,now=Date.now,apiAvailable=true,proxy=globalThis.fetch,admin=null,choosePlush=drawCandidate,push=null}){
+  const mealPhoto=createMealPhotoAPI({store,estimate:estimateMeal,now,apiAvailable});
   async function identity(req){const match=/^Bearer ([^\s]+)$/.exec(req.headers.authorization??'');if(!match)throw problem(401,'login_required','Googleでログインして、こむぎと話そう。');
     try{const user=await verify(match[1]);if(!user?.uid||user.uid.includes('/'))throw Error();return user;}catch{throw problem(401,'login_expired','ログインし直してね。入力は残してあります。');}}
   const packet=state=>({state:publicAccount(state)});
@@ -41,6 +43,10 @@ export function createAccountAPI({store,verify,config,generate,summarize=null,no
       if(pathname==='/api/account/config'&&req.method==='GET'){send(res,200,{mode:'required',firebase:config});return true;}
       const user=await identity(req),uid=user.uid;
       if(!['GET','HEAD'].includes(req.method)&&!originOK(req))throw problem(403,'origin_rejected','この画面からもう一度試してね。');
+      if(['/api/meal-photo/estimate','/api/meal-photo/confirm'].includes(pathname)){
+        if(req.method!=='POST')throw problem(405,'method_not_allowed','この操作には対応していません。');
+        const result=await mealPhoto(uid,pathname,await body(req,768*1024));send(res,result.status,result.body);return true;
+      }
       if(pathname==='/api/push/config'&&req.method==='GET'){send(res,200,{publicKey:push?.publicKey??null});return true;}
       if(pathname==='/api/push/subscription'||pathname==='/api/push/test'){
         if(!push)throw problem(503,'push_not_ready','通知は準備中です。');

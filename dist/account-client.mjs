@@ -1,5 +1,5 @@
 import {emptyState} from './model.mjs';
-import {emptyProgress,normalizeProgress} from './progress.mjs?v=daily-life-1';
+import {emptyProgress,normalizeProgress} from './progress.mjs?v=meal-photo-1';
 import {normalizeConversation} from './komugi-conversation.mjs';
 import {normalizeNickname,normalizeNames} from './profile.mjs';
 const KEYS={legacy:'kotokoto-wellness-v1',progress:'kotokoto-progress-v1',profile:'kotokoto-profile-v1',conversation:'kotokoto-komugi-conversation-v1',voice:'kotokoto-companion-chat-v1'};
@@ -34,7 +34,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
   async function request(path,init={}){
     if(!user||locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     const identity=user.uid,identityUser=user,stamp=generation;
-    const send=async refresh=>fetchImpl(path,{...init,headers:{...init.headers,Authorization:`Bearer ${await identityUser.getIdToken(refresh)}`},cache:'no-store',signal:AbortSignal.timeout(path==='/api/chat'?55000:30000)});
+    const send=async refresh=>fetchImpl(path,{...init,headers:{...init.headers,Authorization:`Bearer ${await identityUser.getIdToken(refresh)}`},cache:'no-store',signal:AbortSignal.timeout(path==='/api/chat'?55000:path.startsWith('/api/meal-photo/')?45000:30000)});
     let response=await send(false);if(response.status===401)response=await send(true);
     const data=await response.json();
     if(generation!==stamp||user?.uid!==identity)throw Error('アカウントが変わったため、前の操作は表示していません。');

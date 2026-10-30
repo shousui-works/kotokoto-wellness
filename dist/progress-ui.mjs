@@ -1,5 +1,6 @@
 import {dateKey,recentDays} from './model.mjs';
-import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor,calorieSummary} from './progress.mjs?v=daily-life-1';
+import {mealIntakeSummary} from './meal-intake.mjs';
+import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor,calorieSummary} from './progress.mjs?v=meal-photo-1';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;};
 const amount=n=>new Intl.NumberFormat('ja-JP',{maximumFractionDigits:1}).format(n);
@@ -62,6 +63,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     $('activity-edit-exercise').hidden=!['walk','run','strength','stretch','exercise'].includes(activity.kind);
     $('activity-edit-weight-row').hidden=!['walk','run','strength','stretch','exercise','weight'].includes(activity.kind);
     $('activity-edit-meal-row').hidden=activity.kind!=='meal_log';
+    $('activity-edit-intake-row').hidden=!activity.intake;$('activity-edit-intake').disabled=!activity.intake;$('activity-edit-intake').value=activity.intake?.kcal??'';
     $('activity-edit-error').textContent='';$('activity-edit-dialog').showModal();
   }
   function activityNode(activity){
@@ -74,6 +76,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     if(['walk','run','strength','stretch','exercise'].includes(activity.kind)&&activity.kcal===null&&!activity.estimate&&!activity.hold)details.push('消費カロリーは未推定');
     if(activity.kind==='weight'&&activity.weightKg!==null)details.push(amount(activity.weightKg)+'kg');
     if(activity.detail)details.push(activity.detail);
+    if(activity.intake){details.push('摂取 '+amount(activity.intake.kcal)+'kcal（'+(activity.intake.source==='photo'?'写真からの推定':'本人の修正')+'）');details.push('写真推定時の前提：'+activity.intake.estimate.basis);}
     if(activity.estimate?.basis)details.push(activity.estimate.basis);
     if(activity.corrections.some(c=>c.type!=='supplement'))details.push('訂正済み');
     if(details.length)copy.append(el('p',null,details.join(' · ')));
@@ -87,6 +90,8 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
   function render(){
     const today=dateKey(),report=dayReport(data,today);
     const calories=calorieSummary(data,today);
+    const intake=mealIntakeSummary(data,today);
+    $('daily-intake').textContent=intake.recorded?amount(intake.kcal):'—';$('daily-intake-note').textContent=intake.recorded?`${intake.recorded}件の食事を集計 · 写真推定${intake.estimated}件${intake.withoutCalories?' · カロリー未記録'+intake.withoutCalories+'件':''}`:'摂取カロリーの記録はまだありません。';
     $('daily-calories').textContent=calorieValue(calories);$('daily-calorie-note').textContent=calorieNote(calories);$('daily-total-calories').textContent=calorieValue(calorieSummary(data));
     $('daily-points').textContent=report.total;$('daily-total-points').textContent=progressTotal(data);
     $('dock-count').textContent=report.total;
@@ -102,6 +107,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     $('report-date').value=selectedDate;$('report-date').max=today;
     const chosen=dayReport(data,selectedDate);
     const chosenCalories=calorieSummary(data,selectedDate);
+    const chosenIntake=mealIntakeSummary(data,selectedDate);$('report-intake').textContent=chosenIntake.recorded?amount(chosenIntake.kcal):'—';$('report-intake-note').textContent=chosenIntake.recorded?`${chosenIntake.recorded}件の食事 · 写真推定${chosenIntake.estimated}件${chosenIntake.withoutCalories?' · カロリー未記録'+chosenIntake.withoutCalories+'件':''}`:'摂取カロリーの記録はまだありません。';
     $('report-calories').textContent=calorieValue(chosenCalories,chosen.recorded?'0':'—');$('report-calorie-note').textContent=calorieNote(chosenCalories);
     $('report-score').textContent=chosen.recorded?chosen.total:'—';
     $('report-breakdown').textContent=chosen.recorded?`運動 ${chosen.exercise} ＋ クエスト ${chosen.bonus}`:'この日の記録はまだありません。';
@@ -130,9 +136,10 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
   $('activity-edit-form').addEventListener('submit',async event=>{
     event.preventDefault();const id=event.currentTarget.dataset.id;
     const number=id=>$(id).value.trim()?Number($(id).value):null;
-    try{if(account?.user){await account.command({type:'correct_activity',id,changes:{date:$('activity-edit-date').value,minutes:number('activity-edit-minutes'),kcal:number('activity-edit-kcal'),weightKg:number('activity-edit-weight'),detail:$('activity-edit-detail').value||null}},{revision:Number($('activity-edit-form').dataset.revision)});data=read();render();}else await lock(()=>{
+    const intakeChange=$('activity-edit-intake-row').hidden?{}:{intakeKcal:number('activity-edit-intake')};
+    try{if(account?.user){await account.command({type:'correct_activity',id,changes:{date:$('activity-edit-date').value,minutes:number('activity-edit-minutes'),kcal:number('activity-edit-kcal'),weightKg:number('activity-edit-weight'),detail:$('activity-edit-detail').value||null,...intakeChange}},{revision:Number($('activity-edit-form').dataset.revision)});data=read();render();}else await lock(()=>{
       data=read();const a=data.activities.find(a=>a.id===id&&!a.deleted);if(!a)throw Error('記録が見つかりません。開き直してください。');
-      write(correctActivity(data,id,{date:$('activity-edit-date').value,minutes:number('activity-edit-minutes'),kcal:number('activity-edit-kcal'),weightKg:number('activity-edit-weight'),detail:$('activity-edit-detail').value||null},getState()));
+      write(correctActivity(data,id,{date:$('activity-edit-date').value,minutes:number('activity-edit-minutes'),kcal:number('activity-edit-kcal'),weightKg:number('activity-edit-weight'),detail:$('activity-edit-detail').value||null,...intakeChange},getState()));
     });$('activity-edit-dialog').close();}
     catch(error){$('activity-edit-error').textContent=error.message==='Invalid candidate'?'日付や数値を確認してください。':error.message;}
   });
