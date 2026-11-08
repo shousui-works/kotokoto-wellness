@@ -1,6 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createAccountClient,localImport} from '../dist/account-client.mjs';
 import {emptyAccount} from '../server/account-model.mjs';
+import {Readable} from 'node:stream';
+import {createAccountAPI} from '../server/account-api.mjs';
+import {MemoryAccountStore} from '../server/account-store.mjs';
+import {dayReport} from '../dist/progress.mjs';
 function memory(){const map=new Map();return {getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};}
 test('client keeps an editor revision, restores connectivity with an unchanged cloud revision, and isolates canonical storage',async t=>{
  const elements=new Map(),events=new Map();const old={document:globalThis.document,window:globalThis.window,location:globalThis.location};
@@ -63,7 +67,7 @@ async function accountHarness(t,{local=memory(),uid='alice',cloud={...emptyAccou
  const sdkLoader=async()=>[{initializeApp:()=>({})},{getAuth:()=>({currentUser:user,authStateReady:async()=>{}}),GoogleAuthProvider:class{},getRedirectResult:async()=>null,onAuthStateChanged(){}}];
  const fetchImpl=async(path,init)=>{
   if(path==='/api/account/config')return Response.json({mode:'required',firebase:{}});
-  if(path.startsWith('/api/sync'))return Response.json({state:cloud});
+  if(path.startsWith('/api/sync'))return Response.json({state:typeof cloud==='function'?await cloud():cloud});
   const body=JSON.parse(init.body);requests.push({path,body});return send(path,body);
  };
  const client=await createAccountClient({local,sdkLoader,fetchImpl,schedule(){}});
@@ -106,6 +110,41 @@ test('pending plush draw is recovered with the original request on initial sync'
   return Response.json({state:{...emptyAccount(),initialized:true,datasetId:'fixture',revision:11},plushResult:{requestId:body.requestId,item:'pomeranian'}});
  }});
  assert.equal(f.requests.length,1);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);assert.equal(f.client.state.revision,11);
+});
+
+test('lost meal confirmation survives reload without a photo or a new request ID',async t=>{
+ const local=memory(),id='00000000-0000-4000-8000-000000000037';
+ const store=new MemoryAccountStore(),estimate={status:'ok',items:[{name:'ご飯',portion:'1杯',kcal:230}],basis:'架空のテスト用推定。',question:''};
+ const api=createAccountAPI({store,config:{},verify:async()=>({uid:'alice'}),now:()=>Date.parse('2026-10-30T03:00:00Z'),estimateMeal:async()=>({status:200,body:{estimate}})});
+ async function sendAPI(path,data){
+  const req=Readable.from([Buffer.from(JSON.stringify(data))]);Object.assign(req,{method:'POST',url:path,headers:{host:'app.example',origin:'https://app.example',authorization:'Bearer fixture-token'}});
+  let status,result;assert.equal(await api(req,{writeHead(value){status=value;},end(value){result=JSON.parse(value);}},path),true);
+  return Response.json(result,{status});
+ }
+ assert.equal((await sendAPI('/api/commands',{requestId:crypto.randomUUID(),revision:0,command:{type:'initialize'}})).status,200);
+ const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,192,0,11,8,0,16,0,16,3,1,17,0,255,217]).toString('base64');
+ assert.equal((await sendAPI('/api/meal-photo/estimate',{requestId:id,image,note:''})).status,200);
+ const cloud=()=>store.read('alice');
+ const command={type:'confirm_meal_photo',estimateId:id,date:'2026-10-30',mealType:'lunch',targetId:null,items:[{name:'ご飯',portion:'半分',kcal:115}]};
+ const lost=await accountHarness(t,{local,cloud,send:async(path,body)=>{
+  const response=await sendAPI(path,body);assert.equal(response.status,200);assert.equal((await response.json()).recorded,true);
+  // The real API commits the meal; only its response to the client is discarded.
+  throw new TypeError('response lost');
+ }});
+ await assert.rejects(lost.client.command(command,{requestId:id,revision:1}),/response lost/);
+ const saved=await cloud();assert.equal(saved.revision,2);assert.equal(saved.progress.activities.length,1);assert.equal(saved.progress.activities[0].intake.kcal,115);assert.equal(dayReport(saved.progress,'2026-10-30').total,5);
+ assert.equal(lost.client.state.revision,1);
+ const pending=JSON.parse(local.getItem('kotokoto-cloud-pending-v1:alice'));
+ assert.deepEqual(pending,{requestId:id,revision:1,command});assert.equal(JSON.stringify(pending).includes('image'),false);
+ await assert.rejects(lost.client.command({...command,estimateId:'another-photo'}),/未確認/);
+ const other=await accountHarness(t,{local,uid:'bob',send:async()=>{throw Error('must not replay another user');}});
+ assert.equal(other.requests.length,0);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),JSON.stringify(pending));
+ const restored=await accountHarness(t,{local,cloud,send:async(path,body)=>{
+  assert.equal(path,'/api/commands');assert.deepEqual(body,pending);
+  return sendAPI(path,body);
+ }});
+ assert.equal(restored.requests.length,1);assert.equal(local.getItem('kotokoto-cloud-pending-v1:alice'),null);
+ assert.deepEqual(await cloud(),saved);assert.deepEqual(restored.client.state.progress,saved.progress);assert.equal(dayReport(restored.client.state.progress,'2026-10-30').total,5);
 });
 
 test('automatic greeting preserves its mode and the user draft',async t=>{

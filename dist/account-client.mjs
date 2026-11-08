@@ -1,5 +1,5 @@
 import {emptyState} from './model.mjs';
-import {emptyProgress,normalizeProgress} from './progress.mjs?v=daily-life-1';
+import {emptyProgress,normalizeProgress} from './progress.mjs?v=meal-photo-1';
 import {normalizeConversation} from './komugi-conversation.mjs';
 import {normalizeNickname,normalizeNames} from './profile.mjs';
 const KEYS={legacy:'kotokoto-wellness-v1',progress:'kotokoto-progress-v1',profile:'kotokoto-profile-v1',conversation:'kotokoto-komugi-conversation-v1',voice:'kotokoto-companion-chat-v1'};
@@ -34,7 +34,7 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
   async function request(path,init={}){
     if(!user||locked)throw Error('Googleでログインし直してね。入力は残してあります。');
     const identity=user.uid,identityUser=user,stamp=generation;
-    const send=async refresh=>fetchImpl(path,{...init,headers:{...init.headers,Authorization:`Bearer ${await identityUser.getIdToken(refresh)}`},cache:'no-store',signal:AbortSignal.timeout(path==='/api/chat'?55000:30000)});
+    const send=async refresh=>fetchImpl(path,{...init,headers:{...init.headers,Authorization:`Bearer ${await identityUser.getIdToken(refresh)}`},cache:'no-store',signal:AbortSignal.timeout(path==='/api/chat'?55000:path.startsWith('/api/meal-photo/')?45000:30000)});
     let response=await send(false);if(response.status===401)response=await send(true);
     const data=await response.json();
     if(generation!==stamp||user?.uid!==identity)throw Error('アカウントが変わったため、前の操作は表示していません。');
@@ -47,10 +47,10 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     offline=true;notify();}}
   const clearPending=()=>{pending=null;if(user)local.removeItem(pendingKey(user.uid));};
   const namesMissing=()=>!!user&&(!state?.initialized?!namesDraft:(!state.profile?.namesConfigured||!state.profile?.nickname||!state.profile?.petName));
-  async function mutate(command,{revision}={}){
+  async function mutate(command,{revision,requestId}={}){
     if(!user)throw Error('ログインしてから記録してね。');if(offline||locked)throw Error('今は閲覧のみです。接続を確認してから保存してね。');if(busy)throw Error('保存を待ってから、もう一度試してね。');
     if(pending&&JSON.stringify(pending.command)!==JSON.stringify(command))throw Error('未確認の保存があります。「アカウント」から確認してね。');
-    if(!pending){pending={requestId:crypto.randomUUID(),revision:revision??state.revision,command};local.setItem(pendingKey(user.uid),JSON.stringify(pending));}
+    if(!pending){pending={requestId:requestId??crypto.randomUUID(),revision:revision??state.revision,command};local.setItem(pendingKey(user.uid),JSON.stringify(pending));}
     notice='';busy=true;render();try{const result=await request('/api/commands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pending)});clearPending();return result;}
     catch(error){if(error.status&&error.status<500&&error.status!==401){clearPending();await sync(true);}throw error;}finally{busy=false;notify();}
   }
@@ -95,8 +95,8 @@ async function bootstrapAccountClient({fetchImpl=globalThis.fetch,local=globalTh
     render();
   }
   await sync();setupUI();
-  // A lost response must replay the original draw ID, not charge for a new draw.
-  if(user&&state?.initialized&&!offline&&pending&&['plush_draw','plush_exchange'].includes(pending.command?.type)){try{await mutate(pending.command);}catch(error){notice=error.message;render();}}
+  // Recover the original ID after reload, including a meal saved before its response was lost.
+  if(user&&state?.initialized&&!offline&&pending&&['plush_draw','plush_exchange','confirm_meal_photo'].includes(pending.command?.type)){try{await mutate(pending.command);}catch(error){notice=error.message;render();}}
 
   const draftInput=$('conversation-input');if(user&&draftInput){draftInput.value=local.getItem('kotokoto-cloud-draft:'+user.uid)??'';draftInput.addEventListener('input',()=>{if(user)local.setItem('kotokoto-cloud-draft:'+user.uid,draftInput.value);});}
   let initialUID=user?.uid??null;onAuthStateChanged(auth,next=>{if((next?.uid??null)===initialUID)return;generation++;if(initialUID){local.removeItem(cacheKey(initialUID));local.removeItem(pendingKey(initialUID));local.removeItem('kotokoto-cloud-draft:'+initialUID);local.removeItem('kotokoto-cloud-chat-pending:'+initialUID);}user=next;state=null;map.clear();location.reload();});

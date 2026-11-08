@@ -53,7 +53,7 @@ export function applyCommand(original,command,now=Date.now()){
     case 'reset_memory':if(state.chatLease?.until>now)throw problem(409,'chat_busy','こむぎの返事を待ってからリセットしてね。');state.interactionPreferences=emptyPreferences();state.memory={...emptyMemory(),revision:(state.memory?.revision??0)+1,throughSequence:state.messageCounter*2+1,updatedAt:at};break;
     case 'chat_setting':if(typeof command.enabled!=='boolean')throw problem(400,'invalid_setting','設定を確認してね。');state.chatEnabled=command.enabled;break;
     case 'correct_activity':{
-      const c=command.changes;if(!c||Object.keys(c).some(k=>!['date','minutes','kcal','weightKg','detail'].includes(k)))throw problem(400,'invalid_correction','訂正内容を確認してね。');
+      const c=command.changes;if(!c||Object.keys(c).some(k=>!['date','minutes','kcal','weightKg','detail','intakeKcal'].includes(k)))throw problem(400,'invalid_correction','訂正内容を確認してね。');
       state.progress=correctActivity(state.progress,command.id,c,state.legacy,at,today);break;
     }
     default:throw problem(400,'invalid_command','この操作には対応していません。');
