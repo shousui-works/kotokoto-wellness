@@ -31,6 +31,8 @@
 
 自身によるレビュー後、量だけを変えたときの古いkcalの失効と修正量の再送、保存だけ完了して応答が届かない場合の再読み込み復旧、保存待ちデータに写真がなく別UIDで再送されないことも検証した。壊れた摂取記録の料理一覧は空配列へ変換せず、読み込みエラーとして元データを保護する。
 
+`test/account-client.test.mjs` の保存応答喪失テストは、実際のアカウントAPIとメモリ内ストアで推定・食事保存まで実行してから、クライアントへの成功応答だけを破棄する。保存前のrevisionを持つ要求が再読み込み後に再送されても、食事・摂取カロリー・ポイント・サーバーrevisionが増えず、保存済みの内容を取得して保存待ちを解消することを確認する。Firestore実環境や外部AIの検証ではない。
+
 `PORT=8104 MEAL_PHOTO_FIXTURE=food VOICE_FIXTURE=unsupported node test/preview-account.mjs` は実アカウントや外部AIを使わない画面確認用。返す料理とkcalは固定データで、実際の画像認識を検証するものではない。`MEAL_PHOTO_FIXTURE=not-food` で食事以外の案内も確認できる。
 
 初回実装では、393×698と844×390の隔離ブラウザで、写真のJPEG変換、料理・量・kcalの修正、保存、通信断での下書き保持と復帰、保存後のカロリー・日付訂正を確認した。実APIは [University of Illinois Extensionの公開レシピ写真](https://eat-move-save.extension.illinois.edu/eat/recipes/brown-rice-sizzling-chicken-and-vegetables) で料理別の推定と前提の返却を確認した。写真のみと分量補足ありで値が変わることも確認しており、これは接続・動作の確認であって、一般的な推定精度を保証する検証ではない。実機カメラの操作は未確認。
