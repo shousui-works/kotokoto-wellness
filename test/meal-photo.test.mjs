@@ -87,6 +87,26 @@ test('attaching to an existing meal does not add another row or bonus; stale rev
   const id=randomUUID();await f.analyze(id);assert.equal((await f.confirm(id)).status,409);const targetId=state.progress.activities[0].id;
   const result=await f.confirm(id,{revision:2,targetId});assert.equal(result.status,200);assert.equal(result.body.state.progress.activities.length,1);assert.equal(result.body.state.progress.activities[0].id,targetId);assert.equal(dayReport(result.body.state.progress,'2026-10-30').total,5);
 });
+test('new photo meals leave the daily praise to its default',async()=>{
+  const f=fixture();await f.init();const id=randomUUID();await f.analyze(id);
+  const saved=await f.confirm(id);assert.equal(saved.status,200);
+  const progress=normalizeProgress(JSON.parse(JSON.stringify((await f.store.read('alice')).progress)));
+  assert.equal(progress.activities[0].praise,'');assert.equal(dayReport(progress,'2026-10-30').praise,'');
+});
+test('photo attachments retain original praise and pre-update details in correction history',async()=>{
+  for(const hasIntake of [false,true]){
+    const f=fixture();await f.init();const state=await f.store.read('alice');
+    state.progress=recordManual(state.progress,{id:'original-meal',kind:'meal_log',date:'2026-10-30',title:'お昼を食べた',detail:'ご飯と焼き魚'},state.legacy).progress;
+    const original=state.progress.activities[0];original.praise='お昼に魚を選んだんだね。';
+    if(hasIntake)original.intake={version:1,kcal:390,source:'photo',mealType:'lunch',items:structuredClone(estimate.items),estimate:structuredClone(estimate)};
+    state.revision=2;f.store.accounts.set('alice',state);
+    const id=randomUUID();await f.analyze(id);const saved=await f.confirm(id,{revision:2,targetId:original.id});assert.equal(saved.status,200);
+    const meal=normalizeProgress(JSON.parse(JSON.stringify((await f.store.read('alice')).progress))).activities[0];
+    assert.equal(meal.praise,original.praise);assert.equal(dayReport(saved.body.state.progress,'2026-10-30').praise,original.praise);
+    assert.notEqual(meal.detail,original.detail);assert.equal(meal.corrections.at(-1).previous.title,original.title);assert.equal(meal.corrections.at(-1).previous.detail,original.detail);
+    assert.deepEqual(meal.corrections.at(-1).previous.intake,original.intake);
+  }
+});
 test('non-food and unclear photos cannot be confirmed and quota is shared with chat',async()=>{
   const f=fixture({result:{status:200,body:{estimate:{status:'not_food',items:[],basis:'食事は写っていません。',question:'食事が写った写真を選んでね。'}}}});await f.init();const id=randomUUID();await f.analyze(id);assert.equal((await f.confirm(id)).status,409);
   for(let i=0;i<5;i++)assert.equal((await f.analyze()).status,200);assert.equal((await f.analyze()).status,429);assert.equal(f.calls,6);assert.equal((await f.store.read('alice')).progress.activities.length,0);

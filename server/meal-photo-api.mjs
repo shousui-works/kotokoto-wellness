@@ -55,7 +55,7 @@ export function createMealPhotoAPI({store,estimate,now=Date.now,apiAvailable=tru
       const old=targetId?state.progress.activities.find(a=>a.id===targetId&&!a.deleted&&!a.hold):null;
       if(targetId&&(!old||old.kind!=='meal_log'||old.date!==raw.date))throw problem(409,'meal_changed','追加先の食事が変わりました。選び直してください。');
       const title=(MEAL_TYPES[raw.mealType]+'：'+items.map(item=>item.name).join('、')).slice(0,100),detail=items.map(item=>`${item.name}（${item.portion}）`).join('、').slice(0,300);
-      const applied=applyInterpretation(state.progress,{requestId:'meal-photo:'+id,today:dayKey(now()),at:new Date(now()).toISOString(),text:title,reply:'食事の内容を残せたね。',actions:[{operation:old?'update':'create',targetId:old?.id??null,kind:'meal_log',date:raw.date,title,evidence:title,minutes:null,kcal:null,weightKg:null,detail,additional:!old}]},state.legacy);
+      const applied=applyInterpretation(state.progress,{requestId:'meal-photo:'+id,today:dayKey(now()),at:new Date(now()).toISOString(),text:title,reply:old?.praise??'',actions:[{operation:old?'update':'create',targetId:old?.id??null,kind:'meal_log',date:raw.date,title,evidence:title,minutes:null,kcal:null,weightKg:null,detail,additional:!old}]},state.legacy);
       const activity=applied.progress.activities.find(a=>a.id===(old?.id??`meal-photo:${id}:0`));
       if(!activity)throw problem(409,'meal_changed','食事を保存できませんでした。もう一度確認してください。');
       const original=normalizeMealEstimate(op.result.estimate);
