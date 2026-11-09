@@ -45,7 +45,7 @@ export function createMealPhotoUI({account,button,onSaved=()=>{},prepare=prepare
   function message(text=''){error.textContent=text;}
   function targets(){
     const selected=$('target').value;$('target').replaceChildren(new Option('新しい食事として記録',''));
-    for(const activity of account.state?.progress.activities??[])if(activity.kind==='meal_log'&&!activity.deleted&&!activity.hold&&activity.date===$('date').value)$('target').append(new Option((activity.intake?'上書き：':'追加：')+activity.title,activity.id));
+    for(const activity of account.state?.progress.activities??[])if(activity.kind==='meal_log'&&!activity.deleted&&!activity.hold&&activity.date===$('date').value)$('target').append(new Option((activity.intake?'上書き：':'反映：')+activity.title,activity.id));
     if([...$('target').options].some(option=>option.value===selected))$('target').value=selected;
   }
   function items(){return [...$('items').children].map(row=>({name:row.querySelector('[data-meal-name]').value,portion:row.querySelector('[data-meal-portion]').value,kcal:row.querySelector('[data-meal-kcal]').value.trim()===''?NaN:Number(row.querySelector('[data-meal-kcal]').value)}));}
