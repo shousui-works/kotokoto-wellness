@@ -225,7 +225,7 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     let hold=a.operation==='clarify'?'duplicate':null;
     if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
     if(existing){
-      existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,deleted:existing.deleted,...(existing.intake?{intake:structuredClone(existing.intake)}:{})}});
+      existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,detail:existing.detail,deleted:existing.deleted,...(existing.intake?{intake:structuredClone(existing.intake)}:{})}});
       if(existing.intake&&(a.kind!=='meal_log'||a.detail!==null&&a.detail!==existing.detail))delete existing.intake;
       const changes=Object.fromEntries(Object.entries(a).filter(([,value])=>value!==null));
       const changed=['kind','minutes','weightKg','detail'].some(key=>a[key]!==null&&a[key]!==existing[key]);
