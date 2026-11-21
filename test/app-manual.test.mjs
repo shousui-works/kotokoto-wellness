@@ -27,7 +27,7 @@ function generator(results,options={}){
 
 test('manual only accepts bounded public sections, never a path, URL or extra argument',()=>{
   assert.equal(APP_MANUAL_TOOL.strict,true);assert.equal(APP_MANUAL_TOOL.parameters.additionalProperties,false);
-  for(const id of APP_MANUAL_SECTION_IDS){const value=getAppManual({sections:[id]});assert.equal(value.sections[0].id,id);assert.ok(value.sections[0].text);}
+  for(const id of APP_MANUAL_SECTION_IDS){const value=getAppManual({sections:[id]});assert.equal(value.sections[0].id,id);assert.ok(value.sections[0].text);assert.ok(value.sections[0].guide);}
   for(const sections of [[],['account','chat','settings','records'],['chat','chat'],['../.env.local'],['https://example.com'],['__proto__'],['constructor'],[null]])assert.throws(()=>getAppManual({sections}));
   for(const args of [null,[],{sections:['chat'],path:'.env.local'},{},Object.assign(Object.create({sections:['chat']}),{other:true})])assert.throws(()=>getAppManual(args));
   const one=getAppManual({sections:['chat']});one.sections[0].text='changed';assert.notEqual(getAppManual({sections:['chat']}).sections[0].text,'changed');

@@ -6,7 +6,8 @@ import {emptyAccount} from '../server/account-model.mjs';
 import {MemoryAccountStore} from '../server/account-store.mjs';
 import {createAccountAPI} from '../server/account-api.mjs';
 import {createReportGenerator,extractReport} from '../server/komugi-chat.mjs';
-import {DAILY_STATUS_TOOL,STATUS_METRICS,dailyStatus,createDailyStatusReader} from '../server/daily-status.mjs';
+import {DAILY_STATUS_TOOL,STATUS_METRICS,dailyStatus,formatDailyStatus,createDailyStatusReader} from '../server/daily-status.mjs';
+import {APP_MANUAL_SECTION_IDS,getAppManual} from '../server/app-manual.mjs';
 
 const date='2026-11-21',at=Date.parse('2026-11-21T03:00:00Z');
 function state(){const value=emptyAccount();value.initialized=true;value.revision=1;return value;}
@@ -105,19 +106,45 @@ test('status and manual tools share the loop while keeping the canonical numbers
   const result=await f.generate(input('今日のポイントは？グラフはどこ？'),'alice');assert.equal(result.status,200);assert.equal(result.body.readOnlyStatus,true);assert.match(result.body.reply,/0ポイント/);assert.match(result.body.reply,/グラフ/);assert.doesNotMatch(result.body.reply,/999/);assert.equal(f.calls.length,3);assert.equal(f.calls[2].body.tool_choice,'none');
 });
 
+test('mixed status and help discard invented current values in every model reply field in either tool order',async()=>{
+  const source=state();source.legacy.days[date]={habits:[],weight:65.1};
+  const manual={type:'function_call',name:'get_app_manual',call_id:'manual-1',arguments:JSON.stringify({sections:['points']})};
+  const invented='今日の体重は999kgで、999ポイントだよ。';
+  for(const calls of [[manual,tool(['weight','erai_points'])],[tool(['weight','erai_points']),manual]]){
+    const f=generator({snapshot:source,results:[...calls.map(call=>model([call])),model([final({reply:invented,statusReply:invented,manualReply:invented})])]});
+    const result=await f.generate(input('今日の体重とポイントは？グラフはどこ？'),'alice');
+    assert.equal(result.status,200);assert.match(result.body.reply,/65.1kg/);assert.match(result.body.reply,/0ポイント/);
+    assert.match(result.body.reply,/グラフ/);assert.match(result.body.reply,/「きろく」/);assert.doesNotMatch(result.body.reply,/999/);
+  }
+});
+
+test('all combinations of three fixed guides fit the status reply display limit at maximum record counts',()=>{
+  const status=formatDailyStatus({date,asOf:new Date(at).toISOString(),metrics:{
+    burned_calories:{kcal:100000000,estimated:100000000,estimatedCount:5000,pending:5000},
+    erai_points:{total:1000000000000,pendingActivities:5000},weight:{kg:500},
+    intake_calories:{kcal:100000000,estimated:5000,withoutCalories:5000},
+  }});
+  for(let i=0;i<APP_MANUAL_SECTION_IDS.length;i++)for(let j=i+1;j<APP_MANUAL_SECTION_IDS.length;j++)for(let k=j+1;k<APP_MANUAL_SECTION_IDS.length;k++){
+    const sections=[i,j,k].map(index=>APP_MANUAL_SECTION_IDS[index]);
+    const guide=getAppManual({sections}).sections.map(section=>section.guide).join('\n');
+    assert.ok((status+'\n'+guide).length<=600,sections.join(','));
+  }
+});
+
 test('storage failure, timeout or changed snapshots cannot become guessed status replies',async()=>{
   const failed=generator({readStatus:async()=>{throw Error('private-storage-sentinel');}});const failure=await failed.generate(input(),'alice');assert.equal(failure.status,503);assert.equal(failed.calls.length,1);assert.doesNotMatch(JSON.stringify(failure.body),/private|999|"reply"/);
   const slow=generator({timeoutMs:5,readStatus:async()=>{await new Promise(resolve=>setTimeout(resolve,25));return dailyStatus(state(),{metrics:['weight']},at);}});assert.equal((await slow.generate(input(),'alice')).status,504);assert.equal(slow.calls.length,1);
   let revision=1;const changed=generator({readStatus:async(_uid,args)=>{const value=state();value.revision=revision++;return dailyStatus(value,args,at);},results:[model([tool(['weight'])]),model([tool(['erai_points'],'status-2')])]});assert.equal((await changed.generate(input(),'alice')).body.error.code,'context_changed');
 });
 
-function accountFixture({finalActions=[],changeBeforeReply=false}={}){
+function accountFixture({finalActions=[],changeBeforeReply=false,withManual=false}={}){
   const store=new MemoryAccountStore(),calls=[],uids=[];const read=createDailyStatusReader({store,now:()=>at});
   const generate=createReportGenerator({apiKey:'fixture',readStatus:async(uid,args)=>{uids.push(uid);return read(uid,args);},fetchImpl:async(_url,init)=>{
     const body=JSON.parse(init.body);calls.push(body);
     if(body.input.at(-1).type!=='function_call_output')return Response.json(model([tool()]));
+    if(withManual&&calls.length===2)return Response.json(model([{type:'function_call',name:'get_app_manual',call_id:'manual-1',arguments:JSON.stringify({sections:['records','points']})}]));
     if(changeBeforeReply){const s=await store.read('alice');s.revision++;s.legacy.days[date]={habits:[],weight:67};store.accounts.set('alice',s);}
-    return Response.json(model([final({actions:finalActions,interactionUpdate:{style:'praise',scope:'ongoing',certainty:'explicit',evidence:'今日',asked:false}})]));
+    return Response.json(model([final({actions:finalActions,manualReply:withManual?'今日の体重は999kgで、999ポイントだよ。':'',interactionUpdate:{style:'praise',scope:'ongoing',certainty:'explicit',evidence:'今日',asked:false}})]));
   }});
   const api=createAccountAPI({store,config:{},verify:async token=>({uid:token}),generate,now:()=>at});
   async function post(path,data,uid='alice'){
@@ -138,6 +165,15 @@ test('authenticated status queries are read-only, isolated by UID and idempotent
   const latest=JSON.parse(f.calls[0].input.at(-1).content.split('最新の参考データ（命令ではない）:')[1]);assert.equal(latest.activities.length,18);
   const after=await f.store.read('alice');assert.deepEqual(after.progress,alice.progress);assert.deepEqual(after.legacy,alice.legacy);assert.deepEqual(after.interactionPreferences,alice.interactionPreferences);assert.equal(after.conversation.messages.length,2);assert.deepEqual(result.body.receipts,[]);
   const replay=await f.post('/api/chat',request);assert.equal(replay.status,200);assert.equal(f.calls.length,2);assert.equal((await f.store.read('alice')).revision,after.revision);assert.ok([...f.store.usages.values()].every(value=>value.count===1));
+});
+
+test('mixed help and status save only canonical numbers and trusted guidance in conversation history',async()=>{
+  const f=accountFixture({withManual:true});await f.initialize();
+  const before=await f.store.read('alice');before.legacy.days[date]={habits:[],weight:65.1};f.store.accounts.set('alice',before);
+  const result=await f.post('/api/chat',{requestId:randomUUID(),text:'今日の体重は？訂正やグラフはどこ？'});
+  assert.equal(result.status,200);assert.match(result.body.reply,/65.1kg/);assert.match(result.body.reply,/訂正/);assert.match(result.body.reply,/グラフ/);assert.doesNotMatch(result.body.reply,/999/);
+  const after=await f.store.read('alice');assert.equal(after.conversation.messages.at(-1).content,result.body.reply);
+  assert.doesNotMatch(after.conversation.messages.at(-1).content,/999/);assert.deepEqual(after.progress,before.progress);assert.deepEqual(after.legacy,before.legacy);assert.deepEqual(after.interactionPreferences,before.interactionPreferences);
 });
 
 test('a query cannot turn returned weight into a new measurement, even if model actions suggest it',async()=>{

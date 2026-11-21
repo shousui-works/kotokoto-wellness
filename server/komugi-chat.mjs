@@ -116,7 +116,7 @@ export function extractReply(result) {
   return reply&&reply.length<=MAX_MESSAGE_LENGTH&&!/ポイント|点数|採点|ボーナス|[0-9０-９]+\s*点/.test(reply)?reply:null;
 }
 
-export function extractReport(result, input, {allowManualReply=false,statusReply=null}={}) {
+export function extractReport(result, input, {allowManualReply=false,statusReply=null,manualGuide=''}={}) {
   const raw=outputText(result);if(!raw)return null;
   let data;try{data=JSON.parse(raw);}catch{return null;}
   if(!data||typeof data!=='object'||Array.isArray(data)||typeof data.reply!=='string'||!Array.isArray(data.actions)||data.actions.length>8)return null;
@@ -127,7 +127,11 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
   // Keep ordinary praise restricted even when an actual report and an app-help
   // question share a turn. Only the separate manual-backed text may name UI.
   if(statusReply===null&&/ポイント|点数|採点|ボーナス|[0-9０-９]+\s*点/.test(data.reply))return null;
-  const reply=[statusReply===null?data.reply.trim():statusReply,manualReply.trim()].filter(Boolean).join('\n');
+  if(typeof manualGuide!=='string')return null;
+  // Status turns display only saved numbers and fixed, retrieved manual guides.
+  // Model-written help could otherwise contradict the canonical status answer.
+  const help=statusReply===null?manualReply.trim():allowManualReply?manualGuide:'';
+  const reply=[statusReply===null?data.reply.trim():statusReply,help].filter(Boolean).join('\n');
   if(!reply||reply.length>600)return null;
   const actions=data.actions.map(normalizeCandidate);
   if(actions.some(a=>!a||!input.messages.at(-1).content.includes(a.evidence)||a.date&&input.context.date&&a.date>input.context.date||a.targetId&&!input.context.activities?.some(old=>old.id===a.targetId)))return null;
@@ -208,7 +212,7 @@ export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchIm
       // One deadline and output budget cover the entire tool conversation.
       const signal=AbortSignal.timeout(timeoutMs),callIds=new Set();
       const invalid=()=>fail(502,'invalid_reply','うまくお返事できなかったみたい。もう一度聞かせてね。');
-      let remaining=MAX_OUTPUT_TOKENS,manualRetrieved=false,statusSnapshot=null;
+      let remaining=MAX_OUTPUT_TOKENS,manualRetrieved=false,manualGuide='',statusSnapshot=null;
       const canReadStatus=typeof readStatus==='function';
       for(let round=0;round<=MAX_TOOL_ROUNDS;round++){
         signal.throwIfAborted();
@@ -240,7 +244,7 @@ export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchIm
         if(spent!==undefined&&(!Number.isSafeInteger(spent)||spent<0||spent>remaining))return invalid();
         const calls=result.output.filter(item=>item?.type==='function_call');
         if(!calls.length){
-          const report=extractReport(result,input,{allowManualReply:manualRetrieved,statusReply:statusSnapshot?.answer??null});
+          const report=extractReport(result,input,{allowManualReply:manualRetrieved,statusReply:statusSnapshot?.answer??null,manualGuide});
           if(!report)return invalid();
           if(statusSnapshot&&report.actions.length)return fail(409,'status_with_report','新しい報告は先に送って、そのあと数値を聞いてね。今回は記録を変更していないよ。');
           return {status:200,body:{requestId:input.requestId,...report,...(statusSnapshot?{interactionUpdate:null,readOnlyStatus:true}:{})}};
@@ -255,7 +259,7 @@ export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchIm
         let args,output;
         try{args=JSON.parse(call.arguments);}catch{}
         if(call.name===APP_MANUAL_TOOL.name){
-          try{output=getAppManual(args);manualRetrieved=true;}
+          try{output=getAppManual(args);manualRetrieved=true;manualGuide=output.sections.map(section=>section.guide).join('\n');}
           catch{output={error:'invalid_manual_sections',availableSections:APP_MANUAL_SECTION_IDS};}
         }else{
           let metrics;
