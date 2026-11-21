@@ -1,7 +1,7 @@
 import {PREFERENCE_INSTRUCTIONS} from './interaction-preferences.mjs';
 import {conversationTimestamp,timedMessage,CONVERSATION_TIME_ZONE} from './conversation-time.mjs';
 import {createHash, randomBytes} from 'node:crypto';
-import {normalizeCandidate, validDate, ACTIVITY_KINDS} from '../dist/progress.mjs';
+import {normalizeCandidate, validDate, ACTIVITY_KINDS, EXERCISE_KINDS} from '../dist/progress.mjs';
 import {REPORT_FORMAT, REPORT_INSTRUCTIONS} from './report-schema.mjs';
 import {cacheBlock, CACHE_OPTIONS, captureCacheUsage} from './prompt-cache.mjs';
 import {normalizeNickname} from '../dist/profile.mjs';
@@ -150,6 +150,9 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
   let remainder=text;const durations=[];
   remainder=remainder.replace(/(\d+(?:\.\d+)?)\s*時間(?:\s*(?:(\d+(?:\.\d+)?)\s*分|(半)))?/g,(_,h,m,half)=>{durations.push(Number(h)*60+(half?30:Number(m??0)));return '';});
   for(const m of remainder.matchAll(/(\d+(?:\.\d+)?)\s*(分|秒)/g))durations.push(Number(m[1])/(m[2]==='秒'?60:1));
+  const previousReply=input.messages.at(-2)?.content??'';
+  const askedMinutes=(previousReply.match(/[？?]/g)??[]).length===1&&/何分(?!前|後|に)/.test(previousReply);
+  const minuteTargets=(input.context.activities??[]).filter(a=>EXERCISE_KINDS.includes(a.kind)&&a.minutes===null&&['minutes','kcal'].includes(a.needs?.[0]));
   for(const a of actions){
     const old=input.context.activities?.find(x=>x.id===a.targetId);
     if(a.kind==='meal_log'){
@@ -157,7 +160,13 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
       a.kcal=null;a.minutes=null;a.weightKg=null;
       if(a.mealIntake){
         const total=a.mealIntake.items.reduce((sum,item)=>sum+item.kcal,0);
-        if(a.mealIntake.source==='reported'&&a.operation!=='repeat'&&!numbersWithUnit(numericText(a.evidence.normalize('NFKC').replace(/,/g,'')),'kcal|キロカロリー|カロリー').some(value=>Math.round(value)===total))return null;
+        if(a.mealIntake.source==='reported'&&a.operation!=='repeat'){
+          const reported=numbersWithUnit(numericText(a.evidence.normalize('NFKC').replace(/,/g,'')),'kcal|キロカロリー|カロリー').map(Math.round),remaining=[...reported];
+          // With no reported total, each dish needs its own reported value;
+          // never reuse one token for two dishes or infer a breakdown.
+          const itemized=a.mealIntake.items.length>1&&reported.length===a.mealIntake.items.length&&a.mealIntake.items.every(item=>{const i=remaining.indexOf(item.kcal);if(i<0)return false;remaining.splice(i,1);return true;});
+          if(!reported.includes(total)&&!itemized)return null;
+        }
         if(!a.detail)a.detail=a.mealIntake.items.map(item=>`${item.name}（${item.portion}）`).join('、').slice(0,300);
       }
     }
@@ -165,7 +174,10 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
     if(a.kcal!==null&&!calories.includes(a.kcal)&&old?.kcal!==a.kcal)a.kcal=null;
     if(a.weightKg!==null&&!weights.includes(a.weightKg)&&old?.weightKg!==a.weightKg&&input.context.weightKg!==a.weightKg&&!(old?.needs?.includes('weight')&&bare&&Number(bare[1])===a.weightKg))a.weightKg=null;
     if(a.minutes!==null&&!durations.some(n=>Math.abs(n-a.minutes)<0.01)&&old?.minutes!==a.minutes){
-      if(!(old?.needs?.includes('minutes')&&bare&&Number(bare[1])===a.minutes))a.minutes=null;
+      // A distance report may be waiting for kcal rather than marked minutes.
+      // A bare answer still needs a single minute question and a clear target.
+      const confirmsMinutes=old?.needs?.includes('minutes')||old?.needs?.[0]==='kcal'&&EXERCISE_KINDS.includes(a.kind)&&a.kind===old.kind&&old.minutes===null&&askedMinutes&&actions.length===1&&(old.selected||minuteTargets.length===1&&minuteTargets[0].id===old.id);
+      if(!(confirmsMinutes&&bare&&Number(bare[1])===a.minutes))a.minutes=null;
     }
     if(a.estimatedKcal!==null){
       const knownMinutes=a.minutes??old?.minutes,knownWeight=a.weightKg??old?.weightKg??input.context.weightKg,detail=a.detail??old?.detail;

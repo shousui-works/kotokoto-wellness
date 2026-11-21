@@ -108,6 +108,20 @@ test('reported calories are evidence-checked per action and never enter exercise
   assert.equal(extractReport(output([action({evidence:'朝ごはんはパンだった',mealIntake:meal({source:'reported',items:[{name:'パン',portion:'1枚',kcal:300}]})})]),input(text)),null);
 });
 
+test('itemized reported calories add up without requiring the user to state the sum',()=>{
+  const items=[{name:'ご飯',portion:'本人の申告した量',kcal:300},{name:'焼き魚',portion:'本人の申告した量',kcal:200}];
+  for(const text of ['朝ごはんはご飯300kcalと焼き魚200kcalを食べた','朝ごはんはご飯三百キロカロリーと焼き魚二百キロカロリーを食べた']){
+    const {legacy,progress}=start(),parsed=extractReport(output([action({evidence:text,mealIntake:meal({source:'reported',items})})]),input(text,legacy,progress));
+    assert.ok(parsed);const saved=apply(progress,legacy,parsed.actions,text).progress;assert.equal(mealIntakeSummary(saved,date).kcal,500);assert.equal(saved.activities[0].intake.source,'reported');assert.equal(calorieSummary(saved,date).kcal,0);
+  }
+  const equal='朝ごはんはご飯300kcalと焼き魚300kcalを食べた';
+  assert.ok(extractReport(output([action({evidence:equal,mealIntake:meal({source:'reported',items:items.map(item=>({...item,kcal:300}))})})]),input(equal)));
+  const text='朝ごはんはご飯300kcalと焼き魚200kcalを食べた';
+  assert.equal(extractReport(output([action({evidence:text,mealIntake:meal({source:'reported',items:items.map(item=>({...item,kcal:300}))})})]),input(text)),null);
+  const missing='朝ごはんはご飯300kcalと焼き魚を食べた';
+  assert.equal(extractReport(output([action({evidence:missing,mealIntake:meal({source:'reported',items})})]),input(missing)),null);
+});
+
 test('text intake references preserve known portions and pending needs through the prompt boundary',()=>{
   const {legacy,progress}=start(),saved=apply(progress,legacy,[action()]).progress;
   const reference=progressContext(legacy,saved,date).activities[0].intake;assert.equal(reference.kcal,234);assert.deepEqual(reference.items,meal().items);assert.equal(reference.estimate,undefined);

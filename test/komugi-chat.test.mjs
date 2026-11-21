@@ -3,6 +3,8 @@ import {test} from 'node:test';
 import {randomUUID} from 'node:crypto';
 import {createAppServer} from '../server/index.mjs';
 import {CHAT_MODEL, createKomugiChat, createReportGenerator, extractReply, extractReport, validateChatRequest} from '../server/komugi-chat.mjs';
+import {emptyState} from '../dist/model.mjs';
+import {emptyProgress,applyInterpretation,progressContext} from '../dist/progress.mjs';
 
 const completed = text => ({status: 'completed', output: [{type: 'message', content: [{type: 'output_text', text: JSON.stringify({reply:text,actions:[]})}]}]});
 const payload = (text = '今日は少し歩いてきたよ') => ({requestId: randomUUID(), messages: [{role: 'user', content: text}], context: {date: '2026-10-18', hour: 17, stage: 'puppy'}});
@@ -224,6 +226,22 @@ test('a distance-based swimming estimate keeps its assumed duration out of repor
   const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'クロールで300m泳いだんだね。',actions:[action]})}]}]};
   const input=validateChatRequest({...payload(text),context:{date:'2026-10-18',weightKg:60,weightDate:'2026-10-17',weightSource:'record'}});
   const parsed=extractReport(output,input);assert.ok(parsed);assert.equal(parsed.actions[0].minutes,null);assert.equal(parsed.actions[0].kcal,null);assert.equal(parsed.actions[0].estimatedKcal,80);assert.match(parsed.actions[0].detail,/300m/);assert.match(parsed.actions[0].estimateBasis,/仮定/);
+});
+
+test('a bare duration answer is accepted only for the pending exercise asked about in minutes',()=>{
+  const date='2026-10-18',legacy=emptyState();legacy.days[date]={habits:[],weight:60};
+  const prior=applyInterpretation(emptyProgress(legacy),{requestId:'swim',today:date,text:'300mクロールで泳いだよ',reply:'クロールで300m泳いだんだね。300m泳ぐのに、何分くらいかかった？',actions:[{operation:'create',targetId:null,kind:'exercise',date,title:'クロール300m',evidence:'300mクロールで泳いだ',minutes:null,kcal:null,weightKg:null,detail:'クロール300m',additional:false}]},legacy);
+  const old=progressContext(legacy,prior.progress,date).activities[0];assert.deepEqual(old.needs,['kcal']);
+  const action={operation:'update',targetId:old.id,kind:old.kind,date:old.date,title:old.title,evidence:'10くらい',minutes:10,kcal:null,weightKg:null,detail:null,additional:false,estimatedKcal:80,estimateBasis:'テスト用：保存体重60kg、クロール300m、本人の10分を使った架空の目安'};
+  const response={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'10分くらい泳いだんだね。',actions:[action]})}]}]};
+  const parse=(question,activities=[old],actions=[action])=>extractReport({...response,output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'10分くらいだったんだね。',actions})}]}]},validateChatRequest({requestId:crypto.randomUUID(),messages:[{role:'user',content:'300mクロールで泳いだよ'},{role:'assistant',content:question},{role:'user',content:'10くらい'}],context:{date:old.date,weightKg:60,activities}}));
+  const question='300m泳ぐのに、何分くらいかかった？';assert.equal(parse(question).actions[0].minutes,10);
+  const parsed=parse(question),saved=applyInterpretation(prior.progress,{requestId:'swim-duration',today:date,text:'10くらい',reply:parsed.reply,actions:parsed.actions},legacy).progress;
+  assert.equal(saved.activities.length,1);assert.equal(saved.activities[0].minutes,10);assert.equal(saved.activities[0].estimate.kcal,80);assert.deepEqual(saved.activities[0].needs,[]);
+  for(const unrelated of ['体重は何kgくらい？','何分前に食べたの？','何分くらい？ それと体重は？'])assert.equal(parse(unrelated).actions[0].minutes,null);
+  const other={...old,id:'swim:2',title:'水中ウォーキング300m'};assert.equal(parse(question,[old,other]).actions[0].minutes,null);
+  assert.equal(parse(question,[{...old,selected:true},other]).actions[0].minutes,10);
+  assert.equal(parse(question,[old,other],[action,{...action,targetId:other.id,title:other.title}]).actions[0].minutes,null);
 });
 
 test('only bounded estimation context is forwarded, including previously saved weight',async t=>{
