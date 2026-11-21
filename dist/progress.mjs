@@ -198,11 +198,27 @@ function distinctMeal(progress,a,existing,text) {
 
 function explicitExerciseAddition(a,text){
   if(!EXERCISE_KINDS.includes(a.kind)||!a.additional)return false;
-  if(/追加|あと(?!で)|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence))return true;
+  if(/追加|あと(?!で)|続けて|さらに|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence))return true;
   const index=text.indexOf(a.evidence);
-  // The short quote can omit the immediately preceding "あと、". Do not
+  // The short quote can omit an immediately preceding addition marker. Do not
   // borrow an addition marker from another action or an ambiguous occurrence.
-  return index>=0&&index===text.lastIndexOf(a.evidence)&&/(?:^|[。！？!?\n、,])\s*あと[、,\s]*$/.test(text.slice(0,index));
+  return index>=0&&index===text.lastIndexOf(a.evidence)&&/(?:^|[。！？!?\n、,])\s*(?:あと|続けて|さらに)[、,\s]*$/.test(text.slice(0,index));
+}
+
+// Metadata corrections must not turn a model's spelling changes into new food
+// facts. Reuse this check before server-side detail generation and before save.
+export function hasMealChangeEvidence(a){
+  const evidence=a.evidence.normalize('NFKC');
+  if(/半分|食べ残|残し|残した|おかわり|大盛|小盛|多め|少なめ|見積もり直|推定し直|再推定|計算し直|[0-9〇零一二三四五六七八九十百千]+(?:\.[0-9]+)?\s*(?:kcal|キロカロリー|カロリー|kg|g|グラム|ml|ミリリットル|杯|個|枚|皿|人前|切れ|本|袋|割)/i.test(evidence))return true;
+  if(/のこと|同じ分|言い換え/.test(evidence))return false;
+  const detail=(a.detail??'').normalize('NFKC'),names=(a.mealIntake?.items??[]).map(item=>item.name.normalize('NFKC'));
+  if(!/日付|日にち|記録日|食べた日|区分|昨日|今日|一昨日|おととい|きのう|きょう/.test(evidence)&&detail.split(/[、,：:（）()\s]/).some(value=>value.length>=2&&!/^(?:朝食|昼食|夕食|間食|食事|量|不明|未記録)/.test(value)&&evidence.includes(value)))return true;
+  return evidence.split(/[、。！？!?]/).some(clause=>{
+    const value=clause.split(/ではなく(?:て)?|じゃなく(?:て)?|は|が/).at(-1).replace(/(?:だった(?:よ|んだ)?|でした|だよ|です|にした|に変えた|を食べた|食べた)\s*$/,'').trim();
+    if(!value||/日付|日にち|記録日|食べた日|区分|昨日|今日|一昨日|おととい|きのう|きょう|\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}月\d{1,2}日|^(?:同じ|おなじ|そのまま|変わら)/.test(value))return false;
+    if(/^(?:(?:朝|昼|夕|晩|夜)(?:ごはん|ご飯|御飯|飯|食)|間食|おやつ|夜食|その他(?:の食事)?)$/.test(value))return false;
+    return value.length>=2&&detail.includes(value)||names.some(name=>name===value||value.length>=2&&(name.includes(value)||value.includes(name)));
+  });
 }
 
 export function applyInterpretation(original,{requestId,actions,text,reply='',today=dateKey(),at=new Date().toISOString()},legacy) {
@@ -213,7 +229,7 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
   for(const [i,raw]of actions.entries()){
     const candidate=normalizeCandidate(raw);
     if(!candidate||!text.includes(candidate.evidence)||candidate.date&&candidate.date>today)throw Error('Invalid candidate');
-    const {mealIntake,...a}=candidate,requestedIntake=Object.hasOwn(candidate,'mealIntake');
+    const {mealIntake:proposedIntake,...a}=candidate,requestedIntake=Object.hasOwn(candidate,'mealIntake');let mealIntake=proposedIntake;
     let existing=a.targetId?progress.activities.find(x=>x.id===a.targetId&&!x.deleted):null;
     if(a.targetId&&!existing)throw Error('Unknown activity');
     const separateMeal=distinctMeal(progress,a,existing,text);
@@ -242,6 +258,7 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     }
     let hold=a.operation==='clarify'?'duplicate':null;
     if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!explicitExerciseAddition(a,text)&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
+    if(existing?.intake&&a.kind==='meal_log'&&requestedIntake&&!hasMealChangeEvidence({...a,mealIntake})){a.detail=null;mealIntake=null;}
     if(existing){
       existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,detail:existing.detail,deleted:existing.deleted,...(existing.intake?{intake:structuredClone(existing.intake)}:{})}});
       if(existing.intake&&(a.kind!=='meal_log'||a.detail!==null&&a.detail!==existing.detail))delete existing.intake;

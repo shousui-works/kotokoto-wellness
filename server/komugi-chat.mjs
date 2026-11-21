@@ -1,7 +1,7 @@
 import {PREFERENCE_INSTRUCTIONS} from './interaction-preferences.mjs';
 import {conversationTimestamp,timedMessage,CONVERSATION_TIME_ZONE} from './conversation-time.mjs';
 import {createHash, randomBytes} from 'node:crypto';
-import {normalizeCandidate, validDate, ACTIVITY_KINDS, EXERCISE_KINDS} from '../dist/progress.mjs';
+import {normalizeCandidate, validDate, ACTIVITY_KINDS, EXERCISE_KINDS, hasMealChangeEvidence} from '../dist/progress.mjs';
 import {REPORT_FORMAT, REPORT_INSTRUCTIONS} from './report-schema.mjs';
 import {cacheBlock, CACHE_OPTIONS, captureCacheUsage} from './prompt-cache.mjs';
 import {normalizeNickname} from '../dist/profile.mjs';
@@ -158,6 +158,7 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
     if(a.kind==='meal_log'){
       // Food energy must never enter the exercise kcal/estimate fields.
       a.kcal=null;a.minutes=null;a.weightKg=null;
+      if(old?.intake&&!hasMealChangeEvidence(a)){a.mealIntake=null;a.detail=null;}
       if(a.mealIntake){
         const total=a.mealIntake.items.reduce((sum,item)=>sum+item.kcal,0);
         if(a.mealIntake.source==='reported'&&a.operation!=='repeat'){

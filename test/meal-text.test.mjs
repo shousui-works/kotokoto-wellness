@@ -114,6 +114,21 @@ test('a new estimate with unchanged food cannot casually replace a confirmed pho
   const changed=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'日付は昨日だった',date:'2026-11-20',mealIntake:meal()})]);assert.equal(changed.progress.activities[0].intake.kcal,300);assert.equal(changed.progress.activities[0].intake.source,'edited');
 });
 
+test('date-only evidence cannot replace owner calories through food aliases or generated detail',()=>{
+  const {legacy,progress}=start(),first=apply(progress,legacy,[action()]);
+  const edited=correctActivity(first.progress,first.progress.activities[0].id,{intakeKcal:300},legacy,at,date),original=edited.activities[0].intake;
+  const alias=meal({items:[{name:'白米',portion:'約150g（茶碗1杯）',kcal:234}]});
+  for(const evidence of ['日付は昨日だった','昨日だった','白米は昨日だった','昨日の白米だった'])for(const detail of [null,'朝食：白米 約150g（茶碗1杯）']){
+    const update=action({operation:'update',targetId:edited.activities[0].id,evidence,date:'2026-11-20',detail,mealIntake:alias});
+    const changed=apply(edited,legacy,[update]);assert.deepEqual(changed.progress.activities[0].intake,original);assert.equal(changed.progress.activities[0].detail,edited.activities[0].detail);
+    const parsed=extractReport(output([update]),input(update.evidence,legacy,edited,update.targetId));assert.ok(parsed);
+    const saved=apply(edited,legacy,parsed.actions,update.evidence).progress;assert.deepEqual(saved.activities[0].intake,original);assert.equal(saved.activities[0].date,'2026-11-20');
+  }
+  const half=apply(edited,legacy,[action({operation:'update',targetId:edited.activities[0].id,evidence:'日付は昨日で、ご飯は半分残した',date:'2026-11-20',detail:null,mealIntake:meal({items:[{name:'白米',portion:'茶碗半分、約75g',kcal:150}]})})]);
+  assert.equal(half.progress.activities[0].intake.kcal,150);assert.equal(half.progress.activities[0].corrections.at(-1).previous.intake.kcal,300);
+  const food=apply(edited,legacy,[action({operation:'update',targetId:edited.activities[0].id,evidence:'昨日の朝食はパンだった',date:'2026-11-20',detail:null,mealIntake:meal({items:[{name:'パン',portion:'1枚と仮定',kcal:150}]})})]);assert.equal(food.progress.activities[0].intake.items[0].name,'パン');assert.equal(food.progress.activities[0].intake.kcal,150);
+});
+
 test('reported calories are evidence-checked per action and never enter exercise totals',()=>{
   for(const [text,kcal] of [['朝ごはんは300kcalだった',300],['朝ごはんは二百三十四キロカロリーだった',234],['朝食は0kcalのゼリーを食べた',0]]){
     const {legacy,progress}=start(),request=input(text,legacy,progress);

@@ -164,6 +164,17 @@ test('an additional water walk keeps its own concrete question without changing 
   assert.equal(clarified.progress.activities.length,2);assert.equal(clarified.progress.activities[1].hold,null);assert.match(clarified.reply,/水中を300m歩くのに、何分くらいかかった？/);
 });
 
+test('explicit further exercise reports are confirmed while an unclear addition still waits',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const first=apply(progress,legacy,[action('exercise',{title:'クロール300m',detail:'クロール300m',estimatedKcal:80,estimateBasis:'架空の検証用'})]);
+  const quote='水中を300mウォーキングした',candidate=action('exercise',{title:'水中ウォーキング',evidence:quote,detail:'水中ウォーキング300m',additional:true,estimatedKcal:40,estimateBasis:'架空の検証用'});
+  for(const prefix of ['続けて','さらに'])for(const shortened of [false,true]){
+    const text=prefix+'、'+quote,result=apply(first.progress,legacy,[{...candidate,evidence:shortened?quote:text}],text);
+    assert.equal(result.progress.activities.length,2);assert.equal(result.progress.activities[1].hold,null);assert.equal(dayReport(result.progress,today).kcal,120);
+  }
+  const unclear=apply(first.progress,legacy,[{...candidate,additional:false}],quote);assert.equal(unclear.progress.activities[1].hold,'duplicate');assert.equal(dayReport(unclear.progress,today).kcal,80);
+});
+
 test('the weight shown in records takes priority over a newer weight mentioned during exercise',()=>{
   const {legacy,progress}=start();legacy.days['2026-10-17']={habits:[],weight:64.2};
   const a=apply(progress,legacy,[action('walk',{minutes:20,weightKg:60})]);
