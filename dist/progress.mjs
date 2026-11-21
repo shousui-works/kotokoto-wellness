@@ -152,7 +152,7 @@ export function followupFor(a) {
   if(need==='duplicate')return '前に聞いた分と同じかな？ それとも、追加でやった分？';
   if(need==='minutes')return 'どのくらいの時間、やったの？';
   if(need==='weight')return a.kind==='weight'?'測った体重は、何kgだった？':'体重は、何kgくらいかな？';
-  if(need==='kcal')return 'どんな運動を、どのくらいの強さでやったの？';
+  if(need==='kcal')return a.kind==='exercise'&&!a.detail?'何の運動をしたの？':'ゆっくりしたペースと、息が弾むペースのどちらに近かった？';
   if(need==='meal')return '食べたものを、もう少し聞かせてもらえる？';
   if(need==='intake')return '食べた量を、もう少し教えてもらえる？';
   return null;
@@ -195,6 +195,15 @@ function distinctMeal(progress,a,existing,text) {
   });
 }
 
+function explicitExerciseAddition(a,text){
+  if(!EXERCISE_KINDS.includes(a.kind)||!a.additional)return false;
+  if(/追加|あと(?!で)|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence))return true;
+  const index=text.indexOf(a.evidence);
+  // The short quote can omit the immediately preceding "あと、". Do not
+  // borrow an addition marker from another action or an ambiguous occurrence.
+  return index>=0&&index===text.lastIndexOf(a.evidence)&&/(?:^|[。！？!?\n、,])\s*あと[、,\s]*$/.test(text.slice(0,index));
+}
+
 export function applyInterpretation(original,{requestId,actions,text,reply='',today=dateKey(),at=new Date().toISOString()},legacy) {
   if(!ID.test(requestId)||!Array.isArray(actions)||actions.length>8)throw Error('Invalid result');
   if(original.processed.includes(requestId))return {progress:original,receipts:[],delta:0,reply,replayed:true};
@@ -228,10 +237,10 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       const exact=same.find(x=>x.evidence===a.evidence||(a.minutes!==null&&a.minutes===x.minutes&&a.kcal===x.kcal&&a.weightKg===x.weightKg));
       if(exact&&!a.additional){receipts.push({label:'同じ行動を確認',delta:0,status:'duplicate'});continue;}
       if(!EXERCISE_KINDS.includes(a.kind)&&same.length&&!a.additional){receipts.push({label:'今日の分は記録済み',delta:0,status:'duplicate'});continue;}
-      if(same.length&&EXERCISE_KINDS.includes(a.kind)&&!(a.additional&&/追加|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence)))a.operation='clarify';
+      if(same.length&&EXERCISE_KINDS.includes(a.kind)&&!explicitExerciseAddition(a,text))a.operation='clarify';
     }
     let hold=a.operation==='clarify'?'duplicate':null;
-    if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
+    if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!explicitExerciseAddition(a,text)&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
     if(existing){
       existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,detail:existing.detail,deleted:existing.deleted,...(existing.intake?{intake:structuredClone(existing.intake)}:{})}});
       if(existing.intake&&(a.kind!=='meal_log'||a.detail!==null&&a.detail!==existing.detail))delete existing.intake;
@@ -274,10 +283,12 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
   progress.peakPoints=Math.max(progress.peakPoints,afterTotal);
   progress.processed.push(requestId);progress.revision++;
   const pending=touched.find(a=>!a.deleted&&a.needs.length);
-  // A meal can lack the food itself or its quantity. Preserve Luna's single
-  // grounded question rather than replacing a food question with a quantity one.
-  const intakeQuestion=pending?.needs[0]==='intake'&&(reply.match(/[？?]/g)?.length??0)===1;
-  return {progress,receipts,delta,reply:withFollowup(reply,intakeQuestion||/わから|わかん|覚えて|あとで|不明/.test(text)?null:followupFor(pending)),replayed:false};
+  // Keep a concrete question about the missing food, duration or pace. The
+  // fallback must not replace it with a generic request to explain the sport.
+  const questions=reply.match(/[^。！？!?]*[？?]/g)??[];
+  const repeatsTime=pending?.minutes!==null&&/何分|何時間|どのくらいの時間/.test(questions[0]??'');
+  const keepQuestion=questions.length===1&&(pending?.needs[0]==='intake'||pending?.needs[0]==='kcal'&&!repeatsTime&&!/強さ|強度|どんな運動|何の運動|体重/.test(questions[0]));
+  return {progress,receipts,delta,reply:withFollowup(reply,keepQuestion||/わから|わかん|覚えて|あとで|不明/.test(text)?null:followupFor(pending)),replayed:false};
 }
 
 export function recordManual(original,{id,kind,date,title,weightKg=null,detail=null,today=dateKey()},legacy,at=new Date().toISOString()) {

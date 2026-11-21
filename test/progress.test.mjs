@@ -116,6 +116,42 @@ test('the app does not invent calories even with enough inputs; unknown informat
   assert.ok(c.progress.activities.at(-1).needs.includes('minutes'));
 });
 
+test('a concrete swimming follow-up keeps the reported stroke and distance instead of asking them again',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const text='300mクロールで泳いだよ',question='300m泳ぐのに、何分くらいかかった？';
+  const first=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:text,detail:'クロールで300m泳いだ'})],text,{reply:'クロールで300m泳いだんだね。'+question});
+  assert.deepEqual(first.progress.activities[0].needs,['kcal']);assert.match(first.reply,/300m泳ぐのに、何分くらいかかった？/);assert.doesNotMatch(first.reply,/どんな運動|強さ|強度/);
+  assert.equal(first.progress.activities[0].minutes,null);assert.equal(first.progress.activities[0].estimate,null);
+  const completed=apply(first.progress,legacy,[action('exercise',{operation:'update',targetId:first.progress.activities[0].id,evidence:'10分くらい',minutes:10,estimatedKcal:80,estimateBasis:'テスト用：保存された60kgとクロール300m、本人の10分を使った架空の目安'})],'10分くらい',{reply:'10分くらいだったんだね。'});
+  assert.equal(completed.progress.activities.length,1);assert.deepEqual(completed.progress.activities[0].needs,[]);assert.doesNotMatch(completed.reply,/[？?]/);assert.equal(completed.progress.activities[0].detail,'クロールで300m泳いだ');
+});
+
+test('an exercise fallback explains pace in ordinary words and does not repeat the known sport',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  for(const reply of ['クロールで300m泳いだんだね。','クロールで300m泳いだんだね。どんな運動を、どのくらいの強さでやったの？','クロールで300m泳いだんだね。運動の強度はどれくらい？','クロールで300m泳いだんだね。体重は何kg？']){
+    const text='300mクロールで泳いだよ';
+    const result=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:text,detail:'クロールで300m泳いだ'})],text,{reply});
+    assert.match(result.reply,/ゆっくり.*息が弾む/);assert.doesNotMatch(result.reply,/どんな運動|強さ|強度/);assert.equal((result.reply.match(/[？?]/g)??[]).length,1);
+  }
+  const timed=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:'10分で300mクロール泳いだよ',detail:'クロール300m',minutes:10})],'10分で300mクロール泳いだよ',{reply:'300m泳いだんだね。何分くらいかかった？'});
+  assert.doesNotMatch(timed.reply,/何分/);assert.match(timed.reply,/ゆっくり.*息が弾む/);
+});
+
+test('an additional water walk keeps its own concrete question without changing the earlier swim',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const swim=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:'クロール300m泳いだ',detail:'クロール300m',estimatedKcal:80,estimateBasis:'テスト用の架空の目安'})],'クロール300m泳いだ');
+  const text='あと、水中を300mウォーキングした',question='水中を300m歩くのに、何分くらいかかった？';
+  const candidate=action('exercise',{title:'水中ウォーキング',evidence:'水中を300mウォーキングした',detail:'水中ウォーキング300m',additional:true});
+  const walk=apply(swim.progress,legacy,[candidate],text,{reply:'水中を300m歩いたんだね。'+question});
+  assert.equal(walk.progress.activities.length,2);assert.equal(walk.progress.activities[0].estimate.kcal,80);assert.equal(walk.progress.activities[1].detail,'水中ウォーキング300m');assert.match(walk.reply,/水中を300m歩くのに、何分くらいかかった？/);assert.doesNotMatch(walk.reply,/どんな運動|強さ/);
+  for(const unrelated of ['あと、洗濯もした。水中を300mウォーキングした','あとで、水中を300mウォーキングした','あと、水中を300mウォーキングした。同じ水中を300mウォーキングした']){
+    const held=apply(swim.progress,legacy,[candidate],unrelated);assert.equal(held.progress.activities[1].hold,'duplicate');assert.deepEqual(held.progress.activities[1].needs,['duplicate']);
+  }
+  const held=apply(swim.progress,legacy,[{...candidate,additional:false}],candidate.evidence);
+  const clarified=apply(held.progress,legacy,[{...candidate,operation:'update',targetId:held.progress.activities[1].id}],text,{reply:'水中を300m歩いたんだね。'+question});
+  assert.equal(clarified.progress.activities.length,2);assert.equal(clarified.progress.activities[1].hold,null);assert.match(clarified.reply,/水中を300m歩くのに、何分くらいかかった？/);
+});
+
 test('the weight shown in records takes priority over a newer weight mentioned during exercise',()=>{
   const {legacy,progress}=start();legacy.days['2026-10-17']={habits:[],weight:64.2};
   const a=apply(progress,legacy,[action('walk',{minutes:20,weightKg:60})]);

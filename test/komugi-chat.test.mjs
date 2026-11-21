@@ -218,6 +218,14 @@ test('unreported measurements are withheld but Luna calorie estimates are accept
   assert.equal(extractReport(invalid,input),null);
 });
 
+test('a distance-based swimming estimate keeps its assumed duration out of reported minutes',()=>{
+  const text='今日300mクロールで泳いだよ';
+  const action={operation:'create',targetId:null,kind:'exercise',date:'2026-10-18',title:'クロール',evidence:text,minutes:10,kcal:null,weightKg:null,detail:'クロールで300m泳いだ',additional:false,estimatedKcal:80,estimateBasis:'テスト用：保存された60kgと300m、通常のペース・10分を仮定した架空の目安'};
+  const output={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:'クロールで300m泳いだんだね。',actions:[action]})}]}]};
+  const input=validateChatRequest({...payload(text),context:{date:'2026-10-18',weightKg:60,weightDate:'2026-10-17',weightSource:'record'}});
+  const parsed=extractReport(output,input);assert.ok(parsed);assert.equal(parsed.actions[0].minutes,null);assert.equal(parsed.actions[0].kcal,null);assert.equal(parsed.actions[0].estimatedKcal,80);assert.match(parsed.actions[0].detail,/300m/);assert.match(parsed.actions[0].estimateBasis,/仮定/);
+});
+
 test('only bounded estimation context is forwarded, including previously saved weight',async t=>{
   const f=await fixture(t),body=payload('こんにちは');
   body.context.weightKg=62;body.context.weightDate='2026-10-17';body.context.weightSource='record';body.context.secret='never forward';
