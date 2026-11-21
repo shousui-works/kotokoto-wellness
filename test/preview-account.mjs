@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createAppServer} from '../server/index.mjs';
 import {createAccountAPI} from '../server/account-api.mjs';
 import {MemoryAccountStore} from '../server/account-store.mjs';
-import {extractReport} from '../server/komugi-chat.mjs';
+import {mealTextFixture} from './meal-text-fixture.mjs';
 const sdk=`export const initializeApp=x=>x;
 const makeUser=()=>localStorage.getItem('fixture-user')?{uid:'fixture-alice',email:'alice@example.test',getIdToken:async()=>'fixture-token'}:null;
 const auth={currentUser:makeUser(),authStateReady:async()=>{}};let listener;
@@ -32,13 +32,7 @@ const dailyLife={
 async function generate(input){
  const delay=Math.min(15000,Math.max(0,Number(process.env.REPLY_DELAY_MS)||0));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
  const text=input.messages.at(-1).content,entries=process.env.DAILY_LIFE==='1'?Object.entries(dailyLife).filter(([evidence])=>text.includes(evidence)):[];
- if(process.env.MEAL_TEXT_FIXTURE==='1'&&['朝ごはんにご飯を茶碗一杯食べたよ','朝ごはんのご飯は半分残したよ'].includes(text)){
-   const half=text.includes('半分'),old=input.context.activities.find(a=>a.kind==='meal_log');
-   const item={name:'白いご飯',portion:half?'茶碗半分、約75gと仮定':'茶碗1杯、約150gと仮定',kcal:half?117:234};
-   const action={operation:half?'update':'create',targetId:half?old?.id??null:null,kind:'meal_log',date:input.context.date,title:'朝ごはん',evidence:text,minutes:null,kcal:null,estimatedKcal:null,estimateBasis:null,weightKg:null,detail:'朝食：白いご飯 '+item.portion,additional:false,mealIntake:{source:'text',mealType:'breakfast',items:[item],basis:'架空のUI検証用。一般的な茶碗の量を仮定した固定の目安。'}};
-   const report=extractReport({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({reply:half?'半分残したんだね。食べた量を教えてくれてありがとう。':'朝ごはんを食べたんだね。',actions:[action]})}]}]},input);
-   return report?{status:200,body:report}:{status:502,body:{error:{message:'Offline fixture validation failed'}}};
- }
+ if(process.env.MEAL_TEXT_FIXTURE==='1'){const fixture=mealTextFixture(input);if(fixture)return fixture;}
  const actions=entries.map(([evidence,[kind]])=>({operation:'create',targetId:null,kind,date:input.context.date,title:evidence,evidence,minutes:null,kcal:null,estimatedKcal:null,estimateBasis:null,weightKg:null,detail:null,additional:false}));
  return {status:200,body:{reply:entries[0]?.[1][1]??'会いに来てくれて、うれしいな。きみの一歩に花まる！',actions}};
 }

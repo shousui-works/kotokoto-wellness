@@ -161,11 +161,16 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
       if(a.mealIntake){
         const total=a.mealIntake.items.reduce((sum,item)=>sum+item.kcal,0);
         if(a.mealIntake.source==='reported'&&a.operation!=='repeat'){
-          const reported=numbersWithUnit(numericText(a.evidence.normalize('NFKC').replace(/,/g,'')),'kcal|キロカロリー|カロリー').map(Math.round),remaining=[...reported];
-          // With no reported total, each dish needs its own reported value;
-          // never reuse one token for two dishes or infer a breakdown.
-          const itemized=a.mealIntake.items.length>1&&reported.length===a.mealIntake.items.length&&a.mealIntake.items.every(item=>{const i=remaining.indexOf(item.kcal);if(i<0)return false;remaining.splice(i,1);return true;});
-          if(!reported.includes(total)&&!itemized)return null;
+          const evidence=numericText(a.evidence.normalize('NFKC').replace(/,/g,''));
+          const reported=numbersWithUnit(evidence,'kcal|キロカロリー|カロリー').map(Math.round);
+          const totals=[...evidence.matchAll(/(?:合計|全部で|合わせて|トータル|(?:朝|昼|夕|晩|夜)(?:ごはん|ご飯|御飯|飯|食)|間食|おやつ|食事全体)(?:は|が|で|[:：]|\s)*(?:約|だいたい)?\s*(\d+(?:\.\d+)?)\s*(?:kcal|キロカロリー|カロリー)/gi)].map(match=>Math.round(Number(match[1])));
+          const parts=[...reported];for(const value of totals){const i=parts.indexOf(value);if(i>=0)parts.splice(i,1);}
+          const remaining=a.mealIntake.items.map(item=>item.kcal);
+          const knownPartsMatch=parts.every(value=>{const i=remaining.indexOf(value);if(i<0)return false;remaining.splice(i,1);return true;});
+          // A component that happens to equal the candidate sum is not a total.
+          // Explicit totals must agree, and known components must still match.
+          const valid=totals.length?totals.every(value=>value===total)&&knownPartsMatch:reported.length===1?reported[0]===total:parts.length===a.mealIntake.items.length&&knownPartsMatch;
+          if(!valid)return null;
         }
         if(!a.detail)a.detail=a.mealIntake.items.map(item=>`${item.name}（${item.portion}）`).join('、').slice(0,300);
       }

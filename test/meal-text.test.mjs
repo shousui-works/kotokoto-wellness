@@ -9,6 +9,7 @@ import {validateChatRequest,extractReport,createReportGenerator} from '../server
 import {createAccountAPI} from '../server/account-api.mjs';
 import {MemoryAccountStore} from '../server/account-store.mjs';
 import {dailyStatus} from '../server/daily-status.mjs';
+import {mealTextFixture} from './meal-text-fixture.mjs';
 
 const date='2026-11-21',at='2026-11-21T03:00:00.000Z';
 const meal=(extra={})=>({source:'text',mealType:'breakfast',items:[{name:'白いご飯',portion:'茶碗1杯、約150gと仮定',kcal:234}],basis:'固定テスト用。一般的な茶碗1杯の量を仮定した目安。',...extra});
@@ -70,6 +71,14 @@ test('portion corrections replace the original intake and retain its previous as
   assert.ok(changed.receipts.some(r=>/117kcal/.test(r.label)));
 });
 
+test('a portion-only correction updates intake and its description even when detail is null',()=>{
+  const {legacy,progress}=start(),first=apply(progress,legacy,[action()]);
+  const changed=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'朝のご飯は半分残した',detail:null,mealIntake:meal({items:[{name:'白いご飯',portion:'茶碗半分、約75gと仮定',kcal:117}]})})]);
+  const row=changed.progress.activities[0];assert.equal(row.intake.kcal,117);assert.match(row.detail,/75g/);assert.equal(row.corrections.at(-1).previous.intake.kcal,234);assert.equal(changed.progress.activities.length,1);
+  const dated=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'昨日だった',date:'2026-11-20',detail:null,mealIntake:null})]);assert.deepEqual(dated.progress.activities[0].intake,first.progress.activities[0].intake);
+  const same=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'朝ごはんのことだよ',detail:null,mealIntake:meal({items:[{...meal().items[0],kcal:999}]})})]);assert.equal(same.progress.activities[0].intake.kcal,234);
+});
+
 test('changed food without a new estimate invalidates old calories and retains the correction history',()=>{
   const {legacy,progress}=start(),first=apply(progress,legacy,[action()]);
   const changed=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'朝はパンだった',detail:'パンを食べた、量は不明',mealIntake:null})]);
@@ -89,6 +98,14 @@ test('date-only corrections preserve confirmed values and meal-label corrections
   const shifted=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'昨日だった',date:'2026-11-20',detail:null,mealIntake:null})]);
   assert.deepEqual(shifted.progress.activities[0].intake,first.progress.activities[0].intake);assert.equal(mealIntakeSummary(shifted.progress,date).recorded,0);
   const changed=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence:'夕食だった',title:'夕食',detail:null,mealIntake:null})]);assert.equal(changed.progress.activities[0].intake.mealType,'dinner');assert.equal(changed.progress.activities[0].intake.kcal,234);
+});
+
+test('snack and other meal-label corrections keep calories and original assumptions',()=>{
+  const {legacy,progress}=start(),first=apply(progress,legacy,[action()]),original=first.progress.activities[0].intake;
+  for(const [evidence,type] of [['間食だった','snack'],['おやつだった','snack'],['夜食だった','snack'],['その他の食事だった','other']]){
+    const changed=apply(first.progress,legacy,[action({operation:'update',targetId:first.progress.activities[0].id,evidence,title:evidence,detail:null,mealIntake:null})]);
+    assert.deepEqual(changed.progress.activities[0].intake,{...original,mealType:type});assert.equal(changed.progress.activities[0].corrections.at(-1).previous.intake.mealType,'breakfast');
+  }
 });
 
 test('a new estimate with unchanged food cannot casually replace a confirmed photo or owner edit',()=>{
@@ -120,6 +137,16 @@ test('itemized reported calories add up without requiring the user to state the 
   assert.equal(extractReport(output([action({evidence:text,mealIntake:meal({source:'reported',items:items.map(item=>({...item,kcal:300}))})})]),input(text)),null);
   const missing='朝ごはんはご飯300kcalと焼き魚を食べた';
   assert.equal(extractReport(output([action({evidence:missing,mealIntake:meal({source:'reported',items})})]),input(missing)),null);
+});
+
+test('a component calorie value cannot stand in for the meal total',()=>{
+  const items=[{name:'ご飯',portion:'本人の申告した量',kcal:100},{name:'焼き魚',portion:'本人の申告した量',kcal:200}];
+  const parse=(text,values=items)=>extractReport(output([action({evidence:text,mealIntake:meal({source:'reported',items:values})})]),input(text));
+  assert.equal(parse('朝ごはんはご飯300kcalと焼き魚200kcalを食べた'),null);
+  for(const text of ['朝ごはんは合計500kcalだった','朝ごはんは合計500kcalで、ご飯300kcalと焼き魚200kcalだった','朝ごはんは500kcalで、ご飯300kcalと焼き魚200kcalだった']){
+    const correct=[{...items[0],kcal:300},items[1]];assert.ok(parse(text,correct),text);assert.equal(parse(text),null);
+  }
+  assert.equal(parse('朝ごはんは合計500kcalで、ご飯300kcalと焼き魚200kcalだった',[{...items[0],kcal:100},{...items[1],kcal:400}]),null);
 });
 
 test('text intake references preserve known portions and pending needs through the prompt boundary',()=>{
@@ -182,4 +209,13 @@ test('a malformed meal estimate fails before account records or conversation his
   const f=accountFixture(()=>[action({mealIntake:meal({items:[{name:'ご飯',portion:'1杯',kcal:-100}]})})]);await f.init('alice');
   const before=await f.store.read('alice'),result=await f.post('/api/chat',{requestId:randomUUID(),text:action().evidence});assert.equal(result.status,502);
   const after=await f.store.read('alice');assert.deepEqual(after.progress,before.progress);assert.equal(after.conversation.messages.length,0);
+});
+
+test('the offline portion fixture only updates a unique breakfast on the same date',()=>{
+  const {legacy,progress}=start(),first=apply(progress,legacy,[action()]);
+  const breakfast=progressContext(legacy,first.progress,date).activities[0],dinner={...breakfast,id:'dinner',title:'夕食',intake:{...breakfast.intake,mealType:'dinner'}},past={...breakfast,id:'yesterday',date:'2026-11-20'};
+  const request=activities=>validateChatRequest({requestId:randomUUID(),messages:[{role:'user',content:'朝ごはんのご飯は半分残したよ'}],context:{date,activities}});
+  const result=mealTextFixture(request([dinner,past,breakfast]));assert.equal(result.status,200);assert.equal(result.body.actions[0].targetId,breakfast.id);assert.equal(result.body.actions[0].mealIntake.items[0].kcal,117);
+  for(const activities of [[],[dinner],[past],[breakfast,{...breakfast,id:'another-breakfast'}]])assert.deepEqual(mealTextFixture(request(activities)).body.actions,[]);
+  const created=mealTextFixture(input('朝ごはんにご飯を茶碗一杯食べたよ'));assert.equal(created.body.actions[0].operation,'create');assert.equal(created.body.actions[0].mealIntake.items[0].kcal,234);
 });

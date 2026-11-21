@@ -166,7 +166,7 @@ export function withFollowup(reply,question) {
 }
 
 function mealSlot(value) {
-  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|飯|食|は)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|飯|食|は)/]]
+  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|飯|食|は)/],['dinner',/(?:晩|夕)(?:ごはん|ご飯|御飯|飯|食|は)|夜(?:ごはん|ご飯|御飯|飯|は)/],['snack',/間食|おやつ|夜食/],['other',/その他の食事|食事区分(?:は|を)?その他|区分なし/]]
     .filter(([,pattern])=>pattern.test(value));
   return slots.length===1?slots[0][0]:null;
 }
@@ -255,8 +255,12 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     }
     if(a.kind==='meal_log'&&requestedIntake){
       // Date-only changes and paraphrases retain confirmed calories. New food or
-      // portions invalidate the old intake above before accepting a fresh estimate.
-      if(mealIntake&&(!existing.intake||mealIntake.source==='reported'||/見積もり直|推定し直|再推定|計算し直/.test(a.evidence))){
+      // portions can change even when the separate description is omitted.
+      const portions=items=>items.map(({name,portion})=>JSON.stringify([name,portion])).sort();
+      const previousItems=existing.intake&&(existing.intake.items.length?existing.intake.items:existing.intake.estimate.items);
+      const portionChanged=mealIntake&&previousItems&&JSON.stringify(portions(mealIntake.items))!==JSON.stringify(portions(previousItems));
+      if(mealIntake&&(!existing.intake||portionChanged||mealIntake.source==='reported'||/見積もり直|推定し直|再推定|計算し直/.test(a.evidence))){
+        if(portionChanged&&a.detail===null)existing.detail=mealIntake.items.map(item=>`${item.name}（${item.portion}）`).join('、').slice(0,300);
         existing.intake=intakeFromConversation(mealIntake);intakeWrites.push(existing);
       }
       if(!existing.intake)existing.intakePending=true;
