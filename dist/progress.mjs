@@ -148,13 +148,14 @@ export function progressCompanion(progress,legacy,now=new Date()) {
 export function followupFor(a) {
   if(!a)return null;
   const need=a.needs[0];
-  if(need==='date')return 'それは、いつやったことかな？';
-  if(need==='duplicate')return '前に聞いた分と同じかな？ それとも、追加でやった分？';
-  if(need==='minutes')return 'どのくらいの時間、やったの？';
-  if(need==='weight')return a.kind==='weight'?'測った体重は、何kgだった？':'体重は、何kgくらいかな？';
-  if(need==='kcal')return a.kind==='exercise'&&!a.detail?'何の運動をしたの？':'ゆっくりしたペースと、息が弾むペースのどちらに近かった？';
-  if(need==='meal')return '食べたものを、もう少し聞かせてもらえる？';
-  if(need==='intake')return '食べた量を、もう少し教えてもらえる？';
+  const label=a.title.replace(/[「」？?！!\r\n]/g,'').trim()||QUESTS.find(q=>q.id===a.kind)?.label||'報告してくれた運動',subject='「'+label+'」';
+  if(need==='date')return subject+'は、いつのことかな？';
+  if(need==='duplicate')return subject+'は、前に聞いたのと同じ分か、別の追加の分か教えてもらえる？';
+  if(need==='minutes')return subject+'は、何分くらいやったの？';
+  if(need==='weight')return a.kind==='weight'?(a.date?a.date+'に':'今回')+'測った体重は、何kgだった？':subject+'をしたころの体重は、何kgくらいだった？';
+  if(need==='kcal')return subject+(a.kind==='exercise'&&!a.detail?'は、何の運動だった？':'は、ゆっくりしたペースと、息が弾むペースのどちらに近かった？');
+  if(need==='meal')return subject+'では、何を食べたの？';
+  if(need==='intake')return subject+'で食べた量は、何人前くらいだった？';
   return null;
 }
 

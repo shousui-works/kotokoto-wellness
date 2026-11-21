@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {emptyState,recordHabit,affectionFor} from '../dist/model.mjs';
-import {emptyProgress,normalizeProgress,applyInterpretation,dayReport,progressTotal,exercisePoints,recordManual,progressCompanion,validDate,correctActivity,measurementRecords,weightReference,progressContext,calorieSummary} from '../dist/progress.mjs';
+import {emptyProgress,normalizeProgress,applyInterpretation,dayReport,progressTotal,exercisePoints,recordManual,progressCompanion,validDate,correctActivity,measurementRecords,weightReference,progressContext,calorieSummary,followupFor} from '../dist/progress.mjs';
 
 const today='2026-10-18',at='2026-10-18T12:00:00.000Z';
 function action(kind,extra={}){return {operation:'create',targetId:null,kind,date:today,title:'できたこと',evidence:'やった',minutes:null,kcal:null,weightKg:null,detail:null,additional:false,...extra};}
@@ -87,7 +87,7 @@ test('version 2 rewards retain their awarded points through reloads, repeats and
 test('missing inputs stay pending, then one activity receives the Luna estimate and its basis',()=>{
   const {legacy,progress}=start();
   let result=apply(progress,legacy,[action('walk')]);
-  assert.equal(result.delta,0);assert.match(result.reply,/どのくらいの時間/);
+  assert.equal(result.delta,0);assert.match(result.reply,/何分/);
   const id=result.progress.activities[0].id;
   result=apply(result.progress,legacy,[action('walk',{operation:'update',targetId:id,minutes:20,evidence:'20分'})],'20分');
   assert.equal(result.progress.activities.length,1);assert.match(result.reply,/体重/);assert.doesNotMatch(result.reply,/計算|推定|記録|保存/);
@@ -124,6 +124,18 @@ test('a concrete swimming follow-up keeps the reported stroke and distance inste
   assert.equal(first.progress.activities[0].minutes,null);assert.equal(first.progress.activities[0].estimate,null);
   const completed=apply(first.progress,legacy,[action('exercise',{operation:'update',targetId:first.progress.activities[0].id,evidence:'10分くらい',minutes:10,estimatedKcal:80,estimateBasis:'テスト用：保存された60kgとクロール300m、本人の10分を使った架空の目安'})],'10分くらい',{reply:'10分くらいだったんだね。'});
   assert.equal(completed.progress.activities.length,1);assert.deepEqual(completed.progress.activities[0].needs,[]);assert.doesNotMatch(completed.reply,/[？?]/);assert.equal(completed.progress.activities[0].detail,'クロールで300m泳いだ');
+});
+
+test('fallback questions identify the record and one missing field across meals and exercise',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const meal=apply(progress,legacy,[action('meal_log',{title:'昨日の朝ごはん',evidence:'朝ごはんを食べた',date:null,detail:null})],'朝ごはんを食べた',{reply:'朝ごはんを食べたんだね。何を食べたの？'});
+  assert.match(meal.reply,/「昨日の朝ごはん」.*いつ/);assert.doesNotMatch(meal.reply,/何を食べた/);assert.equal((meal.reply.match(/[？?]/g)??[]).length,1);assert.deepEqual(meal.progress.activities[0].needs,['date','meal']);
+  const running=apply(progress,legacy,[action('run',{title:'公園でランニング',evidence:'公園で走った'})],'公園で走った',{reply:'走ってきたんだね。どれくらいだった？'});
+  assert.match(running.reply,/「公園でランニング」.*何分/);assert.doesNotMatch(running.reply,/どれくらいだった/);assert.equal(running.progress.activities[0].minutes,null);assert.equal(running.progress.activities[0].estimate,null);
+  const food=followupFor({...meal.progress.activities[0],needs:['meal']});assert.match(food,/「昨日の朝ごはん」.*何を食べた/);
+  const amount=followupFor({...meal.progress.activities[0],needs:['intake']});assert.match(amount,/「昨日の朝ごはん」.*食べた量.*何人前/);
+  const weight=followupFor({...running.progress.activities[0],needs:['weight']});assert.match(weight,/「公園でランニング」.*体重.*何kg/);
+  const duplicate=followupFor({...running.progress.activities[0],needs:['duplicate']});assert.match(duplicate,/「公園でランニング」.*同じ.*別/);assert.equal((duplicate.match(/[？?]/g)??[]).length,1);
 });
 
 test('an exercise fallback explains pace in ordinary words and does not repeat the known sport',()=>{
