@@ -247,7 +247,7 @@ export function createReportGenerator({apiKey=process.env.OPENAI_API_KEY,fetchIm
           const report=extractReport(result,input,{allowManualReply:manualRetrieved,statusReply:statusSnapshot?.answer??null,manualGuide});
           if(!report)return invalid();
           if(statusSnapshot&&report.actions.length)return fail(409,'status_with_report','新しい報告は先に送って、そのあと数値を聞いてね。今回は記録を変更していないよ。');
-          return {status:200,body:{requestId:input.requestId,...report,...(statusSnapshot?{interactionUpdate:null,readOnlyStatus:true}:{})}};
+          return {status:200,body:{requestId:input.requestId,...report,...(statusSnapshot?{interactionUpdate:null,readOnlyStatus:true,statusDate:statusSnapshot.date}:{})}};
         }
         if(c.welcome||round===MAX_TOOL_ROUNDS||calls.length!==1||!Number.isSafeInteger(spent)||remaining-spent<16)return invalid();
         remaining-=spent;

@@ -79,7 +79,7 @@ test('the reader rejects UID/date/value injection before loading storage and ref
 
 test('only a supplied status reader exposes the tool; canonical saved values replace model numbers',async()=>{
   const source=state();source.legacy.days[date]={habits:[],weight:65.1};const f=generator({snapshot:source});
-  const result=await f.generate(input(),'verified-alice');assert.equal(result.status,200);assert.equal(result.body.readOnlyStatus,true);assert.equal(result.body.interactionUpdate,null);assert.match(result.body.reply,/65.1kg/);assert.doesNotMatch(result.body.reply,/999/);
+  const result=await f.generate(input(),'verified-alice');assert.equal(result.status,200);assert.equal(result.body.readOnlyStatus,true);assert.equal(result.body.statusDate,date);assert.equal(result.body.interactionUpdate,null);assert.match(result.body.reply,/65.1kg/);assert.doesNotMatch(result.body.reply,/999/);
   assert.deepEqual(f.uids,['verified-alice']);assert.ok(f.calls[0].body.tools.some(t=>t.name===DAILY_STATUS_TOOL.name));assert.equal(f.calls[0].signal,f.calls[1].signal);
   assert.equal(f.calls[1].body.input.at(-1).type,'function_call_output');assert.equal(JSON.parse(f.calls[1].body.input.at(-1).output).date,date);
   assert.equal(extractReport(model([final()]),input()),null);
@@ -137,8 +137,9 @@ test('storage failure, timeout or changed snapshots cannot become guessed status
   let revision=1;const changed=generator({readStatus:async(_uid,args)=>{const value=state();value.revision=revision++;return dailyStatus(value,args,at);},results:[model([tool(['weight'])]),model([tool(['erai_points'],'status-2')])]});assert.equal((await changed.generate(input(),'alice')).body.error.code,'context_changed');
 });
 
-function accountFixture({finalActions=[],changeBeforeReply=false,withManual=false}={}){
-  const store=new MemoryAccountStore(),calls=[],uids=[];const read=createDailyStatusReader({store,now:()=>at});
+function accountFixture({finalActions=[],changeBeforeReply=false,withManual=false,startAt=at,advanceBeforeCommitMs=0}={}){
+  let clock=startAt;
+  const store=new MemoryAccountStore(),calls=[],uids=[];const read=createDailyStatusReader({store,now:()=>clock});
   const generate=createReportGenerator({apiKey:'fixture',readStatus:async(uid,args)=>{uids.push(uid);return read(uid,args);},fetchImpl:async(_url,init)=>{
     const body=JSON.parse(init.body);calls.push(body);
     if(body.input.at(-1).type!=='function_call_output')return Response.json(model([tool()]));
@@ -146,7 +147,9 @@ function accountFixture({finalActions=[],changeBeforeReply=false,withManual=fals
     if(changeBeforeReply){const s=await store.read('alice');s.revision++;s.legacy.days[date]={habits:[],weight:67};store.accounts.set('alice',s);}
     return Response.json(model([final({actions:finalActions,manualReply:withManual?'今日の体重は999kgで、999ポイントだよ。':'',interactionUpdate:{style:'praise',scope:'ongoing',certainty:'explicit',evidence:'今日',asked:false}})]));
   }});
-  const api=createAccountAPI({store,config:{},verify:async token=>({uid:token}),generate,now:()=>at});
+  const api=createAccountAPI({store,config:{},verify:async token=>({uid:token}),generate:async(...args)=>{
+    const result=await generate(...args);clock+=advanceBeforeCommitMs;return result;
+  },now:()=>clock});
   async function post(path,data,uid='alice'){
     const req=Readable.from([Buffer.from(JSON.stringify(data))]);Object.assign(req,{method:'POST',url:path,headers:{host:'app.example',origin:'https://app.example',...(uid?{authorization:'Bearer '+uid}:{})}});
     let status,body;await api(req,{writeHead(s){status=s;},end(value){body=JSON.parse(value);}},path);return {status,body};
@@ -184,4 +187,25 @@ test('a query cannot turn returned weight into a new measurement, even if model 
 
 test('concurrent account changes block delivery of a stale numeric answer',async()=>{
   const f=accountFixture({changeBeforeReply:true});await f.initialize();const result=await f.post('/api/chat',{requestId:randomUUID(),text:'今日の体重は？'});assert.equal(result.status,409);assert.equal(result.body.error.code,'context_changed');assert.equal((await f.store.read('alice')).conversation.messages.length,0);
+});
+
+test('status finalization rejects a JST date change without any account revision change and permits a fresh query',async()=>{
+  const f=accountFixture({startAt:Date.parse('2026-11-21T14:59:58Z'),advanceBeforeCommitMs:4000});await f.initialize();
+  const before=await f.store.read('alice');before.legacy.days[date]={habits:[],weight:65.1};f.store.accounts.set('alice',before);
+  const request={requestId:randomUUID(),text:'今日の体重は？'};
+  const result=await f.post('/api/chat',request);assert.equal(result.status,409);assert.equal(result.body.error.code,'context_changed');assert.match(result.body.error.message,/日付/);assert.equal(result.body.reply,undefined);
+  const after=await f.store.read('alice');assert.equal(after.revision,before.revision);assert.equal(after.conversation.messages.length,0);assert.equal(after.messageCounter,before.messageCounter);assert.equal(after.chatLease,null);
+  assert.deepEqual(after.progress,before.progress);assert.deepEqual(after.legacy,before.legacy);assert.deepEqual(after.interactionPreferences,before.interactionPreferences);
+  const replay=await f.post('/api/chat',request);assert.equal(replay.status,409);assert.equal(f.calls.length,2);
+  const fresh=await f.post('/api/chat',{...request,requestId:randomUUID()});assert.equal(fresh.status,200);assert.match(fresh.body.reply,/2026-11-22/);assert.match(fresh.body.reply,/今日の体重は、まだ記録がない/);assert.doesNotMatch(fresh.body.reply,/65.1kg/);
+});
+
+test('status finalization accepts same-JST-day results including across UTC midnight and keeps the date internal',async()=>{
+  for(const startAt of ['2026-11-21T14:59:50Z','2026-11-20T23:59:58Z']){
+    const f=accountFixture({startAt:Date.parse(startAt),advanceBeforeCommitMs:4000});await f.initialize();
+    const before=await f.store.read('alice');before.legacy.days[date]={habits:[],weight:65.1};f.store.accounts.set('alice',before);
+    const result=await f.post('/api/chat',{requestId:randomUUID(),text:'今日の体重は？'});
+    assert.equal(result.status,200);assert.match(result.body.reply,/2026-11-21/);assert.match(result.body.reply,/65.1kg/);assert.equal(result.body.statusDate,undefined);assert.equal(result.body.readOnlyStatus,undefined);
+    const after=await f.store.read('alice');assert.equal(after.conversation.messages.at(-1).content,result.body.reply);assert.deepEqual(after.progress,before.progress);
+  }
 });
