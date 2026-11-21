@@ -1,8 +1,8 @@
 import {PREFERENCE_SCHEMA} from './interaction-preferences.mjs';
 export const REPORT_FORMAT={
   type:'json_schema',name:'komugi_report',strict:true,
-  schema:{type:'object',additionalProperties:false,required:['reply','actions','interactionUpdate'],properties:{
-    interactionUpdate:PREFERENCE_SCHEMA,reply:{type:'string'},actions:{type:'array',items:{type:'object',additionalProperties:false,
+  schema:{type:'object',additionalProperties:false,required:['reply','manualReply','actions','interactionUpdate'],properties:{
+    interactionUpdate:PREFERENCE_SCHEMA,reply:{type:'string'},manualReply:{type:'string',description:'取得した説明書に基づく操作案内だけ。使い方の質問でなければ空文字。'},actions:{type:'array',items:{type:'object',additionalProperties:false,
       required:['operation','targetId','kind','date','title','evidence','minutes','kcal','estimatedKcal','estimateBasis','weightKg','detail','additional'],properties:{
         operation:{type:'string',enum:['create','update','repeat','clarify']},targetId:{type:['string','null']},
         kind:{type:'string',enum:['walk','run','strength','stretch','exercise','snack','meal_care','eating_habit','weight','meal_log','rest','housework','mood_log','challenge','care']},
