@@ -60,7 +60,7 @@ export function formatDailyStatus(status){
     }else if(metric==='weight'){
       lines.push(value.kg===null?'今日の体重は、まだ記録がないよ。':`今日の体重は${value.kg.toFixed(1)}kgで記録されているよ。`);
     }else if(metric==='intake_calories'){
-      lines.push(value.kcal===null?'今日の摂取カロリーは、まだ記録がないよ。':`記録済みの摂取カロリーは${number(value.kcal)}kcalだよ。`+(value.estimated?'写真からの推定を含む目安だよ。':''));
+      lines.push(value.kcal===null?'今日の摂取カロリーは、まだ記録がないよ。':`記録済みの摂取カロリーは${number(value.kcal)}kcalだよ。`+(value.estimated?'推定を含む目安だよ。':''));
       if(value.withoutCalories)lines.push(`カロリー未入力の食事が${number(value.withoutCalories)}件あるよ。`);
     }
   }

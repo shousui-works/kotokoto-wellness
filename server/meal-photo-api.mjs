@@ -60,8 +60,12 @@ export function createMealPhotoAPI({store,estimate,now=Date.now,apiAvailable=tru
       if(!activity)throw problem(409,'meal_changed','食事を保存できませんでした。もう一度確認してください。');
       const original=normalizeMealEstimate(op.result.estimate);
       activity.intake={version:1,kcal:items.reduce((sum,item)=>sum+item.kcal,0),source:JSON.stringify(items)===JSON.stringify(original.items)?'photo':'edited',mealType:raw.mealType,items,estimate:original};
+      // A photo may complete a meal whose text report was waiting for portions.
+      delete activity.intakePending;activity.needs=activity.needs.filter(need=>need!=='intake');
+      const receipts=applied.receipts.filter(receipt=>receipt.status!=='pending');
+      if(!receipts.length)receipts.push({label:'食事の内容を反映しました',delta:0,status:'recorded'});
       state.progress=applied.progress;state.revision++;
-      return {state,operation:{...op,confirmation,activityId:activity.id},value:{status:200,body:{requestId:id,recorded:true,receipts:applied.receipts,state:publicAccount(state)}}};
+      return {state,operation:{...op,confirmation,activityId:activity.id},value:{status:200,body:{requestId:id,recorded:true,receipts,state:publicAccount(state)}}};
     });
   };
 }

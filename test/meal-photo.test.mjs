@@ -82,6 +82,17 @@ test('confirmation saves edited intake, preserves original estimate and replays 
   const changed=applyInterpretation(again,{requestId:'changed-menu',today:'2026-10-30',text:'違った、麺を食べた',actions:[{operation:'update',targetId:meal.id,kind:'meal_log',date:'2026-10-30',title:'昼食',evidence:'麺を食べた',minutes:null,kcal:null,weightKg:null,detail:'麺',additional:false}]},saved.body.state.legacy).progress;
   assert.equal(changed.activities[0].intake,undefined);assert.equal(mealIntakeSummary(changed,'2026-10-30').withoutCalories,1);assert.deepEqual(changed.activities[0].corrections.at(-1).previous.intake,meal.intake);
 });
+
+test('photo confirmation completes a text meal waiting for portions without leaving stale pending state',async()=>{
+  const f=fixture();await f.init();const state=await f.store.read('alice');
+  const text='昼ごはんはご飯をいっぱい食べた';
+  state.progress=applyInterpretation(state.progress,{requestId:'pending-text-meal',today:'2026-10-30',text,actions:[{operation:'create',targetId:null,kind:'meal_log',date:'2026-10-30',title:'昼食',evidence:text,minutes:null,kcal:null,weightKg:null,detail:text,additional:false,mealIntake:null}]},state.legacy).progress;
+  assert.equal(state.progress.activities[0].intakePending,true);assert.deepEqual(state.progress.activities[0].needs,['intake']);state.revision=2;f.store.accounts.set('alice',state);
+  const id=randomUUID();assert.equal((await f.analyze(id)).status,200);
+  const result=await f.confirm(id,{revision:2,targetId:state.progress.activities[0].id});assert.equal(result.status,200);
+  const saved=result.body.state.progress;assert.equal(saved.activities.length,1);assert.equal(saved.activities[0].intake.source,'photo');assert.equal(saved.activities[0].intakePending,undefined);assert.deepEqual(saved.activities[0].needs,[]);
+  assert.ok(!result.body.receipts.some(receipt=>receipt.status==='pending'));assert.equal(dayReport(saved,'2026-10-30').total,5);assert.equal(mealIntakeSummary(saved,'2026-10-30').recorded,1);
+});
 test('attaching to an existing meal does not add another row or bonus; stale revisions are safe',async()=>{
   const f=fixture();await f.init();const state=await f.store.read('alice');state.progress=recordManual(state.progress,{id:'original-meal',kind:'meal_log',date:'2026-10-30',title:'お昼を食べた',detail:'ご飯と焼き魚'},state.legacy).progress;state.revision=2;f.store.accounts.set('alice',state);
   const id=randomUUID();await f.analyze(id);assert.equal((await f.confirm(id)).status,409);const targetId=state.progress.activities[0].id;

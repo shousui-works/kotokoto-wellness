@@ -1,5 +1,5 @@
 import {dateKey,recentDays} from './model.mjs';
-import {mealIntakeSummary} from './meal-intake.mjs';
+import {mealIntakeSummary,mealIntakeNote,intakeSourceLabel,intakeBasisLabel,intakeReference} from './meal-intake.mjs';
 import {PROGRESS_STORAGE,emptyProgress,normalizeProgress,dayReport,progressTotal,progressCompanion,measurementRecords,progressContext,applyInterpretation,recordManual,correctActivity,followupFor,calorieSummary} from './progress.mjs?v=meal-photo-1';
 
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;};
@@ -39,7 +39,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
       if(!data.processed.includes(result.requestId))for(const a of result.actions){
         if(!a.targetId)continue;
         const expected=context.activities?.find(x=>x.id===a.targetId),current=data.activities.find(x=>x.id===a.targetId&&!x.deleted);
-        if(!expected||!current||expected.date!==current.date||expected.kind!==current.kind||expected.minutes!==current.minutes||expected.kcal!==current.kcal||expected.detail!==current.detail||expected.estimatedKcal!==(current.estimate?.kcal??null))throw Error('別の操作で記録が更新されました。いったんおはなしを開き直して、もう一度送ってね。');
+        if(!expected||!current||expected.date!==current.date||expected.kind!==current.kind||expected.minutes!==current.minutes||expected.kcal!==current.kcal||expected.detail!==current.detail||expected.estimatedKcal!==(current.estimate?.kcal??null)||JSON.stringify(expected.intake??null)!==JSON.stringify(intakeReference(current.intake)))throw Error('別の操作で記録が更新されました。いったんおはなしを開き直して、もう一度送ってね。');
       }
       const applied=applyInterpretation(data,{requestId:result.requestId,actions:result.actions,text,reply:result.reply},getState());
       write(applied.progress);
@@ -76,7 +76,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     if(['walk','run','strength','stretch','exercise'].includes(activity.kind)&&activity.kcal===null&&!activity.estimate&&!activity.hold)details.push('消費カロリーは未推定');
     if(activity.kind==='weight'&&activity.weightKg!==null)details.push(amount(activity.weightKg)+'kg');
     if(activity.detail)details.push(activity.detail);
-    if(activity.intake){details.push('摂取 '+amount(activity.intake.kcal)+'kcal（'+(activity.intake.source==='photo'?'写真からの推定':'本人の修正')+'）');details.push('写真推定時の前提：'+activity.intake.estimate.basis);}
+    if(activity.intake){details.push('摂取 '+amount(activity.intake.kcal)+'kcal（'+intakeSourceLabel(activity.intake)+'）');details.push(intakeBasisLabel(activity.intake)+'：'+activity.intake.estimate.basis);}
     if(activity.estimate?.basis)details.push(activity.estimate.basis);
     if(activity.corrections.some(c=>c.type!=='supplement'))details.push('訂正済み');
     if(details.length)copy.append(el('p',null,details.join(' · ')));
@@ -91,7 +91,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     const today=dateKey(),report=dayReport(data,today);
     const calories=calorieSummary(data,today);
     const intake=mealIntakeSummary(data,today);
-    $('daily-intake').textContent=intake.recorded?amount(intake.kcal):'—';$('daily-intake-note').textContent=intake.recorded?`${intake.recorded}件の食事を集計 · 写真推定${intake.estimated}件${intake.withoutCalories?' · カロリー未記録'+intake.withoutCalories+'件':''}`:'摂取カロリーの記録はまだありません。';
+    $('daily-intake').textContent=intake.recorded?amount(intake.kcal):'—';$('daily-intake-note').textContent=mealIntakeNote(intake);
     $('daily-calories').textContent=calorieValue(calories);$('daily-calorie-note').textContent=calorieNote(calories);$('daily-total-calories').textContent=calorieValue(calorieSummary(data));
     $('daily-points').textContent=report.total;$('daily-total-points').textContent=progressTotal(data);
     $('dock-count').textContent=report.total;
@@ -107,7 +107,7 @@ export function createProgressUI({getState,onChange,onContinue,onError,storage=g
     $('report-date').value=selectedDate;$('report-date').max=today;
     const chosen=dayReport(data,selectedDate);
     const chosenCalories=calorieSummary(data,selectedDate);
-    const chosenIntake=mealIntakeSummary(data,selectedDate);$('report-intake').textContent=chosenIntake.recorded?amount(chosenIntake.kcal):'—';$('report-intake-note').textContent=chosenIntake.recorded?`${chosenIntake.recorded}件の食事 · 写真推定${chosenIntake.estimated}件${chosenIntake.withoutCalories?' · カロリー未記録'+chosenIntake.withoutCalories+'件':''}`:'摂取カロリーの記録はまだありません。';
+    const chosenIntake=mealIntakeSummary(data,selectedDate);$('report-intake').textContent=chosenIntake.recorded?amount(chosenIntake.kcal):'—';$('report-intake-note').textContent=mealIntakeNote(chosenIntake);
     $('report-calories').textContent=calorieValue(chosenCalories,chosen.recorded?'0':'—');$('report-calorie-note').textContent=calorieNote(chosenCalories);
     $('report-score').textContent=chosen.recorded?chosen.total:'—';
     $('report-breakdown').textContent=chosen.recorded?`運動 ${chosen.exercise} ＋ クエスト ${chosen.bonus}`:'この日の記録はまだありません。';

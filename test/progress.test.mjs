@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {emptyState,recordHabit,affectionFor} from '../dist/model.mjs';
-import {emptyProgress,normalizeProgress,applyInterpretation,dayReport,progressTotal,exercisePoints,recordManual,progressCompanion,validDate,correctActivity,measurementRecords,weightReference,progressContext,calorieSummary} from '../dist/progress.mjs';
+import {emptyProgress,normalizeProgress,applyInterpretation,dayReport,progressTotal,exercisePoints,recordManual,progressCompanion,validDate,correctActivity,measurementRecords,weightReference,progressContext,calorieSummary,followupFor} from '../dist/progress.mjs';
 
 const today='2026-10-18',at='2026-10-18T12:00:00.000Z';
 function action(kind,extra={}){return {operation:'create',targetId:null,kind,date:today,title:'できたこと',evidence:'やった',minutes:null,kcal:null,weightKg:null,detail:null,additional:false,...extra};}
@@ -87,7 +87,7 @@ test('version 2 rewards retain their awarded points through reloads, repeats and
 test('missing inputs stay pending, then one activity receives the Luna estimate and its basis',()=>{
   const {legacy,progress}=start();
   let result=apply(progress,legacy,[action('walk')]);
-  assert.equal(result.delta,0);assert.match(result.reply,/どのくらいの時間/);
+  assert.equal(result.delta,0);assert.match(result.reply,/何分/);
   const id=result.progress.activities[0].id;
   result=apply(result.progress,legacy,[action('walk',{operation:'update',targetId:id,minutes:20,evidence:'20分'})],'20分');
   assert.equal(result.progress.activities.length,1);assert.match(result.reply,/体重/);assert.doesNotMatch(result.reply,/計算|推定|記録|保存/);
@@ -114,6 +114,65 @@ test('the app does not invent calories even with enough inputs; unknown informat
   const c=apply(b.progress,legacy,[action('walk',{operation:'update',targetId:id,evidence:'わからない'})],'わからない');
   assert.doesNotMatch(c.reply,/どのくらい/);
   assert.ok(c.progress.activities.at(-1).needs.includes('minutes'));
+});
+
+test('a concrete swimming follow-up keeps the reported stroke and distance instead of asking them again',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const text='300mクロールで泳いだよ',question='300m泳ぐのに、何分くらいかかった？';
+  const first=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:text,detail:'クロールで300m泳いだ'})],text,{reply:'クロールで300m泳いだんだね。'+question});
+  assert.deepEqual(first.progress.activities[0].needs,['kcal']);assert.match(first.reply,/300m泳ぐのに、何分くらいかかった？/);assert.doesNotMatch(first.reply,/どんな運動|強さ|強度/);
+  assert.equal(first.progress.activities[0].minutes,null);assert.equal(first.progress.activities[0].estimate,null);
+  const completed=apply(first.progress,legacy,[action('exercise',{operation:'update',targetId:first.progress.activities[0].id,evidence:'10分くらい',minutes:10,estimatedKcal:80,estimateBasis:'テスト用：保存された60kgとクロール300m、本人の10分を使った架空の目安'})],'10分くらい',{reply:'10分くらいだったんだね。'});
+  assert.equal(completed.progress.activities.length,1);assert.deepEqual(completed.progress.activities[0].needs,[]);assert.doesNotMatch(completed.reply,/[？?]/);assert.equal(completed.progress.activities[0].detail,'クロールで300m泳いだ');
+});
+
+test('fallback questions identify the record and one missing field across meals and exercise',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const meal=apply(progress,legacy,[action('meal_log',{title:'昨日の朝ごはん',evidence:'朝ごはんを食べた',date:null,detail:null})],'朝ごはんを食べた',{reply:'朝ごはんを食べたんだね。何を食べたの？'});
+  assert.match(meal.reply,/「昨日の朝ごはん」.*いつ/);assert.doesNotMatch(meal.reply,/何を食べた/);assert.equal((meal.reply.match(/[？?]/g)??[]).length,1);assert.deepEqual(meal.progress.activities[0].needs,['date','meal']);
+  const running=apply(progress,legacy,[action('run',{title:'公園でランニング',evidence:'公園で走った'})],'公園で走った',{reply:'走ってきたんだね。どれくらいだった？'});
+  assert.match(running.reply,/「公園でランニング」.*何分/);assert.doesNotMatch(running.reply,/どれくらいだった/);assert.equal(running.progress.activities[0].minutes,null);assert.equal(running.progress.activities[0].estimate,null);
+  const food=followupFor({...meal.progress.activities[0],needs:['meal']});assert.match(food,/「昨日の朝ごはん」.*何を食べた/);
+  const amount=followupFor({...meal.progress.activities[0],needs:['intake']});assert.match(amount,/「昨日の朝ごはん」.*食べた量.*何人前/);
+  const weight=followupFor({...running.progress.activities[0],needs:['weight']});assert.match(weight,/「公園でランニング」.*体重.*何kg/);
+  const duplicate=followupFor({...running.progress.activities[0],needs:['duplicate']});assert.match(duplicate,/「公園でランニング」.*同じ.*別/);assert.equal((duplicate.match(/[？?]/g)??[]).length,1);
+});
+
+test('an exercise fallback explains pace in ordinary words and does not repeat the known sport',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  for(const reply of ['クロールで300m泳いだんだね。','クロールで300m泳いだんだね。どんな運動を、どのくらいの強さでやったの？','クロールで300m泳いだんだね。運動の強度はどれくらい？','クロールで300m泳いだんだね。体重は何kg？']){
+    const text='300mクロールで泳いだよ';
+    const result=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:text,detail:'クロールで300m泳いだ'})],text,{reply});
+    assert.match(result.reply,/ゆっくり.*息が弾む/);assert.doesNotMatch(result.reply,/どんな運動|強さ|強度/);assert.equal((result.reply.match(/[？?]/g)??[]).length,1);
+  }
+  const timed=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:'10分で300mクロール泳いだよ',detail:'クロール300m',minutes:10})],'10分で300mクロール泳いだよ',{reply:'300m泳いだんだね。何分くらいかかった？'});
+  assert.doesNotMatch(timed.reply,/何分/);assert.match(timed.reply,/ゆっくり.*息が弾む/);
+});
+
+test('an additional water walk keeps its own concrete question without changing the earlier swim',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const swim=apply(progress,legacy,[action('exercise',{title:'クロール',evidence:'クロール300m泳いだ',detail:'クロール300m',estimatedKcal:80,estimateBasis:'テスト用の架空の目安'})],'クロール300m泳いだ');
+  const text='あと、水中を300mウォーキングした',question='水中を300m歩くのに、何分くらいかかった？';
+  const candidate=action('exercise',{title:'水中ウォーキング',evidence:'水中を300mウォーキングした',detail:'水中ウォーキング300m',additional:true});
+  const walk=apply(swim.progress,legacy,[candidate],text,{reply:'水中を300m歩いたんだね。'+question});
+  assert.equal(walk.progress.activities.length,2);assert.equal(walk.progress.activities[0].estimate.kcal,80);assert.equal(walk.progress.activities[1].detail,'水中ウォーキング300m');assert.match(walk.reply,/水中を300m歩くのに、何分くらいかかった？/);assert.doesNotMatch(walk.reply,/どんな運動|強さ/);
+  for(const unrelated of ['あと、洗濯もした。水中を300mウォーキングした','あとで、水中を300mウォーキングした','あと、水中を300mウォーキングした。同じ水中を300mウォーキングした']){
+    const held=apply(swim.progress,legacy,[candidate],unrelated);assert.equal(held.progress.activities[1].hold,'duplicate');assert.deepEqual(held.progress.activities[1].needs,['duplicate']);
+  }
+  const held=apply(swim.progress,legacy,[{...candidate,additional:false}],candidate.evidence);
+  const clarified=apply(held.progress,legacy,[{...candidate,operation:'update',targetId:held.progress.activities[1].id}],text,{reply:'水中を300m歩いたんだね。'+question});
+  assert.equal(clarified.progress.activities.length,2);assert.equal(clarified.progress.activities[1].hold,null);assert.match(clarified.reply,/水中を300m歩くのに、何分くらいかかった？/);
+});
+
+test('explicit further exercise reports are confirmed while an unclear addition still waits',()=>{
+  const {legacy,progress}=start();legacy.days[today]={habits:[],weight:60};
+  const first=apply(progress,legacy,[action('exercise',{title:'クロール300m',detail:'クロール300m',estimatedKcal:80,estimateBasis:'架空の検証用'})]);
+  const quote='水中を300mウォーキングした',candidate=action('exercise',{title:'水中ウォーキング',evidence:quote,detail:'水中ウォーキング300m',additional:true,estimatedKcal:40,estimateBasis:'架空の検証用'});
+  for(const prefix of ['続けて','さらに'])for(const shortened of [false,true]){
+    const text=prefix+'、'+quote,result=apply(first.progress,legacy,[{...candidate,evidence:shortened?quote:text}],text);
+    assert.equal(result.progress.activities.length,2);assert.equal(result.progress.activities[1].hold,null);assert.equal(dayReport(result.progress,today).kcal,120);
+  }
+  const unclear=apply(first.progress,legacy,[{...candidate,additional:false}],quote);assert.equal(unclear.progress.activities[1].hold,'duplicate');assert.equal(dayReport(unclear.progress,today).kcal,80);
 });
 
 test('the weight shown in records takes priority over a newer weight mentioned during exercise',()=>{

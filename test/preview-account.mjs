@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createAppServer} from '../server/index.mjs';
 import {createAccountAPI} from '../server/account-api.mjs';
 import {MemoryAccountStore} from '../server/account-store.mjs';
+import {mealTextFixture} from './meal-text-fixture.mjs';
 const sdk=`export const initializeApp=x=>x;
 const makeUser=()=>localStorage.getItem('fixture-user')?{uid:'fixture-alice',email:'alice@example.test',getIdToken:async()=>'fixture-token'}:null;
 const auth={currentUser:makeUser(),authStateReady:async()=>{}};let listener;
@@ -31,6 +32,7 @@ const dailyLife={
 async function generate(input){
  const delay=Math.min(15000,Math.max(0,Number(process.env.REPLY_DELAY_MS)||0));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
  const text=input.messages.at(-1).content,entries=process.env.DAILY_LIFE==='1'?Object.entries(dailyLife).filter(([evidence])=>text.includes(evidence)):[];
+ if(process.env.MEAL_TEXT_FIXTURE==='1'){const fixture=mealTextFixture(input);if(fixture)return fixture;}
  const actions=entries.map(([evidence,[kind]])=>({operation:'create',targetId:null,kind,date:input.context.date,title:evidence,evidence,minutes:null,kcal:null,estimatedKcal:null,estimateBasis:null,weightKg:null,detail:null,additional:false}));
  return {status:200,body:{reply:entries[0]?.[1][1]??'会いに来てくれて、うれしいな。きみの一歩に花まる！',actions}};
 }
