@@ -155,9 +155,11 @@ export function createAccountAPI({store,verify,config,generate,estimateMeal=null
           usage.global.leases=usage.global.leases.filter(l=>l.key!==`${uid}/${raw.requestId}`);const ownsLease=state.chatLease?.id===raw.requestId;if(ownsLease)state.chatLease=null;
           let outcome=generated,appendMessages=false;
           if(!ownsLease||state.revision!==baseRevision)outcome=fail(409,'context_changed','別の端末で記録が変わりました。入力を残してあるので、もう一度聞かせてね。');
+          if(outcome.status===200&&outcome.body.readOnlyStatus===true&&outcome.body.statusDate!==dayKey(now()))outcome=fail(409,'context_changed','確認中に日付が変わったよ。入力を残してあるので、もう一度聞いてね。');
           if(outcome.status===200){
-            const applied=welcome?{progress:state.progress,reply:outcome.body.reply,receipts:[]}:applyInterpretation(state.progress,{requestId:raw.requestId,actions:outcome.body.actions,text,reply:outcome.body.reply,today:dayKey(turnTime),at:new Date(turnTime).toISOString()},state.legacy);
-            state.interactionPreferences=applyPreferences(state.interactionPreferences,welcome?{asked:outcome.body.interactionUpdate?.asked===true}:outcome.body.interactionUpdate,text,dayKey(turnTime));state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
+            const readOnlyStatus=outcome.body.readOnlyStatus===true;
+            const applied=welcome||readOnlyStatus?{progress:state.progress,reply:outcome.body.reply,receipts:[]}:applyInterpretation(state.progress,{requestId:raw.requestId,actions:outcome.body.actions,text,reply:outcome.body.reply,today:dayKey(turnTime),at:new Date(turnTime).toISOString()},state.legacy);
+            if(!readOnlyStatus)state.interactionPreferences=applyPreferences(state.interactionPreferences,welcome?{asked:outcome.body.interactionUpdate?.asked===true}:outcome.body.interactionUpdate,text,dayKey(turnTime));state.progress=applied.progress;state.revision++;state.messageCounter++;state.conversation=appendExchange(state.conversation,text,applied.reply,new Date(turnTime).toISOString(),applied.receipts);appendMessages=true;
             outcome={status:200,body:{requestId:raw.requestId,reply:applied.reply,receipts:applied.receipts,actions:[],...packet(state)}};
           }
           // Only a finalized failure permits a new user-initiated attempt; unknown storage outcomes keep the old ID.
