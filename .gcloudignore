@@ -12,6 +12,7 @@
 !test/
 !test/*.test.mjs
 !test/preview-report.mjs
+!test/meal-text-fixture.mjs
 !scripts/
 !scripts/build-cloud-run.mjs
 !scripts/backfill-ai-usage.mjs
