@@ -1,5 +1,5 @@
 import {dateKey, affectionFor, totals} from './model.mjs';
-import {normalizeIntake} from './meal-intake.mjs';
+import {normalizeIntake,normalizeConversationMeal,intakeFromConversation,intakeReference,intakeSourceLabel} from './meal-intake.mjs';
 
 export const PROGRESS_STORAGE = 'kotokoto-progress-v1';
 export const QUESTS = Object.freeze([
@@ -39,7 +39,9 @@ export function normalizeCandidate(a) {
   if(typeof a.additional!=='boolean')return null;
   const estimatedKcal=a.estimatedKcal??null,estimateBasis=a.estimateBasis??null;
   if(estimatedKcal!==null&&(!EXERCISE_KINDS.includes(a.kind)||!finite(estimatedKcal,0,20000)||typeof estimateBasis!=='string'||!estimateBasis.trim()||estimateBasis.length>300))return null;
-  return {operation:a.operation,targetId:a.targetId,kind:a.kind,date:a.date,title:a.title.trim(),evidence:a.evidence.trim(),minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,detail:a.detail?.trim()||null,additional:a.additional,estimatedKcal,estimateBasis:estimatedKcal===null?null:estimateBasis.trim()};
+  let mealIntake=null;
+  if(a.mealIntake!=null){if(a.kind!=='meal_log')return null;try{mealIntake=normalizeConversationMeal(a.mealIntake);}catch{return null;}}
+  return {operation:a.operation,targetId:a.targetId,kind:a.kind,date:a.date,title:a.title.trim(),evidence:a.evidence.trim(),minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,detail:a.detail?.trim()||null,additional:a.additional,estimatedKcal,estimateBasis:estimatedKcal===null?null:estimateBasis.trim(),...(a.kind==='meal_log'&&Object.hasOwn(a,'mealIntake')?{mealIntake}:{})};
 }
 
 export function emptyProgress(legacy,now=new Date()) {
@@ -56,11 +58,13 @@ export function normalizeProgress(raw) {
     if(!candidate||!ID.test(a.id)||ids.has(a.id)||typeof a.at!=='string'||Number.isNaN(Date.parse(a.at))
         ||!['duplicate',null].includes(a.hold)||typeof a.deleted!=='boolean'||!Array.isArray(a.corrections))throw Error('Invalid activity');
     if(a.estimate!==null&&(!finite(a.estimate?.kcal,0,20000)||(a.estimate.source==='luna'?typeof a.estimate.basis!=='string'||!a.estimate.basis.trim()||a.estimate.basis.length>300:!finite(a.estimate?.weightKg,1,500)||!finite(a.estimate?.mets,1,20))))throw Error('Invalid estimate');
-    if(!Array.isArray(a.needs)||a.needs.some(n=>!['date','duplicate','minutes','weight','kcal','meal'].includes(n)))throw Error('Invalid pending activity');
+    if(!Array.isArray(a.needs)||a.needs.some(n=>!['date','duplicate','minutes','weight','kcal','meal','intake'].includes(n))
+        ||a.intakePending!==undefined&&(typeof a.intakePending!=='boolean'||a.intakePending&&a.kind!=='meal_log'))throw Error('Invalid pending activity');
     ids.add(a.id);
     if(a.intake!=null&&a.kind!=='meal_log')throw Error('Invalid meal intake activity');
     const intake=normalizeIntake(a.intake);
-    return {...candidate,...(intake?{intake}:{}),pointVersion:a.pointVersion??1,id:a.id,at:a.at,updatedAt:a.updatedAt??a.at,hold:a.hold,deleted:a.deleted,estimate:a.estimate,needs:[...a.needs],praise:typeof a.praise==='string'?a.praise.slice(0,600):'',corrections:a.corrections.slice(-50)};
+    delete candidate.mealIntake;
+    return {...candidate,...(intake?{intake}:{}),...(a.intakePending&&!intake?{intakePending:true}:{}),pointVersion:a.pointVersion??1,id:a.id,at:a.at,updatedAt:a.updatedAt??a.at,hold:a.hold,deleted:a.deleted,estimate:a.estimate,needs:[...a.needs],praise:typeof a.praise==='string'?a.praise.slice(0,600):'',corrections:a.corrections.slice(-50)};
   });
   if(raw.processed.some(id=>typeof id!=='string'||!ID.test(id)))throw Error('Invalid transaction');
   if(raw.baselineXP!==undefined&&!finite(raw.baselineXP,0,1e12))throw Error('Invalid growth baseline');
@@ -89,6 +93,8 @@ function resolveActivity(a,legacy,progress) {
   if(a.hold)needs.push('duplicate');
   if(a.kind==='weight'&&!finite(a.weightKg,1,500))needs.push('weight');
   if(a.kind==='meal_log'&&!a.detail)needs.push('meal');
+  if(a.kind!=='meal_log'||a.intake)delete a.intakePending;
+  if(a.kind==='meal_log'&&a.detail&&a.intakePending&&!a.intake)needs.push('intake');
   if(EXERCISE_KINDS.includes(a.kind)&&a.kcal===null&&!a.estimate&&a.date&&!a.hold){
     const weight=a.weightKg??latestWeight(legacy,progress,a.date);
     if(a.kind!=='stretch'){
@@ -142,12 +148,14 @@ export function progressCompanion(progress,legacy,now=new Date()) {
 export function followupFor(a) {
   if(!a)return null;
   const need=a.needs[0];
-  if(need==='date')return 'それは、いつやったことかな？';
-  if(need==='duplicate')return '前に聞いた分と同じかな？ それとも、追加でやった分？';
-  if(need==='minutes')return 'どのくらいの時間、やったの？';
-  if(need==='weight')return a.kind==='weight'?'測った体重は、何kgだった？':'体重は、何kgくらいかな？';
-  if(need==='kcal')return 'どんな運動を、どのくらいの強さでやったの？';
-  if(need==='meal')return '食べたものを、もう少し聞かせてもらえる？';
+  const label=a.title.replace(/[「」？?！!\r\n]/g,'').trim()||QUESTS.find(q=>q.id===a.kind)?.label||'報告してくれた運動',subject='「'+label+'」';
+  if(need==='date')return subject+'は、いつのことかな？';
+  if(need==='duplicate')return subject+'は、前に聞いたのと同じ分か、別の追加の分か教えてもらえる？';
+  if(need==='minutes')return subject+'は、何分くらいやったの？';
+  if(need==='weight')return a.kind==='weight'?(a.date?a.date+'に':'今回')+'測った体重は、何kgだった？':subject+'をしたころの体重は、何kgくらいだった？';
+  if(need==='kcal')return subject+(a.kind==='exercise'&&!a.detail?'は、何の運動だった？':'は、ゆっくりしたペースと、息が弾むペースのどちらに近かった？');
+  if(need==='meal')return subject+'では、何を食べたの？';
+  if(need==='intake')return subject+'で食べた量は、何人前くらいだった？';
   return null;
 }
 
@@ -158,7 +166,7 @@ export function withFollowup(reply,question) {
 }
 
 function mealSlot(value) {
-  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|飯|食|は)/],['dinner',/(?:晩|夜|夕)(?:ごはん|ご飯|御飯|飯|食|は)/]]
+  const slots=[['breakfast',/朝(?:ごはん|ご飯|御飯|飯|食|は)/],['lunch',/昼(?:ごはん|ご飯|御飯|飯|食|は)/],['dinner',/(?:晩|夕)(?:ごはん|ご飯|御飯|飯|食|は)|夜(?:ごはん|ご飯|御飯|飯|は)/],['snack',/間食|おやつ|夜食/],['other',/その他の食事|食事区分(?:は|を)?その他|区分なし/]]
     .filter(([,pattern])=>pattern.test(value));
   return slots.length===1?slots[0][0]:null;
 }
@@ -188,14 +196,40 @@ function distinctMeal(progress,a,existing,text) {
   });
 }
 
+function explicitExerciseAddition(a,text){
+  if(!EXERCISE_KINDS.includes(a.kind)||!a.additional)return false;
+  if(/追加|あと(?!で)|続けて|さらに|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence))return true;
+  const index=text.indexOf(a.evidence);
+  // The short quote can omit an immediately preceding addition marker. Do not
+  // borrow an addition marker from another action or an ambiguous occurrence.
+  return index>=0&&index===text.lastIndexOf(a.evidence)&&/(?:^|[。！？!?\n、,])\s*(?:あと|続けて|さらに)[、,\s]*$/.test(text.slice(0,index));
+}
+
+// Metadata corrections must not turn a model's spelling changes into new food
+// facts. Reuse this check before server-side detail generation and before save.
+export function hasMealChangeEvidence(a){
+  const evidence=a.evidence.normalize('NFKC');
+  if(/半分|食べ残|残し|残した|おかわり|大盛|小盛|多め|少なめ|見積もり直|推定し直|再推定|計算し直|[0-9〇零一二三四五六七八九十百千]+(?:\.[0-9]+)?\s*(?:kcal|キロカロリー|カロリー|kg|g|グラム|ml|ミリリットル|杯|個|枚|皿|人前|切れ|本|袋|割)/i.test(evidence))return true;
+  if(/のこと|同じ分|言い換え/.test(evidence))return false;
+  const detail=(a.detail??'').normalize('NFKC'),names=(a.mealIntake?.items??[]).map(item=>item.name.normalize('NFKC'));
+  if(!/日付|日にち|記録日|食べた日|区分|昨日|今日|一昨日|おととい|きのう|きょう/.test(evidence)&&detail.split(/[、,：:（）()\s]/).some(value=>value.length>=2&&!/^(?:朝食|昼食|夕食|間食|食事|量|不明|未記録)/.test(value)&&evidence.includes(value)))return true;
+  return evidence.split(/[、。！？!?]/).some(clause=>{
+    const value=clause.split(/ではなく(?:て)?|じゃなく(?:て)?|は|が/).at(-1).replace(/(?:だった(?:よ|んだ)?|でした|だよ|です|にした|に変えた|を食べた|食べた)\s*$/,'').trim();
+    if(!value||/日付|日にち|記録日|食べた日|区分|昨日|今日|一昨日|おととい|きのう|きょう|\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}月\d{1,2}日|^(?:同じ|おなじ|そのまま|変わら)/.test(value))return false;
+    if(/^(?:(?:朝|昼|夕|晩|夜)(?:ごはん|ご飯|御飯|飯|食)|間食|おやつ|夜食|その他(?:の食事)?)$/.test(value))return false;
+    return value.length>=2&&detail.includes(value)||names.some(name=>name===value||value.length>=2&&(name.includes(value)||value.includes(name)));
+  });
+}
+
 export function applyInterpretation(original,{requestId,actions,text,reply='',today=dateKey(),at=new Date().toISOString()},legacy) {
   if(!ID.test(requestId)||!Array.isArray(actions)||actions.length>8)throw Error('Invalid result');
   if(original.processed.includes(requestId))return {progress:original,receipts:[],delta:0,reply,replayed:true};
   const progress=normalizeProgress(structuredClone(original)),before=new Map(reportDates(progress).map(d=>[d,dayReport(progress,d)]));
-  const receipts=[],touched=[];
+  const receipts=[],touched=[],intakeWrites=[];
   for(const [i,raw]of actions.entries()){
-    const a=normalizeCandidate(raw);
-    if(!a||!text.includes(a.evidence)||a.date&&a.date>today)throw Error('Invalid candidate');
+    const candidate=normalizeCandidate(raw);
+    if(!candidate||!text.includes(candidate.evidence)||candidate.date&&candidate.date>today)throw Error('Invalid candidate');
+    const {mealIntake:proposedIntake,...a}=candidate,requestedIntake=Object.hasOwn(candidate,'mealIntake');let mealIntake=proposedIntake;
     let existing=a.targetId?progress.activities.find(x=>x.id===a.targetId&&!x.deleted):null;
     if(a.targetId&&!existing)throw Error('Unknown activity');
     const separateMeal=distinctMeal(progress,a,existing,text);
@@ -220,10 +254,11 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       const exact=same.find(x=>x.evidence===a.evidence||(a.minutes!==null&&a.minutes===x.minutes&&a.kcal===x.kcal&&a.weightKg===x.weightKg));
       if(exact&&!a.additional){receipts.push({label:'同じ行動を確認',delta:0,status:'duplicate'});continue;}
       if(!EXERCISE_KINDS.includes(a.kind)&&same.length&&!a.additional){receipts.push({label:'今日の分は記録済み',delta:0,status:'duplicate'});continue;}
-      if(same.length&&EXERCISE_KINDS.includes(a.kind)&&!(a.additional&&/追加|もう|また|別|回目|朝|昼|夕|夜|午前|午後/.test(a.evidence)))a.operation='clarify';
+      if(same.length&&EXERCISE_KINDS.includes(a.kind)&&!explicitExerciseAddition(a,text))a.operation='clarify';
     }
     let hold=a.operation==='clarify'?'duplicate':null;
-    if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
+    if(existing?.hold==='duplicate'&&a.operation==='update'&&!separateMeal&&!explicitExerciseAddition(a,text)&&!(a.additional&&/追加|もう|また|別|回目/.test(a.evidence)))hold='duplicate';
+    if(existing?.intake&&a.kind==='meal_log'&&requestedIntake&&!hasMealChangeEvidence({...a,mealIntake})){a.detail=null;mealIntake=null;}
     if(existing){
       existing.corrections.push({at,type:existing.needs.length?'supplement':'correction',previous:{date:existing.date,minutes:existing.minutes,kcal:existing.kcal,weightKg:existing.weightKg,title:existing.title,detail:existing.detail,deleted:existing.deleted,...(existing.intake?{intake:structuredClone(existing.intake)}:{})}});
       if(existing.intake&&(a.kind!=='meal_log'||a.detail!==null&&a.detail!==existing.detail))delete existing.intake;
@@ -235,6 +270,19 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
       existing={...a,pointVersion:3,operation:'create',targetId:null,additional:false,id:`${requestId}:${i}`,at,updatedAt:at,hold,estimate:a.estimatedKcal===null?null:{source:'luna',kcal:round1(a.estimatedKcal),basis:a.estimateBasis},estimatedKcal:null,estimateBasis:null,deleted:false,needs:[],praise:reply,corrections:[]};
       progress.activities.push(existing);
     }
+    if(a.kind==='meal_log'&&requestedIntake){
+      // Date-only changes and paraphrases retain confirmed calories. New food or
+      // portions can change even when the separate description is omitted.
+      const portions=items=>items.map(({name,portion})=>JSON.stringify([name,portion])).sort();
+      const previousItems=existing.intake&&(existing.intake.items.length?existing.intake.items:existing.intake.estimate.items);
+      const portionChanged=mealIntake&&previousItems&&JSON.stringify(portions(mealIntake.items))!==JSON.stringify(portions(previousItems));
+      if(mealIntake&&(!existing.intake||portionChanged||mealIntake.source==='reported'||/見積もり直|推定し直|再推定|計算し直/.test(a.evidence))){
+        if(portionChanged&&a.detail===null)existing.detail=mealIntake.items.map(item=>`${item.name}（${item.portion}）`).join('、').slice(0,300);
+        existing.intake=intakeFromConversation(mealIntake);intakeWrites.push(existing);
+      }
+      if(!existing.intake)existing.intakePending=true;
+    }
+    if(a.kind==='meal_log'&&existing.intake){const slot=reportedMealSlot(a,text);if(slot)existing.intake={...existing.intake,mealType:slot};}
     touched.push(existing);
   }
   for(const a of progress.activities)if(!a.deleted)resolveActivity(a,legacy,progress);
@@ -244,18 +292,25 @@ export function applyInterpretation(original,{requestId,actions,text,reply='',to
     const exerciseDelta=after.exercise-(prior?.exercise??0);
     if(exerciseDelta>0)receipts.push({label:'運動のできた',delta:exerciseDelta,status:'earned'});
   }
-  for(const a of touched)if(!a.deleted&&a.needs.length)receipts.push({label:a.title+' · '+({date:'日付',duplicate:'重複',minutes:'時間',weight:'体重',kcal:'推定の情報',meal:'食事内容'}[a.needs[0]])+'を確認中',delta:0,status:'pending'});
+  const intakeReceipts=[...new Set(intakeWrites)].filter(a=>!a.deleted&&a.date&&!a.hold&&a.intake).map(a=>({label:'摂取 '+a.intake.kcal+'kcal（'+intakeSourceLabel(a.intake)+'）',delta:0,status:'recorded'}));
+  receipts.push(...intakeReceipts);
+  for(const a of touched)if(!a.deleted&&a.needs.length)receipts.push({label:a.title+' · '+({date:'日付',duplicate:'重複',minutes:'時間',weight:'体重',kcal:'推定の情報',meal:'食事内容',intake:'食事の内容・量'}[a.needs[0]])+'を確認中',delta:0,status:'pending'});
   if(actions.length&&!receipts.length)receipts.push({label:'行動を記録しました',delta:0,status:'recorded'});
   const afterTotal=progressTotal(progress),beforeTotal=[...before.values()].reduce((s,r)=>s+r.total,0);
   const delta=afterTotal-beforeTotal;
   if(actions.some(a=>a.operation==='update')&&(delta<=0||receipts.reduce((s,r)=>s+r.delta,0)!==delta)){
     const waiting=receipts.filter(r=>r.status==='pending');
-    receipts.splice(0,receipts.length,{label:delta>0?'元の記録を更新':'元の記録に反映しました',delta:Math.max(0,delta),status:'corrected'},...waiting);
+    receipts.splice(0,receipts.length,{label:delta>0?'元の記録を更新':'元の記録に反映しました',delta:Math.max(0,delta),status:'corrected'},...intakeReceipts,...waiting);
   }
   progress.peakPoints=Math.max(progress.peakPoints,afterTotal);
   progress.processed.push(requestId);progress.revision++;
   const pending=touched.find(a=>!a.deleted&&a.needs.length);
-  return {progress,receipts,delta,reply:withFollowup(reply,/わから|わかん|覚えて|あとで|不明/.test(text)?null:followupFor(pending)),replayed:false};
+  // Keep a concrete question about the missing food, duration or pace. The
+  // fallback must not replace it with a generic request to explain the sport.
+  const questions=reply.match(/[^。！？!?]*[？?]/g)??[];
+  const repeatsTime=pending?.minutes!==null&&/何分|何時間|どのくらいの時間/.test(questions[0]??'');
+  const keepQuestion=questions.length===1&&(pending?.needs[0]==='intake'||pending?.needs[0]==='kcal'&&!repeatsTime&&!/強さ|強度|どんな運動|何の運動|体重/.test(questions[0]));
+  return {progress,receipts,delta,reply:withFollowup(reply,keepQuestion||/わから|わかん|覚えて|あとで|不明/.test(text)?null:followupFor(pending)),replayed:false};
 }
 
 export function recordManual(original,{id,kind,date,title,weightKg=null,detail=null,today=dateKey()},legacy,at=new Date().toISOString()) {
@@ -280,7 +335,7 @@ export function correctActivity(original,id,changes,legacy,at=new Date().toISOSt
 
 export function activityContext(progress,today,selectedId=null) {
   return progress.activities.filter(a=>!a.deleted).sort((a,b)=>(b.id===selectedId)-(a.id===selectedId)||Number(b.needs.length>0)-Number(a.needs.length>0)||b.updatedAt.localeCompare(a.updatedAt)).slice(0,18)
-    .map(a=>({id:a.id,kind:a.kind,date:a.date,reportedAt:a.at,updatedAt:a.updatedAt,title:a.title,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,estimatedKcal:a.estimate?.kcal??null,estimateBasis:a.estimate?.basis??null,detail:a.detail,needs:a.needs,selected:a.id===selectedId}));
+    .map(a=>({id:a.id,kind:a.kind,date:a.date,reportedAt:a.at,updatedAt:a.updatedAt,title:a.title,minutes:a.minutes,kcal:a.kcal,weightKg:a.weightKg,estimatedKcal:a.estimate?.kcal??null,estimateBasis:a.estimate?.basis??null,detail:a.detail,...(a.intake?{intake:intakeReference(a.intake)}:{}),needs:a.needs,selected:a.id===selectedId}));
 }
 
 export function progressContext(legacy,progress,today=dateKey(),selectedId=null){

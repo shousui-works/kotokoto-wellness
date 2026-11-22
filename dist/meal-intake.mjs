@@ -30,17 +30,52 @@ export function normalizeMealEstimate(value){
 }
 export function normalizeIntake(value){
   if(value==null)return null;
-  if(value.version!==1||!number(value.kcal)||!['photo','edited'].includes(value.source)||!Object.hasOwn(MEAL_TYPES,value.mealType))throw Error('Invalid meal intake');
+  if(value.version!==1||!number(value.kcal)||!['photo','text','reported','edited'].includes(value.source)||!Object.hasOwn(MEAL_TYPES,value.mealType))throw Error('Invalid meal intake');
+  const origin=value.origin??(['text','reported'].includes(value.source)?value.source:null);
+  if(origin!==null&&(!['photo','text','reported'].includes(origin)||value.source!=='edited'&&origin!==value.source))throw Error('Invalid intake origin');
   const estimate=normalizeMealEstimate(value.estimate);
   if(estimate.status!=='ok')throw Error('Invalid meal intake estimate');
   if(!Array.isArray(value.items))throw Error('Invalid meal intake items');
   const items=value.items.length?normalizeMealItems(value.items):[];
   if(items.length&&Math.round(value.kcal)!==items.reduce((sum,item)=>sum+item.kcal,0))throw Error('Invalid meal intake total');
-  return {version:1,kcal:Math.round(value.kcal),source:value.source,mealType:value.mealType,items,estimate};
+  return {version:1,kcal:Math.round(value.kcal),source:value.source,...(origin?{origin}:{}),mealType:value.mealType,items,estimate};
+}
+
+// Conversation candidates contain no storage IDs or photo-confirmation fields.
+export function normalizeConversationMeal(value){
+  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==4
+      ||!['source','mealType','items','basis'].every(key=>Object.hasOwn(value,key))
+      ||!['text','reported'].includes(value.source)||!Object.hasOwn(MEAL_TYPES,value.mealType)||!text(value.basis,600))throw Error('Invalid conversation meal');
+  return {source:value.source,mealType:value.mealType,items:normalizeMealItems(value.items),basis:value.basis.trim()};
+}
+
+export function intakeFromConversation(value){
+  const meal=normalizeConversationMeal(value);
+  return normalizeIntake({version:1,kcal:meal.items.reduce((sum,item)=>sum+item.kcal,0),source:meal.source,origin:meal.source,
+    mealType:meal.mealType,items:meal.items,estimate:{status:'ok',items:meal.items,basis:meal.basis,question:''}});
+}
+
+// A bounded reference lets Luna reuse confirmed portions instead of guessing anew.
+export function intakeReference(value){
+  if(value==null)return null;
+  const basis=value.basis??value.estimate?.basis;
+  if(!number(value.kcal)||!['photo','text','reported','edited'].includes(value.source)||!Object.hasOwn(MEAL_TYPES,value.mealType)
+      ||!text(basis,600)||!Array.isArray(value.items))throw Error('Invalid intake reference');
+  const items=value.items.length?normalizeMealItems(value.items):[];
+  if(items.length&&items.reduce((sum,item)=>sum+item.kcal,0)!==Math.round(value.kcal))throw Error('Invalid intake reference total');
+  return {kcal:Math.round(value.kcal),source:value.source,mealType:value.mealType,items,basis:basis.trim()};
+}
+
+export const intakeSourceLabel=intake=>({photo:'写真からの推定',text:'会話からの推定',reported:'本人の申告',edited:'本人の修正'})[intake.source];
+export const intakeBasisLabel=intake=>({photo:'写真推定時の前提',text:'会話推定時の前提',reported:'申告時のメモ'})[intake.origin??(intake.source==='edited'?'photo':intake.source)];
+
+export function mealIntakeNote(summary){
+  if(!summary.recorded)return '摂取カロリーの記録はまだありません。';
+  return [`${summary.recorded}件の食事を集計`,summary.photoEstimated?`写真推定${summary.photoEstimated}件`:'',summary.textEstimated?`会話推定${summary.textEstimated}件`:'',summary.reported?`本人申告${summary.reported}件`:'',summary.withoutCalories?`カロリー未記録${summary.withoutCalories}件`:''].filter(Boolean).join(' · ');
 }
 export function mealIntakeSummary(progress,date){
   const meals=progress.activities.filter(a=>!a.deleted&&!a.hold&&a.kind==='meal_log'&&a.date&&(date===undefined||a.date===date));
-  let kcal=0,recorded=0,estimated=0;
-  for(const meal of meals)if(meal.intake){kcal+=meal.intake.kcal;recorded++;if(meal.intake.source==='photo')estimated++;}
-  return {kcal,recorded,estimated,withoutCalories:meals.length-recorded};
+  let kcal=0,recorded=0,photoEstimated=0,textEstimated=0,reported=0;
+  for(const meal of meals)if(meal.intake){kcal+=meal.intake.kcal;recorded++;if(meal.intake.source==='photo')photoEstimated++;if(meal.intake.source==='text')textEstimated++;if(meal.intake.source==='reported')reported++;}
+  return {kcal,recorded,estimated:photoEstimated+textEstimated,photoEstimated,textEstimated,reported,withoutCalories:meals.length-recorded};
 }

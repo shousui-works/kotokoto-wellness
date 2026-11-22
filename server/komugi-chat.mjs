@@ -1,10 +1,11 @@
 import {PREFERENCE_INSTRUCTIONS} from './interaction-preferences.mjs';
 import {conversationTimestamp,timedMessage,CONVERSATION_TIME_ZONE} from './conversation-time.mjs';
 import {createHash, randomBytes} from 'node:crypto';
-import {normalizeCandidate, validDate, ACTIVITY_KINDS} from '../dist/progress.mjs';
+import {normalizeCandidate, validDate, ACTIVITY_KINDS, EXERCISE_KINDS, hasMealChangeEvidence} from '../dist/progress.mjs';
 import {REPORT_FORMAT, REPORT_INSTRUCTIONS} from './report-schema.mjs';
 import {cacheBlock, CACHE_OPTIONS, captureCacheUsage} from './prompt-cache.mjs';
 import {normalizeNickname} from '../dist/profile.mjs';
+import {intakeReference} from '../dist/meal-intake.mjs';
 import {APP_MANUAL_TOOL,APP_MANUAL_INSTRUCTIONS,APP_MANUAL_SECTION_IDS,getAppManual} from './app-manual.mjs';
 import {DAILY_STATUS_TOOL,DAILY_STATUS_INSTRUCTIONS,STATUS_METRICS,statusMetrics,formatDailyStatus} from './daily-status.mjs';
 
@@ -97,7 +98,7 @@ export function validateChatRequest(body) {
   context.weightSource = context.hasWeight&&['record','conversation'].includes(supplied.weightSource)?supplied.weightSource:null;
   if (Array.isArray(supplied.activities) && supplied.activities.length <= 18) {
     context.activities = supplied.activities.filter(a=>a && /^[a-zA-Z0-9:_-]{1,100}$/.test(a.id??'') && ACTIVITY_KINDS.includes(a.kind) && (a.date===null||validDate(a.date)))
-      .map(a=>({id:a.id,kind:a.kind,date:a.date,reportedAt:conversationTimestamp(a.reportedAt),updatedAt:conversationTimestamp(a.updatedAt),title:typeof a.title==='string'?a.title.slice(0,100):'',minutes:typeof a.minutes==='number'&&a.minutes>0&&a.minutes<=1440?a.minutes:null,kcal:typeof a.kcal==='number'&&a.kcal>=0&&a.kcal<=20000?a.kcal:null,weightKg:typeof a.weightKg==='number'&&a.weightKg>=1&&a.weightKg<=500?a.weightKg:null,weightDate:validDate(a.weightDate)?a.weightDate:null,weightSource:['record','conversation'].includes(a.weightSource)?a.weightSource:null,estimatedKcal:typeof a.estimatedKcal==='number'&&a.estimatedKcal>=0&&a.estimatedKcal<=20000?a.estimatedKcal:null,estimateBasis:typeof a.estimateBasis==='string'?a.estimateBasis.slice(0,300):null,detail:typeof a.detail==='string'?a.detail.slice(0,300):null,needs:Array.isArray(a.needs)?a.needs.filter(n=>['date','duplicate','minutes','weight','kcal','meal'].includes(n)):[],selected:a.selected===true}));
+      .map(a=>{let intake=null;try{if(a.kind==='meal_log')intake=intakeReference(a.intake);}catch{}return {id:a.id,kind:a.kind,date:a.date,reportedAt:conversationTimestamp(a.reportedAt),updatedAt:conversationTimestamp(a.updatedAt),title:typeof a.title==='string'?a.title.slice(0,100):'',minutes:typeof a.minutes==='number'&&a.minutes>0&&a.minutes<=1440?a.minutes:null,kcal:typeof a.kcal==='number'&&a.kcal>=0&&a.kcal<=20000?a.kcal:null,weightKg:typeof a.weightKg==='number'&&a.weightKg>=1&&a.weightKg<=500?a.weightKg:null,weightDate:validDate(a.weightDate)?a.weightDate:null,weightSource:['record','conversation'].includes(a.weightSource)?a.weightSource:null,estimatedKcal:typeof a.estimatedKcal==='number'&&a.estimatedKcal>=0&&a.estimatedKcal<=20000?a.estimatedKcal:null,estimateBasis:typeof a.estimateBasis==='string'?a.estimateBasis.slice(0,300):null,detail:typeof a.detail==='string'?a.detail.slice(0,300):null,...(intake?{intake}:{}),needs:Array.isArray(a.needs)?a.needs.filter(n=>['date','duplicate','minutes','weight','kcal','meal','intake'].includes(n)):[],selected:a.selected===true};});
   }
   return {requestId: body.requestId, messages, context};
 }
@@ -137,9 +138,10 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
   if(actions.some(a=>!a||!input.messages.at(-1).content.includes(a.evidence)||a.date&&input.context.date&&a.date>input.context.date||a.targetId&&!input.context.activities?.some(old=>old.id===a.targetId)))return null;
   const rawText=input.messages.at(-1).content.normalize('NFKC').replace(/,/g,'');
   const digits={'〇':0,'零':0,'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
-  const text=rawText.replace(/[〇零一二三四五六七八九十百千]+(?=\s*(?:時間|分|秒|キロ|カロリー|kg|kcal))/gi,part=>{
+  const numericText=value=>value.replace(/[〇零一二三四五六七八九十百千]+(?=\s*(?:時間|分|秒|キロ|カロリー|kg|kcal))/gi,part=>{
     let total=0,current=0;for(const ch of part){if(ch in digits)current=current*10+digits[ch];else{total+=(current||1)*({'十':10,'百':100,'千':1000}[ch]);current=0;}}return String(total+current);
   });
+  const text=numericText(rawText);
   function numbersWithUnit(text,unit){
     const pattern=new RegExp('(\\d+(?:\\.\\d+)?)\\s*(?:'+unit+')|(?:'+unit+')(?:は|が|[:：]|\\s)*([0-9]+(?:\\.[0-9]+)?)','gi');
     return [...text.matchAll(pattern)].map(m=>Number(m[1]??m[2]));
@@ -148,13 +150,40 @@ export function extractReport(result, input, {allowManualReply=false,statusReply
   let remainder=text;const durations=[];
   remainder=remainder.replace(/(\d+(?:\.\d+)?)\s*時間(?:\s*(?:(\d+(?:\.\d+)?)\s*分|(半)))?/g,(_,h,m,half)=>{durations.push(Number(h)*60+(half?30:Number(m??0)));return '';});
   for(const m of remainder.matchAll(/(\d+(?:\.\d+)?)\s*(分|秒)/g))durations.push(Number(m[1])/(m[2]==='秒'?60:1));
+  const previousReply=input.messages.at(-2)?.content??'';
+  const askedMinutes=(previousReply.match(/[？?]/g)??[]).length===1&&/何分(?!前|後|に)/.test(previousReply);
+  const minuteTargets=(input.context.activities??[]).filter(a=>EXERCISE_KINDS.includes(a.kind)&&a.minutes===null&&['minutes','kcal'].includes(a.needs?.[0]));
   for(const a of actions){
     const old=input.context.activities?.find(x=>x.id===a.targetId);
+    if(a.kind==='meal_log'){
+      // Food energy must never enter the exercise kcal/estimate fields.
+      a.kcal=null;a.minutes=null;a.weightKg=null;
+      if(old?.intake&&!hasMealChangeEvidence(a)){a.mealIntake=null;a.detail=null;}
+      if(a.mealIntake){
+        const total=a.mealIntake.items.reduce((sum,item)=>sum+item.kcal,0);
+        if(a.mealIntake.source==='reported'&&a.operation!=='repeat'){
+          const evidence=numericText(a.evidence.normalize('NFKC').replace(/,/g,''));
+          const reported=numbersWithUnit(evidence,'kcal|キロカロリー|カロリー').map(Math.round);
+          const totals=[...evidence.matchAll(/(?:合計|全部で|合わせて|トータル|(?:朝|昼|夕|晩|夜)(?:ごはん|ご飯|御飯|飯|食)|間食|おやつ|食事全体)(?:は|が|で|[:：]|\s)*(?:約|だいたい)?\s*(\d+(?:\.\d+)?)\s*(?:kcal|キロカロリー|カロリー)/gi)].map(match=>Math.round(Number(match[1])));
+          const parts=[...reported];for(const value of totals){const i=parts.indexOf(value);if(i>=0)parts.splice(i,1);}
+          const remaining=a.mealIntake.items.map(item=>item.kcal);
+          const knownPartsMatch=parts.every(value=>{const i=remaining.indexOf(value);if(i<0)return false;remaining.splice(i,1);return true;});
+          // A component that happens to equal the candidate sum is not a total.
+          // Explicit totals must agree, and known components must still match.
+          const valid=totals.length?totals.every(value=>value===total)&&knownPartsMatch:reported.length===1?reported[0]===total:parts.length===a.mealIntake.items.length&&knownPartsMatch;
+          if(!valid)return null;
+        }
+        if(!a.detail)a.detail=a.mealIntake.items.map(item=>`${item.name}（${item.portion}）`).join('、').slice(0,300);
+      }
+    }
     const bare=text.match(/^(?:約|だいたい)?\s*(\d+(?:\.\d+)?)\s*(?:くらい|ぐらい|ほど|だよ|です|かな)?[。！!]?$/);
     if(a.kcal!==null&&!calories.includes(a.kcal)&&old?.kcal!==a.kcal)a.kcal=null;
     if(a.weightKg!==null&&!weights.includes(a.weightKg)&&old?.weightKg!==a.weightKg&&input.context.weightKg!==a.weightKg&&!(old?.needs?.includes('weight')&&bare&&Number(bare[1])===a.weightKg))a.weightKg=null;
     if(a.minutes!==null&&!durations.some(n=>Math.abs(n-a.minutes)<0.01)&&old?.minutes!==a.minutes){
-      if(!(old?.needs?.includes('minutes')&&bare&&Number(bare[1])===a.minutes))a.minutes=null;
+      // A distance report may be waiting for kcal rather than marked minutes.
+      // A bare answer still needs a single minute question and a clear target.
+      const confirmsMinutes=old?.needs?.includes('minutes')||old?.needs?.[0]==='kcal'&&EXERCISE_KINDS.includes(a.kind)&&a.kind===old.kind&&old.minutes===null&&askedMinutes&&actions.length===1&&(old.selected||minuteTargets.length===1&&minuteTargets[0].id===old.id);
+      if(!(confirmsMinutes&&bare&&Number(bare[1])===a.minutes))a.minutes=null;
     }
     if(a.estimatedKcal!==null){
       const knownMinutes=a.minutes??old?.minutes,knownWeight=a.weightKg??old?.weightKg??input.context.weightKg,detail=a.detail??old?.detail;
